@@ -1,0 +1,33 @@
+[package]
+name = "digimorse"
+version = "0.0.1"
+authors = ["Matt Gumbley <matt.gumbley@gmail.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+clap = "2.33"
+ctrlc = "3.1"
+env_logger = "0.7"
+fltk = "0.10.15"
+log = "0.4"
+portaudio = "0.7.0"
+rustfft = "4.0.0"
+serialport = "3.3.0"
+
+[dev-dependencies]
+ctor = "0.1"
+hamcrest2 = "0.3.0"
+
+[[bin]]
+name = "digimorse"
+path = "src/bin/main.rs"
+
+[lib]
+name = "libdigimorse"
+path = "src/lib.rs"
+crate-type = ["rlib", "dylib"]
+doc = false
+doctest = false
+
