@@ -22,7 +22,7 @@ hamcrest2 = "0.3.0"
 
 [[bin]]
 name = "digimorse"
-path = "src/bin/main.rs"
+path = "src/digimorse/bin/main.rs"
 
 [lib]
 name = "digimorse" # this'll be libdigimorse.{d,dylib,rlib}

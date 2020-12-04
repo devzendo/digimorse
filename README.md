@@ -100,7 +100,7 @@ The source (in the Rust programming language) is split into the following direct
 
 src/lib.rs - main body of code split into various modules.
 
-src/bin/main.rs - the main application.
+src/digimorse.bin/main.rs - the main application.
 
 docs - documentation, rough notes, references.
 
