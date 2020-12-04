@@ -25,7 +25,7 @@ name = "digimorse"
 path = "src/bin/main.rs"
 
 [lib]
-name = "libdigimorse"
+name = "digimorse" # this'll be libdigimorse.{d,dylib,rlib}
 path = "src/lib.rs"
 crate-type = ["rlib", "dylib"]
 doc = false
