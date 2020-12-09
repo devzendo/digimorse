@@ -56,7 +56,3 @@ pub trait Keyer {
     fn clear_edge_event_listener(&self);
 }
 
-
-#[cfg(test)]
-#[path = "./keyer_io_spec.rs"]
-mod env_var_spec;

@@ -59,3 +59,8 @@ impl Keyer for ArduinoKeyer {
         unimplemented!()
     }
 }
+
+
+#[cfg(test)]
+#[path = "./arduino_keyer_io_spec.rs"]
+mod arduino_keyer_io_spec;

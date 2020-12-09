@@ -1,7 +1,7 @@
 extern crate hamcrest2;
 
 #[cfg(test)]
-mod keyer_io_spec {
+mod arduino_keyer_io_spec {
     use hamcrest2::prelude::*;
 
     #[ctor::ctor]
