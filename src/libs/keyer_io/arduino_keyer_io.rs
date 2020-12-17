@@ -1,20 +1,25 @@
 use crate::libs::keyer_io::keyer_io::{Keyer, KeyingEdgeEventListener, KeyerPolarity, KeyingMode, KeyerOutputMode};
 use crate::libs::serial_io::serial_io::SerialIO;
 
-pub struct ArduinoKeyer {
-    serial_io: dyn SerialIO,
+pub struct ArduinoKeyer<'a> {
+    serial_io: &'a (SerialIO + 'a),
     // thread waiting for data, or async read/promise
     // current callback to receive non-pulse/timing data (lines starting with > until blank NL)
 }
 
-impl ArduinoKeyer {
+impl<'a> ArduinoKeyer<'a> {
+    fn new(serial_io: &'a SerialIO) -> Self {
+        Self {
+            serial_io: serial_io
+        }
+    }
 /*    fn transact(&self, command: String) -> Result<String, String> {
         // set callback to build up
         // send(command);
     }
 */
 }
-impl Keyer for ArduinoKeyer {
+impl Keyer for ArduinoKeyer<'_> {
     fn get_version(&self) -> Result<String, String> {
         unimplemented!()
     }

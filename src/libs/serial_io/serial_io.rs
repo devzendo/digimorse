@@ -58,3 +58,8 @@ impl SerialIO for DefaultSerialIO {
         return self.serial_port.flush();
     }
 }
+
+
+#[cfg(test)]
+#[path = "./serial_io_spec.rs"]
+mod serial_io_spec;
