@@ -4,8 +4,9 @@ use crate::libs::keyer_io::keyer_io::{Keyer, KeyingEdgeEventListener, KeyerPolar
 use crate::libs::serial_io::serial_io::SerialIO;
 use std::io::Error;
 use crate::libs::util::util::printable;
-use crate::libs::keyer_io::arduino_keyer_io::KeyerState::Initial;
+use crate::libs::keyer_io::arduino_keyer_io::KeyerState::{Initial, ResponseGotGt, ResponseGotSpc, ResponseFinish};
 
+#[derive(Debug)]
 pub enum KeyerState {
     Initial,
     KeyingDurationGetLSB, KeyingDurationGetMSB,
@@ -86,7 +87,7 @@ impl<'a> ArduinoKeyer<'a> {
         match written_bytes {
             Ok(n) => {
                 debug!("Written {} bytes to keyer", n);
-                self.state = Initial;
+                self.set_state(Initial);
                 let mut read_buf: [u8; 1] = [0];
 
                 loop {
@@ -95,7 +96,7 @@ impl<'a> ArduinoKeyer<'a> {
                         Ok(1) => {
                             debug!("transact read {}", printable(read_buf[0]));
                             let next: Option<Result<String, String>> = match self.state {
-                                Initial => {
+                                KeyerState::Initial => {
                                     self.initial(read_buf[0])
                                 }
                                 KeyerState::KeyingDurationGetLSB => {
@@ -114,7 +115,15 @@ impl<'a> ArduinoKeyer<'a> {
                                     self.response_finish(read_buf[0])
                                 }
                             };
-                            if read_buf[0] == 0x0a {
+                            match next {
+                                // A return of some type is needed
+                                Some(result) => {
+                                    return result;
+                                }
+                                // State may have changed, stay in here, read more...
+                                None => {}
+                            }
+/*                            if read_buf[0] == 0x0a {
                                 debug!("Got NL...");
                                 if self.start_of_line {
                                     debug!("NL read on its own: end of response");
@@ -129,6 +138,8 @@ impl<'a> ArduinoKeyer<'a> {
                                 self.start_of_line = false;
                             }
                             self.read_text.push(read_buf[0]);
+
+ */
                         }
                         Ok(n) => {
                             warn!("In build loop, received {} bytes", n);
@@ -146,7 +157,25 @@ impl<'a> ArduinoKeyer<'a> {
         }
     }
 
+    fn set_state(&mut self, new_state: KeyerState) {
+        debug!("Changing state to {:?}", new_state);
+        self.state = new_state;
+    }
+
     fn initial(&mut self, ch: u8) -> Option<Result<String, String>> {
+        match ch {
+            b'>' => {
+                self.read_text.clear();
+                self.set_state(ResponseGotGt);
+            }
+            // TODO S
+            // TODO E
+            // TODO -
+            // TODO +
+            _ => {
+                warn!("Unexpected out-of-state data {}", printable(ch));
+            }
+        }
         None
     }
 
@@ -159,15 +188,47 @@ impl<'a> ArduinoKeyer<'a> {
     }
 
     fn response_got_gt(&mut self, ch: u8) -> Option<Result<String, String>> {
-        None
+        return match ch {
+            b' ' => {
+                self.set_state(ResponseGotSpc);
+                None
+            }
+            _ => {
+                warn!("Unexpected response data {}", printable(ch));
+                Some(Err(format!("Unexpected response data {}", printable(ch))))
+            }
+        }
     }
 
     fn response_got_spc(&mut self, ch: u8) -> Option<Result<String, String>> {
+        match ch {
+            b'\n' => {
+                // maybe... self.read_text.push(ch);
+                self.set_state(ResponseFinish);
+            }
+            _ => {
+                self.read_text.push(ch);
+            }
+        }
         None
     }
 
     fn response_finish(&mut self, ch: u8) -> Option<Result<String, String>> {
-        None
+        return match ch {
+            b'>' => {
+                self.set_state(ResponseGotGt);
+                None
+            }
+            b'\n' => {
+                self.set_state(Initial);
+                let mut subslice = &self.read_text[0..self.read_text.len()];
+                Some(Ok(String::from_utf8(Vec::from(subslice)).expect("Found invalid UTF-8")))
+            }
+            _ => {
+                warn!("Unexpected response data {}", printable(ch));
+                Some(Err(format!("Unexpected response data {}", printable(ch))))
+            }
+        }
     }
 
 }
