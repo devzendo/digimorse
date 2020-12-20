@@ -18,7 +18,6 @@ pub struct ArduinoKeyer<'a> {
     // current callback to receive non-pulse/timing data (lines starting with > until blank NL)
     state: KeyerState,
     read_text: Vec<u8>,
-    read_buf: [u8; 1],
     start_of_line: bool,
 }
 
@@ -28,7 +27,6 @@ impl<'a> ArduinoKeyer<'a> {
             serial_io: s,
             state: Initial,
             read_text: vec![],
-            read_buf: [0],
             start_of_line: true
         }
     }
@@ -89,32 +87,34 @@ impl<'a> ArduinoKeyer<'a> {
             Ok(n) => {
                 debug!("Written {} bytes to keyer", n);
                 self.state = Initial;
+                let mut read_buf: [u8; 1] = [0];
+
                 loop {
-                    let read_bytes = self.serial_io.read(&mut self.read_buf);
+                    let read_bytes = self.serial_io.read(&mut read_buf);
                     match read_bytes {
                         Ok(1) => {
-                            debug!("transact read {}", printable(self.read_buf[0]));
+                            debug!("transact read {}", printable(read_buf[0]));
                             let next: Option<Result<String, String>> = match self.state {
                                 Initial => {
-                                    self.initial(self.read_buf[0])
+                                    self.initial(read_buf[0])
                                 }
                                 KeyerState::KeyingDurationGetLSB => {
-                                    self.keying_duration_get_lsb(self.read_buf[0])
+                                    self.keying_duration_get_lsb(read_buf[0])
                                 }
                                 KeyerState::KeyingDurationGetMSB => {
-                                    self.keying_duration_get_msb(self.read_buf[0])
+                                    self.keying_duration_get_msb(read_buf[0])
                                 }
                                 KeyerState::ResponseGotGt => {
-                                    self.response_got_gt(self.read_buf[0])
+                                    self.response_got_gt(read_buf[0])
                                 }
                                 KeyerState::ResponseGotSpc => {
-                                    self.response_got_spc(self.read_buf[0])
+                                    self.response_got_spc(read_buf[0])
                                 }
                                 KeyerState::ResponseFinish => {
-                                    self.response_finish(self.read_buf[0])
+                                    self.response_finish(read_buf[0])
                                 }
                             };
-                            if self.read_buf[0] == 0x0a {
+                            if read_buf[0] == 0x0a {
                                 debug!("Got NL...");
                                 if self.start_of_line {
                                     debug!("NL read on its own: end of response");
@@ -128,7 +128,7 @@ impl<'a> ArduinoKeyer<'a> {
                                 debug!("Got non-NL...");
                                 self.start_of_line = false;
                             }
-                            self.read_text.push(self.read_buf[0]);
+                            self.read_text.push(read_buf[0]);
                         }
                         Ok(n) => {
                             warn!("In build loop, received {} bytes", n);
