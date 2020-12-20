@@ -94,6 +94,26 @@ impl<'a> ArduinoKeyer<'a> {
                     match read_bytes {
                         Ok(1) => {
                             debug!("transact read {}", printable(self.read_buf[0]));
+                            let next: Option<Result<String, String>> = match self.state {
+                                Initial => {
+                                    self.initial(self.read_buf[0])
+                                }
+                                KeyerState::KeyingDurationGetLSB => {
+                                    self.keying_duration_get_lsb(self.read_buf[0])
+                                }
+                                KeyerState::KeyingDurationGetMSB => {
+                                    self.keying_duration_get_msb(self.read_buf[0])
+                                }
+                                KeyerState::ResponseGotGt => {
+                                    self.response_got_gt(self.read_buf[0])
+                                }
+                                KeyerState::ResponseGotSpc => {
+                                    self.response_got_spc(self.read_buf[0])
+                                }
+                                KeyerState::ResponseFinish => {
+                                    self.response_finish(self.read_buf[0])
+                                }
+                            };
                             if self.read_buf[0] == 0x0a {
                                 debug!("Got NL...");
                                 if self.start_of_line {
@@ -125,6 +145,31 @@ impl<'a> ArduinoKeyer<'a> {
             }
         }
     }
+
+    fn initial(&mut self, ch: u8) -> Option<Result<String, String>> {
+        None
+    }
+
+    fn keying_duration_get_lsb(&mut self, ch: u8) -> Option<Result<String, String>> {
+        None
+    }
+
+    fn keying_duration_get_msb(&mut self, ch: u8) -> Option<Result<String, String>> {
+        None
+    }
+
+    fn response_got_gt(&mut self, ch: u8) -> Option<Result<String, String>> {
+        None
+    }
+
+    fn response_got_spc(&mut self, ch: u8) -> Option<Result<String, String>> {
+        None
+    }
+
+    fn response_finish(&mut self, ch: u8) -> Option<Result<String, String>> {
+        None
+    }
+
 }
 
 
