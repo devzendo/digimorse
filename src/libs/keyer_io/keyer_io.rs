@@ -38,21 +38,21 @@ pub trait KeyingTimedEventListener {
 }
 
 pub trait Keyer {
-    fn get_version(&self) -> Result<String, String>;
+    fn get_version(&mut self) -> Result<String, String>;
 
-    fn get_speed(&self) -> Result<KeyerSpeed, String>;
-    fn set_speed(&self, wpm: KeyerSpeed) -> Result<(), String>;
+    fn get_speed(&mut self) -> Result<KeyerSpeed, String>;
+    fn set_speed(&mut self, wpm: KeyerSpeed) -> Result<(), String>;
 
-    fn get_keying_mode(&self) -> Result<KeyingMode, String>;
-    fn set_keying_mode(&self, mode: KeyingMode)-> Result<(), String>;
+    fn get_keying_mode(&mut self) -> Result<KeyingMode, String>;
+    fn set_keying_mode(&mut self, mode: KeyingMode)-> Result<(), String>;
 
-    fn get_keyer_polarity(&self) -> Result<KeyerPolarity, String>;
-    fn set_keyer_polarity(&self, polarity: KeyerPolarity)-> Result<(), String>;
+    fn get_keyer_polarity(&mut self) -> Result<KeyerPolarity, String>;
+    fn set_keyer_polarity(&mut self, polarity: KeyerPolarity)-> Result<(), String>;
 
-    fn get_keyer_output_mode(&self) -> Result<KeyerOutputMode, String>;
-    fn set_keyer_output_mode(&self, mode: KeyerOutputMode)-> Result<(), String>;
+    fn get_keyer_output_mode(&mut self) -> Result<KeyerOutputMode, String>;
+    fn set_keyer_output_mode(&mut self, mode: KeyerOutputMode)-> Result<(), String>;
 
-    fn set_edge_event_listener(&self, edge_event_listener: &mut dyn KeyingEdgeEventListener);
-    fn clear_edge_event_listener(&self);
+    fn set_edge_event_listener(&mut self, edge_event_listener: &mut dyn KeyingEdgeEventListener);
+    fn clear_edge_event_listener(&mut self);
 }
 

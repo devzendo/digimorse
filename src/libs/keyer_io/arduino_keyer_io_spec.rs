@@ -1,8 +1,10 @@
 extern crate hamcrest2;
 
-use log::{debug};
+use log::{debug, warn};
 use crate::libs::serial_io::serial_io::SerialIO;
+use crate::libs::util::util::*;
 use std::io;
+use std::io::{Error, ErrorKind, Read, Result};
 
 struct FakeSerialIO {
     playback_chars: Vec<u8>,
@@ -21,11 +23,16 @@ impl FakeSerialIO {
     }
 }
 
+
 impl SerialIO for FakeSerialIO {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
         for n in 0..buf.len() {
-            buf[n] = self.playback_chars[self.playback_index + 1];
-            debug!("received {}", buf[n]);
+            if self.playback_index == self.playback_chars.len() {
+                warn!("Out of playback data at index {}", self.playback_index);
+                return Err(Error::new(ErrorKind::Other, format!("Out of playback data at index {}", self.playback_index)));
+            }
+            buf[n] = self.playback_chars[self.playback_index];
+            debug!("received {}", printable(buf[n]));
             self.playback_index += 1;
         }
         return Ok(buf.len())
@@ -33,7 +40,7 @@ impl SerialIO for FakeSerialIO {
 
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         for n in 0..buf.len() {
-            debug!("transmitted {}", buf[n]);
+            debug!("transmitted {}", printable(buf[n]));
             self.record_chars.push(buf[n]);
         }
         return Ok(buf.len())
@@ -67,8 +74,8 @@ mod arduino_keyer_io_spec {
         let keyer_will_send = "v\n";
         let keyer_will_receive = "> v1.0.0\n\n";
 
-        let serial_io = FakeSerialIO::new(keyer_will_receive.to_string());
-        let keyer = ArduinoKeyer::new(&serial_io as &SerialIO);
+        let mut serial_io = FakeSerialIO::new(keyer_will_receive.to_string());
+        let mut keyer = ArduinoKeyer::new(& mut serial_io as & mut SerialIO);
         match keyer.get_version() {
             Ok(v) => {
                 assert_eq!(v, "v1.0.0");
