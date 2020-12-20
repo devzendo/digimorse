@@ -19,7 +19,6 @@ pub struct ArduinoKeyer<'a> {
     // current callback to receive non-pulse/timing data (lines starting with > until blank NL)
     state: KeyerState,
     read_text: Vec<u8>,
-    start_of_line: bool,
 }
 
 impl<'a> ArduinoKeyer<'a> {
@@ -28,7 +27,6 @@ impl<'a> ArduinoKeyer<'a> {
             serial_io: s,
             state: Initial,
             read_text: vec![],
-            start_of_line: true
         }
     }
 }
@@ -123,23 +121,6 @@ impl<'a> ArduinoKeyer<'a> {
                                 // State may have changed, stay in here, read more...
                                 None => {}
                             }
-/*                            if read_buf[0] == 0x0a {
-                                debug!("Got NL...");
-                                if self.start_of_line {
-                                    debug!("NL read on its own: end of response");
-                                    // Given ">_XXXX\n" return "XXXX"
-                                    let mut subslice = &self.read_text[2..self.read_text.len() - 1];
-
-                                    return Ok(std::str::from_utf8(subslice).expect("Found invalid UTF-8").parse().unwrap());
-                                }
-                                self.start_of_line = true;
-                            } else {
-                                debug!("Got non-NL...");
-                                self.start_of_line = false;
-                            }
-                            self.read_text.push(read_buf[0]);
-
- */
                         }
                         Ok(n) => {
                             warn!("In build loop, received {} bytes", n);
