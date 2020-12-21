@@ -1,10 +1,11 @@
-use log::{warn, info, debug};
+use log::{warn, debug};
 
+use crate::libs::keyer_io::arduino_keyer_io::KeyerState::{Initial, ResponseGotGt, ResponseGotSpc, ResponseFinish};
 use crate::libs::keyer_io::keyer_io::{Keyer, KeyingEdgeEventListener, KeyerPolarity, KeyingMode, KeyerOutputMode};
 use crate::libs::serial_io::serial_io::SerialIO;
-use std::io::Error;
 use crate::libs::util::util::printable;
-use crate::libs::keyer_io::arduino_keyer_io::KeyerState::{Initial, ResponseGotGt, ResponseGotSpc, ResponseFinish};
+use std::thread;
+use std::thread::JoinHandle;
 
 #[derive(Debug)]
 pub enum KeyerState {
@@ -14,20 +15,50 @@ pub enum KeyerState {
 }
 
 pub struct ArduinoKeyer<'a> {
-    serial_io:&'a mut (SerialIO + 'a),
-    // thread waiting for data, or async read/promise
-    // current callback to receive non-pulse/timing data (lines starting with > until blank NL)
+    // Low-level serial access
+    serial_io:&'a mut (dyn SerialIO + 'a),
+
+    // Handling I/O from the keyer is done in this thread, which manages the state, the
+    // command response (using read_text buffer and command_response countdown latch), the
+    // notification of keying events (using XXXXX)
+    //thread: Option<JoinHandle<()>>,
+
+    // State machine data
     state: KeyerState,
     read_text: Vec<u8>,
 }
 
 impl<'a> ArduinoKeyer<'a> {
-    fn new(s: &'a mut SerialIO) -> Self {
+    fn thread_runner(&mut self) -> () {
+        debug!("Keyer I/O thread started");
+
+        debug!("Keyer I/O thread stopped");
+    }
+
+    fn new(s: &'a mut dyn SerialIO) -> Self {
         Self {
             serial_io: s,
+            //thread: None, // Use start() to create the thread...
             state: Initial,
             read_text: vec![],
         }
+    }
+
+    fn start(&mut self) {
+        debug!("Starting I/O thread...");
+        // Thread that handles transactions asynchronously...
+        // Requests/Responses cause the transact state machine to trigger, no support yet for
+        // Notifications.
+/*        self.thread = Some(thread::Builder::new()
+            .name("Keyer I/O thread".into())
+            .spawn(|| {
+                let handle = thread::current();
+                self.thread_runner();
+            })
+            .unwrap());
+
+ */
+        debug!("... started I/O thread");
     }
 }
 
@@ -160,11 +191,11 @@ impl<'a> ArduinoKeyer<'a> {
         None
     }
 
-    fn keying_duration_get_lsb(&mut self, ch: u8) -> Option<Result<String, String>> {
+    fn keying_duration_get_lsb(&mut self, _ch: u8) -> Option<Result<String, String>> {
         None
     }
 
-    fn keying_duration_get_msb(&mut self, ch: u8) -> Option<Result<String, String>> {
+    fn keying_duration_get_msb(&mut self, _ch: u8) -> Option<Result<String, String>> {
         None
     }
 

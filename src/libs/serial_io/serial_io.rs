@@ -5,7 +5,7 @@ use std::io;
 
 // This trait is an abstraction over serialport, so that it can be mocked. Read and write are
 // blocking.
-pub trait SerialIO {
+pub trait SerialIO : Send {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize>;
     fn write(&mut self, buf: &[u8]) -> io::Result<usize>;
     fn flush(&mut self) -> io::Result<()>;

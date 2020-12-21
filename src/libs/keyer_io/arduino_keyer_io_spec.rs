@@ -4,7 +4,7 @@ use log::{debug, warn};
 use crate::libs::serial_io::serial_io::SerialIO;
 use crate::libs::util::util::*;
 use std::io;
-use std::io::{Error, ErrorKind, Read, Result};
+use std::io::{Error, ErrorKind};
 
 struct FakeSerialIO {
     playback_chars: Vec<u8>,
@@ -75,7 +75,7 @@ mod arduino_keyer_io_spec {
         let keyer_will_receive = "> v1.0.0\n\n";
 
         let mut serial_io = FakeSerialIO::new(keyer_will_receive.to_string());
-        let mut keyer = ArduinoKeyer::new(& mut serial_io as & mut SerialIO);
+        let mut keyer = ArduinoKeyer::new(& mut serial_io as & mut dyn SerialIO);
         match keyer.get_version() {
             Ok(v) => {
                 assert_eq!(v, "v1.0.0");
