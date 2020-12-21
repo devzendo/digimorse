@@ -29,12 +29,6 @@ pub struct ArduinoKeyer<'a> {
 }
 
 impl<'a> ArduinoKeyer<'a> {
-    fn thread_runner(&mut self) -> () {
-        debug!("Keyer I/O thread started");
-
-        debug!("Keyer I/O thread stopped");
-    }
-
     fn new(s: &'a mut dyn SerialIO) -> Self {
         Self {
             serial_io: s,
@@ -42,6 +36,12 @@ impl<'a> ArduinoKeyer<'a> {
             state: Initial,
             read_text: vec![],
         }
+    }
+
+    fn thread_runner(&mut self) -> () {
+        debug!("Keyer I/O thread started");
+
+        debug!("Keyer I/O thread stopped");
     }
 
     fn start(&mut self) {
@@ -60,57 +60,7 @@ impl<'a> ArduinoKeyer<'a> {
  */
         debug!("... started I/O thread");
     }
-}
 
-impl<'a> Keyer for ArduinoKeyer<'a> {
-    fn get_version(&mut self) -> Result<String, String> {
-        let keyer_will_send = "v\n";
-
-        self.transact(keyer_will_send)
-    }
-
-    fn get_speed(&mut self) -> Result<u8, String> {
-        unimplemented!()
-    }
-
-    fn set_speed(&mut self, _wpm: u8) -> Result<(), String> {
-        unimplemented!()
-    }
-
-    fn get_keying_mode(&mut self) -> Result<KeyingMode, String> {
-        unimplemented!()
-    }
-
-    fn set_keying_mode(&mut self, _mode: KeyingMode) -> Result<(), String> {
-        unimplemented!()
-    }
-
-    fn get_keyer_polarity(&mut self) -> Result<KeyerPolarity, String> {
-        unimplemented!()
-    }
-
-    fn set_keyer_polarity(&mut self, _polarity: KeyerPolarity) -> Result<(), String> {
-        unimplemented!()
-    }
-
-    fn get_keyer_output_mode(&mut self) -> Result<KeyerOutputMode, String> {
-        unimplemented!()
-    }
-
-    fn set_keyer_output_mode(&mut self, _mode: KeyerOutputMode) -> Result<(), String> {
-        unimplemented!()
-    }
-
-    fn set_edge_event_listener(&mut self, _pulse_event_listener: &mut dyn KeyingEdgeEventListener) {
-        unimplemented!()
-    }
-
-    fn clear_edge_event_listener(&mut self) {
-        unimplemented!()
-    }
-}
-
-impl<'a> ArduinoKeyer<'a> {
     fn transact(&mut self, command_to_keyer: &str) -> Result<String, String> {
         let written_bytes = self.serial_io.write(command_to_keyer.as_bytes());
         match written_bytes {
@@ -242,7 +192,54 @@ impl<'a> ArduinoKeyer<'a> {
             }
         }
     }
+}
 
+impl<'a> Keyer for ArduinoKeyer<'a> {
+    fn get_version(&mut self) -> Result<String, String> {
+        let keyer_will_send = "v\n";
+
+        self.transact(keyer_will_send)
+    }
+
+    fn get_speed(&mut self) -> Result<u8, String> {
+        unimplemented!()
+    }
+
+    fn set_speed(&mut self, _wpm: u8) -> Result<(), String> {
+        unimplemented!()
+    }
+
+    fn get_keying_mode(&mut self) -> Result<KeyingMode, String> {
+        unimplemented!()
+    }
+
+    fn set_keying_mode(&mut self, _mode: KeyingMode) -> Result<(), String> {
+        unimplemented!()
+    }
+
+    fn get_keyer_polarity(&mut self) -> Result<KeyerPolarity, String> {
+        unimplemented!()
+    }
+
+    fn set_keyer_polarity(&mut self, _polarity: KeyerPolarity) -> Result<(), String> {
+        unimplemented!()
+    }
+
+    fn get_keyer_output_mode(&mut self) -> Result<KeyerOutputMode, String> {
+        unimplemented!()
+    }
+
+    fn set_keyer_output_mode(&mut self, _mode: KeyerOutputMode) -> Result<(), String> {
+        unimplemented!()
+    }
+
+    fn set_edge_event_listener(&mut self, _pulse_event_listener: &mut dyn KeyingEdgeEventListener) {
+        unimplemented!()
+    }
+
+    fn clear_edge_event_listener(&mut self) {
+        unimplemented!()
+    }
 }
 
 
