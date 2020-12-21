@@ -62,10 +62,15 @@ impl<'a> ArduinoKeyer<'a> {
     }
 
     fn transact(&mut self, command_to_keyer: &str) -> Result<String, String> {
+        // command_mutex.acquire();
+        // command_response.allow(1);
         let written_bytes = self.serial_io.write(command_to_keyer.as_bytes());
         match written_bytes {
             Ok(n) => {
                 debug!("Written {} bytes to keyer", n);
+                // command_response.await();
+                // response = get_response(); // from read_text
+                // command_mutex.release();
                 self.set_state(Initial);
                 let mut read_buf: [u8; 1] = [0];
 
@@ -185,6 +190,7 @@ impl<'a> ArduinoKeyer<'a> {
                 self.set_state(Initial);
                 let mut subslice = &self.read_text[0..self.read_text.len()];
                 Some(Ok(String::from_utf8(Vec::from(subslice)).expect("Found invalid UTF-8")))
+                // command_response.count_down();
             }
             _ => {
                 warn!("Unexpected response data {}", printable(ch));
