@@ -66,6 +66,9 @@ In active development:
 * Building the keyer.
 * Reading the keyer output via the USB Serial link, and determining duration of
   on-off key timing from the USB stream. Feasibility investigation.
+* All development is in Rust, which is a new, difficult, but interesting
+  language. It would be easier in C++, and quicker - but probably less provably
+  correct, and portability would be painful.
 
 
 Roadmap
