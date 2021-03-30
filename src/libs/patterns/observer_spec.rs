@@ -42,10 +42,8 @@ mod observer_spec {
     #[test]
     fn observe_event() {
         let mut list = ConcreteObserverList::new();
-        let observer = MyObserver::new();
-        let arc_observer = Arc::new(observer);
-        let arc_observer_cloned = arc_observer.clone();
-        let observer_id = list.register_observer(arc_observer_cloned);
+        let arc_observer = Arc::new(MyObserver::new());
+        let observer_id = list.register_observer(arc_observer.clone());
 
         list.notify_observers(&MyObservable { age: 52, name: "Matt".to_string() });
         list.notify_observers(&MyObservable { age: 21, name: "Morten".to_string() });
