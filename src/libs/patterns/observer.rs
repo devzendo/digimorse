@@ -12,12 +12,12 @@ pub trait Observer<O: Observable> {
 
 pub trait ObserverList<O: Observable> {
     fn notify_observers(&self, observable: &O);
-    fn register_observer(&mut self, observer: Arc<dyn Observer<O>>) -> u64;
-    fn unregister_observer(&mut self, observer_hash_to_unregister: u64);
+    fn register_observer(&mut self, observer: Arc<dyn Observer<O>>) -> usize;
+    fn unregister_observer(&mut self, observer_id_to_unregister: usize);
 }
 
 pub struct ConcreteObserverList<O: Observable> {
-    observers: RwLock<Vec<Arc<dyn Observer<O>>>>,
+    observers: RwLock<Vec<(bool, Arc<dyn Observer<O>>)>>,
 }
 
 impl<O: Observable> ConcreteObserverList<O> {
@@ -37,25 +37,20 @@ impl<O: Observable> ConcreteObserverList<O> {
 impl<O: Observable> ObserverList<O> for ConcreteObserverList<O> {
     fn notify_observers(&self, observable: &O) {
         for observer in self.observers.read().unwrap().iter() {
-            observer.on_notify(observable);
+            if observer.0 {
+                observer.1.on_notify(observable);
+            }
         }
     }
 
-    fn register_observer(&mut self, observer: Arc<dyn Observer<O>>) -> u64 {
+    fn register_observer(&mut self, observer: Arc<dyn Observer<O>>) -> usize {
         let mut observers = self.observers.write().unwrap();
-        //let address = ByAddress(observer);
-        observers.push(observer);
-        //self.observer_hash(&address)
-        (observers.len() - 1) as u64
+        observers.push((true, observer));
+        (observers.len() - 1)
     }
 
-    fn unregister_observer(&mut self, observer_hash_to_unregister: u64) {
-        // self.observers.write().unwrap().retain(|o|
-        //                                            {
-        //                                                let o_hash = self.observer_hash(o);
-        //                                                o_hash != observer_hash_to_unregister
-        //                                            } );
-        self.observers.write().unwrap().remove(observer_hash_to_unregister as usize);
+    fn unregister_observer(&mut self, observer_id_to_unregister: usize) {
+        self.observers.write().unwrap()[observer_id_to_unregister].0 = false;
     }
 }
 

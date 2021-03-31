@@ -62,7 +62,5 @@ mod observer_spec {
 
         let further_observations = arc_observer_cloned_again.observations();
         assert_eq!(further_observations.len(), 2); // no increase
-
-        // TODO the index of any other observers will be invalid after unregister_observer
     }
 }
