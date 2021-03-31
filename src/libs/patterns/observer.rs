@@ -1,7 +1,4 @@
 use std::sync::{RwLock, Arc};
-use by_address::ByAddress;
-use std::hash::{Hash, Hasher};
-use std::collections::hash_map::DefaultHasher;
 
 pub trait Observable: Clone + Send {
 }
@@ -26,12 +23,6 @@ impl<O: Observable> ConcreteObserverList<O> {
             observers: RwLock::new(Vec::new()),
         }
     }
-
-    fn observer_hash(&self, observer: &ByAddress<Arc<dyn Observer<O>>>) -> u64 {
-        let mut hasher = DefaultHasher::new();
-        observer.hash(&mut hasher);
-        hasher.finish()
-    }
 }
 
 impl<O: Observable> ObserverList<O> for ConcreteObserverList<O> {
@@ -46,7 +37,7 @@ impl<O: Observable> ObserverList<O> for ConcreteObserverList<O> {
     fn register_observer(&mut self, observer: Arc<dyn Observer<O>>) -> usize {
         let mut observers = self.observers.write().unwrap();
         observers.push((true, observer));
-        (observers.len() - 1)
+        observers.len() - 1
     }
 
     fn unregister_observer(&mut self, observer_id_to_unregister: usize) {
