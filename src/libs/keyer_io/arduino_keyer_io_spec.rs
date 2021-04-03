@@ -1,6 +1,6 @@
 extern crate hamcrest2;
 
-use log::{debug, warn};
+use log::{debug, info, warn};
 use crate::libs::serial_io::serial_io::SerialIO;
 use crate::libs::util::util::*;
 use std::io;
@@ -55,10 +55,13 @@ impl SerialIO for FakeSerialIO {
 #[cfg(test)]
 mod arduino_keyer_io_spec {
     use crate::libs::keyer_io::arduino_keyer_io::arduino_keyer_io_spec::FakeSerialIO;
-    use crate::libs::keyer_io::arduino_keyer_io::ArduinoKeyer;
+    use crate::libs::keyer_io::arduino_keyer_io::{ArduinoKeyer, KeyerEvent};
     use crate::libs::keyer_io::keyer_io::Keyer;
     use std::sync::mpsc::{Sender, Receiver};
     use std::sync::mpsc;
+    use log::{debug, info, warn};
+
+    static mut keyer_events: Vec<KeyerEvent> = vec![];
 
     #[ctor::ctor]
     fn before_each() {
@@ -95,4 +98,65 @@ mod arduino_keyer_io_spec {
         let recording_string = String::from_utf8(recording).expect("Found invalid UTF-8");
         assert_eq!(recording_string, keyer_will_send.to_string());
     }
+
+    fn keyer_event_handler(ke: &mut KeyerEvent) {
+        info!("Got keyer event {}", ke);
+        //keyer_events.push(ke.clone());
+    }
+
+    #[test]
+    fn receive_keying() {
+        // at 12 wpm, a dit is 10ms, a dah is 30ms, pause between elements 10ms, between letters
+        // 30ms, between words 70ms.
+        const PL: u8 = 0x2b;
+        const MI: u8 = 0x2d;
+        let keyer_will_send = vec![
+            PL, 10, 0, // P
+            MI, 10, 0,
+            PL, 30, 0,
+            MI, 10, 0,
+            PL, 30, 0,
+            MI, 10, 0,
+            PL, 10, 0,
+
+            MI, 30, 0, // pause between letters
+
+            PL, 10, 0, // A
+            MI, 10, 0,
+            PL, 30, 0,
+
+            MI, 30, 0, // pause between letters
+
+            PL, 10, 0, // R
+            MI, 10, 0,
+            PL, 30, 0,
+            MI, 10, 0,
+            PL, 10, 0,
+
+            MI, 30, 0, // pause between letters
+
+            PL, 10, 0, // I
+            MI, 10, 0,
+            PL, 10, 0,
+
+            MI, 30, 0, // pause between letters
+
+            PL, 10, 0, // S
+            MI, 10, 0,
+            PL, 10, 0,
+            MI, 10, 0,
+            PL, 10, 0,
+
+            MI, 70, 0, // pause between words
+        ];
+        let keyer_will_receive = "";
+
+
+        let (recording_tx, recording_rx): (Sender<u8>, Receiver<u8>) = mpsc::channel();
+
+        let serial_io = FakeSerialIO::new(keyer_will_receive.to_string(), recording_tx);
+        let mut keyer = ArduinoKeyer::new(Box::new(serial_io));
+
+    }
+
 }

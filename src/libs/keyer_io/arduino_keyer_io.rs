@@ -9,6 +9,9 @@ use std::thread::JoinHandle;
 use std::sync::mpsc::{Sender, Receiver};
 use std::sync::{mpsc, Mutex};
 use std::time::Duration;
+use std::fmt::{Display, Formatter};
+use std::fmt;
+use crate::libs::patterns::observer::{ObserverList, ConcreteObserverList, Observable};
 
 pub struct ArduinoKeyer {
     // Command channel to/from the thread. Sender is guarded by a Mutex to ensure a single command
@@ -101,6 +104,21 @@ impl Keyer for ArduinoKeyer {
     }
 }
 
+#[derive(Clone)]
+struct KeyerEvent {
+    key_down: bool,
+    duration: u16,
+}
+
+impl Observable for KeyerEvent {
+}
+
+impl Display for KeyerEvent {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        let c = if self.key_down { '+' } else { '-' };
+        write!(f, "{} {}", c, self.duration)
+    }
+}
 #[derive(Debug)]
 pub enum KeyerState {
     Initial,
@@ -119,6 +137,8 @@ struct ArduinoKeyerThread {
     // State machine data
     state: KeyerState,
     read_text: Vec<u8>,
+
+    keyer_observers: Box<ObserverList<KeyerEvent>>,
 }
 
 impl ArduinoKeyerThread {
@@ -130,6 +150,7 @@ impl ArduinoKeyerThread {
             command_response_tx,
             state: Initial,
             read_text: vec![],
+            keyer_observers: Box::new(ConcreteObserverList::new()),
         }
     }
 
