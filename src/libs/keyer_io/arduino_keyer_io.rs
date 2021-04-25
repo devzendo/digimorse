@@ -1,7 +1,7 @@
 use log::{warn, debug};
 
-use crate::libs::keyer_io::arduino_keyer_io::KeyerState::{Initial, ResponseGotGt, ResponseGotSpc, ResponseFinish};
-use crate::libs::keyer_io::keyer_io::{Keyer, KeyingEdgeEventListener, KeyerPolarity, KeyingMode, KeyerOutputMode};
+use crate::libs::keyer_io::arduino_keyer_io::KeyerState::{Initial, ResponseGotGt, ResponseGotSpc, ResponseFinish, KeyingDurationGetLSB, KeyingDurationGetMSB};
+use crate::libs::keyer_io::keyer_io::{Keyer, KeyerPolarity, KeyingMode, KeyerOutputMode, KeyingEvent, KeyerEdgeDurationMs, KeyingTimedEvent};
 use crate::libs::serial_io::serial_io::SerialIO;
 use crate::libs::util::util::printable;
 use std::thread;
@@ -9,9 +9,7 @@ use std::thread::JoinHandle;
 use std::sync::mpsc::{Sender, Receiver};
 use std::sync::{mpsc, Mutex};
 use std::time::Duration;
-use std::fmt::{Display, Formatter};
-use std::fmt;
-use crate::libs::patterns::observer::{ObserverList, ConcreteObserverList, Observable};
+use crate::libs::keyer_io::keyer_io::KeyingEvent::Timed;
 
 pub struct ArduinoKeyer {
     // Command channel to/from the thread. Sender is guarded by a Mutex to ensure a single command
@@ -23,7 +21,7 @@ pub struct ArduinoKeyer {
 }
 
 impl ArduinoKeyer {
-    fn new(serial_io: Box<dyn SerialIO>) -> Self {
+    fn new(serial_io: Box<dyn SerialIO>, keying_event_tx: Sender<KeyingEvent>) -> Self {
         // Channels have two endpoints: the `Sender<T>` and the `Receiver<T>`,
         // where `T` is the type of the message to be transferred
         // (type annotation is superfluous)
@@ -32,7 +30,8 @@ impl ArduinoKeyer {
         let mutex_command_request_tx = Mutex::new(command_request_tx);
 
         let thread_handle = thread::spawn(move || {
-            ArduinoKeyerThread::new(serial_io, command_request_rx, command_response_tx).thread_runner();
+            let mut arduino_keyer_thread = ArduinoKeyerThread::new(serial_io, command_request_rx, command_response_tx, keying_event_tx);
+            arduino_keyer_thread.thread_runner();
         });
         Self {
             command_request_tx: mutex_command_request_tx,
@@ -94,31 +93,8 @@ impl Keyer for ArduinoKeyer {
     fn set_keyer_output_mode(&mut self, _mode: KeyerOutputMode) -> Result<(), String> {
         unimplemented!()
     }
-
-    fn set_edge_event_listener(&mut self, _pulse_event_listener: &mut dyn KeyingEdgeEventListener) {
-        unimplemented!()
-    }
-
-    fn clear_edge_event_listener(&mut self) {
-        unimplemented!()
-    }
 }
 
-#[derive(Clone)]
-struct KeyerEvent {
-    key_down: bool,
-    duration: u16,
-}
-
-impl Observable for KeyerEvent {
-}
-
-impl Display for KeyerEvent {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        let c = if self.key_down { '+' } else { '-' };
-        write!(f, "{} {}", c, self.duration)
-    }
-}
 #[derive(Debug)]
 pub enum KeyerState {
     Initial,
@@ -134,23 +110,33 @@ struct ArduinoKeyerThread {
     command_request_rx: Receiver<String>,
     command_response_tx: Sender<Result<String, String>>,
 
+    // Keying channel
+    keying_event_tx: Sender<KeyingEvent>,
+
     // State machine data
     state: KeyerState,
+    up: bool,
+    duration: KeyerEdgeDurationMs,
     read_text: Vec<u8>,
 
-    keyer_observers: Box<ObserverList<KeyerEvent>>,
 }
 
 impl ArduinoKeyerThread {
     fn new(serial_io: Box<dyn SerialIO>,
-        command_request_rx: Receiver<String>, command_response_tx: Sender<Result<String, String>>) -> Self {
+        command_request_rx: Receiver<String>,
+           command_response_tx: Sender<Result<String, String>>,
+        keying_event_tx: Sender<KeyingEvent>
+    ) -> Self {
+        debug!("Constructing ArduinoKeyerThread");
         Self {
             serial_io,
             command_request_rx,
             command_response_tx,
+            keying_event_tx,
             state: Initial,
+            up: false,
+            duration: 0,
             read_text: vec![],
-            keyer_observers: Box::new(ConcreteObserverList::new()),
         }
     }
 
@@ -164,80 +150,67 @@ impl ArduinoKeyerThread {
             // Any incoming commands?
             match self.command_request_rx.try_recv() {
                 Ok(command) => {
-                    let response_result = self.transact_serial(command.as_str());
-                    match self.command_response_tx.send(response_result) {
-                        Ok(_) => {}
-                        Err(_) => {}
-                    }
+                    self.send_command(command.as_str());
+                    // state machine will send to command_response_tx when done
                 }
                 Err(_) => {
                     // could timeout, or be disconnected?
                     // ignore for now...
                 }
             }
-            // Any keyer data?
 
+            // Any keyer data?
+            let mut read_buf: [u8; 1] = [0];
+            let read_bytes = self.serial_io.read(&mut read_buf);
+            match read_bytes {
+                Ok(1) => {
+                    debug!("state machine read {} state {:?} ", printable(read_buf[0]), self.state);
+                    let next: Option<Result<String, String>> = match self.state {
+                        KeyerState::Initial => {
+                            self.initial(read_buf[0])
+                        }
+                        KeyerState::KeyingDurationGetLSB => {
+                            self.keying_duration_get_lsb(read_buf[0])
+                        }
+                        KeyerState::KeyingDurationGetMSB => {
+                            self.keying_duration_get_msb(read_buf[0])
+                        }
+                        KeyerState::ResponseGotGt => {
+                            self.response_got_gt(read_buf[0])
+                        }
+                        KeyerState::ResponseGotSpc => {
+                            self.response_got_spc(read_buf[0])
+                        }
+                        KeyerState::ResponseFinish => {
+                            self.response_finish(read_buf[0])
+                        }
+                    };
+                    debug!("return from state routines: {:?}", next);
+                }
+                Ok(n) => {
+                    warn!("In build loop, received {} bytes, but should be only 1?!", n);
+                }
+                Err(e) => {
+                    warn!("Error in build loop: {}", e);
+                    // With fake serial, there's no read timeout, so this is returned when the
+                    // test data is exhausted and causes a busy loop.
+                }
+            }
         }
         // TODO when we swallow poison, exit here.
         //debug!("Keyer I/O thread stopped");
     }
 
-    fn transact_serial(&mut self, command_to_keyer: &str) -> Result<String, String> {
+    fn send_command(&mut self, command_to_keyer: &str) {
         debug!("Transact command [{}]", command_to_keyer);
         let written_bytes = self.serial_io.write(command_to_keyer.as_bytes());
         match written_bytes {
             Ok(n) => {
                 debug!("Written {} bytes to keyer", n);
                 self.set_state(Initial);
-                let mut read_buf: [u8; 1] = [0];
-
-                loop {
-                    let read_bytes = self.serial_io.read(&mut read_buf);
-                    match read_bytes {
-                        Ok(1) => {
-                            debug!("transact read {}", printable(read_buf[0]));
-                            let next: Option<Result<String, String>> = match self.state {
-                                KeyerState::Initial => {
-                                    self.initial(read_buf[0])
-                                }
-                                KeyerState::KeyingDurationGetLSB => {
-                                    self.keying_duration_get_lsb(read_buf[0])
-                                }
-                                KeyerState::KeyingDurationGetMSB => {
-                                    self.keying_duration_get_msb(read_buf[0])
-                                }
-                                KeyerState::ResponseGotGt => {
-                                    self.response_got_gt(read_buf[0])
-                                }
-                                KeyerState::ResponseGotSpc => {
-                                    self.response_got_spc(read_buf[0])
-                                }
-                                KeyerState::ResponseFinish => {
-                                    self.response_finish(read_buf[0])
-                                }
-                            };
-                            match next {
-                                // A return of some type is needed
-                                Some(result) => {
-                                    debug!("Transact returning [{:?}]", result);
-                                    return result;
-                                }
-                                // State may have changed, stay in here, read more...
-                                None => {}
-                            }
-                        }
-                        Ok(n) => {
-                            warn!("In build loop, received {} bytes", n);
-                            return Err(format!("Build loop stopped reading, received {} bytes", n));
-                        }
-                        Err(e) => {
-                            return Err(format!("Could not read data from keyer: {}", e.to_string()))
-                        }
-                    }
-                }
             }
             Err(e) => {
-                return Err(format!("Could not write command to keyer: {}", e.to_string()))
+                warn!("Could not write command to keyer: {}", e.to_string())
             }
         }
     }
@@ -255,8 +228,20 @@ impl ArduinoKeyerThread {
             }
             // TODO S
             // TODO E
-            // TODO -
-            // TODO +
+            b'+' => {
+                self.up = true;
+                self.duration = 0;
+                // TODO test required
+                //self.keying_event_tx.send(Edge(KeyingEdgeEvent{ up: true }));
+                self.set_state(KeyingDurationGetLSB);
+            }
+            b'-' => {
+                self.up = false;
+                self.duration = 0;
+                // TODO test required
+                //self.keying_event_tx.send(Edge(KeyingEdgeEvent{ up: false }));
+                self.set_state(KeyingDurationGetLSB);
+            }
             _ => {
                 warn!("Unexpected out-of-state data {}", printable(ch));
             }
@@ -264,11 +249,18 @@ impl ArduinoKeyerThread {
         None
     }
 
-    fn keying_duration_get_lsb(&mut self, _ch: u8) -> Option<Result<String, String>> {
+    fn keying_duration_get_lsb(&mut self, ch: u8) -> Option<Result<String, String>> {
+        self.duration = ch as KeyerEdgeDurationMs;
+        self.set_state(KeyingDurationGetMSB);
         None
     }
 
-    fn keying_duration_get_msb(&mut self, _ch: u8) -> Option<Result<String, String>> {
+    fn keying_duration_get_msb(&mut self, ch: u8) -> Option<Result<String, String>> {
+        self.duration |= (ch as KeyerEdgeDurationMs) << 8;
+        let event = Timed(KeyingTimedEvent { up: self.up, duration: self.duration });
+        debug!("Keying: {}", event);
+        self.keying_event_tx.send(event).unwrap();
+        self.set_state(Initial);
         None
     }
 
@@ -307,7 +299,12 @@ impl ArduinoKeyerThread {
             b'\n' => {
                 self.set_state(Initial);
                 let subslice = &self.read_text[0..self.read_text.len()];
-                Some(Ok(String::from_utf8(Vec::from(subslice)).expect("Found invalid UTF-8")))
+                let string = String::from_utf8(Vec::from(subslice)).expect("Found invalid UTF-8");
+                match self.command_response_tx.send(Ok(string)) {
+                    Ok(_) => {}
+                    Err(_) => {}
+                }
+                None
             }
             _ => {
                 warn!("Unexpected response data {}", printable(ch));
