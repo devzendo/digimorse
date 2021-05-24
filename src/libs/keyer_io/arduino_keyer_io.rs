@@ -1,7 +1,7 @@
 use log::{warn, debug};
 
 use crate::libs::keyer_io::arduino_keyer_io::KeyerState::{Initial, ResponseGotGt, ResponseGotSpc, ResponseFinish, KeyingDurationGetLSB, KeyingDurationGetMSB};
-use crate::libs::keyer_io::keyer_io::{Keyer, KeyerPolarity, KeyingMode, KeyerOutputMode, KeyingEvent, KeyerEdgeDurationMs, KeyingTimedEvent};
+use crate::libs::keyer_io::keyer_io::{Keyer, KeyerPolarity, KeyingMode, KeyingEvent, KeyerEdgeDurationMs, KeyingTimedEvent};
 use crate::libs::serial_io::serial_io::SerialIO;
 use crate::libs::util::util::printable;
 use std::thread;
@@ -9,7 +9,7 @@ use std::thread::JoinHandle;
 use std::sync::mpsc::{Sender, Receiver};
 use std::sync::{mpsc, Mutex};
 use std::time::Duration;
-use crate::libs::keyer_io::keyer_io::KeyingEvent::Timed;
+use crate::libs::keyer_io::keyer_io::KeyingEvent::{Timed, Start, End};
 
 pub struct ArduinoKeyer {
     // Command channel to/from the thread. Sender is guarded by a Mutex to ensure a single command
@@ -83,14 +83,6 @@ impl Keyer for ArduinoKeyer {
     }
 
     fn set_keyer_polarity(&mut self, _polarity: KeyerPolarity) -> Result<(), String> {
-        unimplemented!()
-    }
-
-    fn get_keyer_output_mode(&mut self) -> Result<KeyerOutputMode, String> {
-        unimplemented!()
-    }
-
-    fn set_keyer_output_mode(&mut self, _mode: KeyerOutputMode) -> Result<(), String> {
         unimplemented!()
     }
 }
@@ -226,20 +218,24 @@ impl ArduinoKeyerThread {
                 self.read_text.clear();
                 self.set_state(ResponseGotGt);
             }
-            // TODO S
-            // TODO E
+            b'S' => {
+                let event = Start();
+                debug!("Keying: {}", event);
+                self.keying_event_tx.send(event).unwrap();
+            }
+            b'E' => {
+                let event = End();
+                debug!("Keying: {}", event);
+                self.keying_event_tx.send(event).unwrap();
+            }
             b'+' => {
-                self.up = true;
+                self.up = false;
                 self.duration = 0;
-                // TODO test required
-                //self.keying_event_tx.send(Edge(KeyingEdgeEvent{ up: true }));
                 self.set_state(KeyingDurationGetLSB);
             }
             b'-' => {
-                self.up = false;
+                self.up = true;
                 self.duration = 0;
-                // TODO test required
-                //self.keying_event_tx.send(Edge(KeyingEdgeEvent{ up: false }));
                 self.set_state(KeyingDurationGetLSB);
             }
             _ => {

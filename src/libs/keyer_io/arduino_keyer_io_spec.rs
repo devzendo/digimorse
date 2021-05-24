@@ -59,7 +59,7 @@ impl SerialIO for FakeSerialIO {
 mod arduino_keyer_io_spec {
     use crate::libs::keyer_io::arduino_keyer_io::arduino_keyer_io_spec::FakeSerialIO;
     use crate::libs::keyer_io::arduino_keyer_io::ArduinoKeyer;
-    use crate::libs::keyer_io::keyer_io::{Keyer, KeyingEvent};
+    use crate::libs::keyer_io::keyer_io::{Keyer, KeyingEvent, KeyingTimedEvent};
     use std::sync::mpsc::{Sender, Receiver};
     use std::sync::mpsc;
     use log::info;
@@ -108,9 +108,13 @@ mod arduino_keyer_io_spec {
     fn receive_keying() {
         // at 12 wpm, a dit is 10ms, a dah is 30ms, pause between elements 10ms, between letters
         // 30ms, between words 70ms.
+        const START: u8 = 0x53;
+        const END: u8 = 0x45;
         const PL: u8 = 0x2b;
         const MI: u8 = 0x2d;
         let keyer_will_receive = vec![
+            START,     // start of keying
+
             PL, 10, 0, // P
             MI, 10, 0,
             PL, 30, 0,
@@ -147,9 +151,9 @@ mod arduino_keyer_io_spec {
             MI, 10, 0,
             PL, 10, 0,
 
-            MI, 70, 0, // pause between words
+            END,       // end of keying
         ];
-        let expected_keying_event_count = keyer_will_receive.len() / 3;
+        let expected_keying_event_count = 29;
 
         let (recording_tx, _recording_rx): (Sender<u8>, Receiver<u8>) = mpsc::channel();
         let (keying_event_tx, keying_event_rx): (Sender<KeyingEvent>, Receiver<KeyingEvent>) = mpsc::channel();
@@ -158,13 +162,13 @@ mod arduino_keyer_io_spec {
         let _keyer = ArduinoKeyer::new(Box::new(serial_io), keying_event_tx);
 
         info!("In wait loop for keying...");
-        let mut keying_event_count = 0;
+        let mut received_keying_events: Vec<KeyingEvent> = vec!();
         loop {
-            let result = keying_event_rx.recv_timeout(Duration::from_secs(1));
+            let result = keying_event_rx.recv_timeout(Duration::from_millis(250));
             match result {
                 Ok(keying_event) => {
                     info!("Keying Event {}", keying_event);
-                    keying_event_count += 1;
+                    received_keying_events.push(keying_event);
                 }
                 Err(err) => {
                     info!("timeout reading keying events channel {}", err);
@@ -173,7 +177,47 @@ mod arduino_keyer_io_spec {
             }
         }
         info!("Out of keying wait loop");
-        assert_eq!(keying_event_count, expected_keying_event_count);
+        assert_eq!(received_keying_events.len(), expected_keying_event_count);
+
+        assert_eq!(received_keying_events[0], KeyingEvent::Start());
+
+        assert_eq!(received_keying_events[1], KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 10 }));
+        assert_eq!(received_keying_events[2], KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 10 }));
+        assert_eq!(received_keying_events[3], KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 30 }));
+        assert_eq!(received_keying_events[4], KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 10 }));
+        assert_eq!(received_keying_events[5], KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 30 }));
+        assert_eq!(received_keying_events[6], KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 10 }));
+        assert_eq!(received_keying_events[7], KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 10 }));
+
+        assert_eq!(received_keying_events[8], KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 30 }));
+
+        assert_eq!(received_keying_events[9], KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 10 }));
+        assert_eq!(received_keying_events[10], KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 10 }));
+        assert_eq!(received_keying_events[11], KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 30 }));
+
+        assert_eq!(received_keying_events[12], KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 30 }));
+
+        assert_eq!(received_keying_events[13], KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 10 }));
+        assert_eq!(received_keying_events[14], KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 10 }));
+        assert_eq!(received_keying_events[15], KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 30 }));
+        assert_eq!(received_keying_events[16], KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 10 }));
+        assert_eq!(received_keying_events[17], KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 10 }));
+
+        assert_eq!(received_keying_events[18], KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 30 }));
+
+        assert_eq!(received_keying_events[19], KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 10 }));
+        assert_eq!(received_keying_events[20], KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 10 }));
+        assert_eq!(received_keying_events[21], KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 10 }));
+
+        assert_eq!(received_keying_events[22], KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 30 }));
+
+        assert_eq!(received_keying_events[23], KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 10 }));
+        assert_eq!(received_keying_events[24], KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 10 }));
+        assert_eq!(received_keying_events[25], KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 10 }));
+        assert_eq!(received_keying_events[26], KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 10 }));
+        assert_eq!(received_keying_events[27], KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 10 }));
+
+        assert_eq!(received_keying_events[28], KeyingEvent::End());
     }
 
 }
