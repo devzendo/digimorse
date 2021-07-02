@@ -2,6 +2,11 @@
 extern crate clap;
 
 use clap::{App, Arg, ArgMatches};
+use log::{debug, error, info};
+use std::path::{PathBuf, Path};
+use std::fs;
+use std::env;
+use digimorse::libs::config_dir::config_dir;
 
 const VERSION: &'static str = env!("CARGO_PKG_VERSION");
 
@@ -48,7 +53,28 @@ fn parse_command_line<'a>() -> (ArgMatches<'a>, Mode) {
     return (result, mode);
 }
 
+fn initialise_logging() {
+    let log_var_name = "RUST_LOG";
+    if env::var(log_var_name).is_err() {
+        env::set_var(log_var_name, "info")
+    }
+    env_logger::init();
+}
+
 fn main() {
+    initialise_logging();
+
     let (arguments, mode) = parse_command_line();
-    println!("Command line parsed");
+    debug!("Command line parsed");
+
+    let home_dir = dirs::home_dir();
+    let config_path = config_dir::configuration_directory(home_dir);
+    match config_path {
+        Ok(c_p) => {
+            info!("Configuration path is [{:?}]", c_p);
+        }
+        Err(e) => {
+            error!("{}", e);
+        }
+    }
 }
