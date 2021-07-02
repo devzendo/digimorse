@@ -2,6 +2,7 @@
 extern crate clap;
 
 use clap::{App, Arg, ArgMatches};
+use fltk::{app, prelude::*, window::Window};
 use log::{debug, error, info};
 use std::path::{PathBuf, Path};
 use std::fs;
@@ -25,7 +26,7 @@ const KEYER_VALUE_NAME: &str = "Serial character device";
 // TODO Not sure what a suitable port name for Linux would be
 
 arg_enum! {
-    #[derive(Debug, Clone)]
+    #[derive(Debug, Clone, PartialEq)]
     enum Mode {
         GUI,
         KeyerDiag,
@@ -68,7 +69,8 @@ fn run(arguments: ArgMatches, mode: Mode) -> Result<i32, Box<dyn Error>> {
     let config_path = config_dir::configuration_directory(home_dir)?;
     info!("Configuration path is [{:?}]", config_path);
 
-    Ok(0)
+    //Ok(0)
+    Err("message goes here".into())
 }
 
 fn main() {
@@ -77,13 +79,15 @@ fn main() {
     let (arguments, mode) = parse_command_line();
     debug!("Command line parsed");
 
+    if mode == Mode::GUI {
+        let app = app::App::default().with_scheme(app::Scheme::Gleam);
+    }
 
     match run(arguments, mode.clone()) {
         Err(err) => {
             match mode {
                 Mode::GUI => {
-                    // TODO replace with a dialog
-                    error!("{}", err);
+                    fltk::dialog::message_default(&*format!("{}", err));
                 }
                 _ => {
                     error!("{}", err);
