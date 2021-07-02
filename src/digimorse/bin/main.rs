@@ -7,6 +7,8 @@ use std::path::{PathBuf, Path};
 use std::fs;
 use std::env;
 use digimorse::libs::config_dir::config_dir;
+use std::any::Any;
+use std::error::Error;
 
 const VERSION: &'static str = env!("CARGO_PKG_VERSION");
 
@@ -23,7 +25,7 @@ const KEYER_VALUE_NAME: &str = "Serial character device";
 // TODO Not sure what a suitable port name for Linux would be
 
 arg_enum! {
-    #[derive(Debug)]
+    #[derive(Debug, Clone)]
     enum Mode {
         GUI,
         KeyerDiag,
@@ -61,20 +63,36 @@ fn initialise_logging() {
     env_logger::init();
 }
 
+fn run(arguments: ArgMatches, mode: Mode) -> Result<i32, Box<dyn Error>> {
+    let home_dir = dirs::home_dir();
+    let config_path = config_dir::configuration_directory(home_dir)?;
+    info!("Configuration path is [{:?}]", config_path);
+
+    Ok(0)
+}
+
 fn main() {
     initialise_logging();
 
     let (arguments, mode) = parse_command_line();
     debug!("Command line parsed");
 
-    let home_dir = dirs::home_dir();
-    let config_path = config_dir::configuration_directory(home_dir);
-    match config_path {
-        Ok(c_p) => {
-            info!("Configuration path is [{:?}]", c_p);
+
+    match run(arguments, mode.clone()) {
+        Err(err) => {
+            match mode {
+                Mode::GUI => {
+                    // TODO replace with a dialog
+                    error!("{}", err);
+                }
+                _ => {
+                    error!("{}", err);
+                }
+            }
         }
-        Err(e) => {
-            error!("{}", e);
+        Ok(exit_code) => {
+            std::process::exit(exit_code);
         }
     }
 }
+
