@@ -4,12 +4,21 @@ extern crate clap;
 use clap::{App, Arg, ArgMatches};
 use fltk::{app, prelude::*, window::Window};
 use log::{debug, error, info};
+
 use std::path::{PathBuf, Path};
 use std::fs;
 use std::env;
-use digimorse::libs::config_dir::config_dir;
 use std::any::Any;
 use std::error::Error;
+use std::sync::mpsc::{Sender, Receiver};
+use std::sync::{mpsc, Mutex};
+
+use digimorse::libs::config_dir::config_dir;
+use digimorse::libs::keyer_io::arduino_keyer_io::ArduinoKeyer;
+use digimorse::libs::keyer_io::keyer_io::KeyingEvent;
+use digimorse::libs::keyer_io::keyer_io::KeyerSpeed;
+use digimorse::libs::serial_io::serial_io::DefaultSerialIO;
+use digimorse::libs::source_encoder::source_encoder::DefaultSourceEncoder;
 
 const VERSION: &'static str = env!("CARGO_PKG_VERSION");
 
@@ -68,6 +77,22 @@ fn run(arguments: ArgMatches, mode: Mode) -> Result<i32, Box<dyn Error>> {
     let home_dir = dirs::home_dir();
     let config_path = config_dir::configuration_directory(home_dir)?;
     info!("Configuration path is [{:?}]", config_path);
+
+    // TODO get port from the configuration file
+    let port = "/dev/tty.usbserial-1410".to_string();
+    info!("Initialising serial port at {}", port);
+    let serial_io = DefaultSerialIO::new(port)?;
+    info!("Initialising keyer...");
+    let (keying_event_tx, keying_event_rx): (Sender<KeyingEvent>, Receiver<KeyingEvent>) = mpsc::channel();
+    let mut keyer = ArduinoKeyer::new(Box::new(serial_io), keying_event_tx);
+    info!("Initialising source encoder...");
+    // TODO get WPM from the configuration file
+    // TODO ARCHITECTURE need a backbone/application to which various subsystems/implementations or
+    // implementations with modified configuration are attached dynamically at runtime (and can be
+    // changed by the preferences dialog, etc.)
+    let keyer_speed: KeyerSpeed = 20;
+    let mut source_encoder = DefaultSourceEncoder::new(keying_event_rx);
+
 
     //Ok(0)
     Err("message goes here".into())

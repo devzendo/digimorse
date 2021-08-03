@@ -21,7 +21,7 @@ pub struct ArduinoKeyer {
 }
 
 impl ArduinoKeyer {
-    fn new(serial_io: Box<dyn SerialIO>, keying_event_tx: Sender<KeyingEvent>) -> Self {
+    pub fn new(serial_io: Box<dyn SerialIO>, keying_event_tx: Sender<KeyingEvent>) -> Self {
         // Channels have two endpoints: the `Sender<T>` and the `Receiver<T>`,
         // where `T` is the type of the message to be transferred
         // (type annotation is superfluous)
