@@ -11,7 +11,7 @@ use std::time::Duration;
 #[cfg(test)]
 mod null_keyer_io_spec {
     use crate::libs::keyer_io::null_keyer_io::NullKeyer;
-    use crate::libs::keyer_io::keyer_io::{Keyer, KeyerSpeed, KeyingEvent, KeyingTimedEvent};
+    use crate::libs::keyer_io::keyer_io::{Keyer, KeyerSpeed, KeyingEvent, KeyingTimedEvent, KeyingMode, KeyerPolarity};
     use std::sync::mpsc::{Sender, Receiver};
     use std::sync::mpsc;
     use log::info;
@@ -52,5 +52,21 @@ mod null_keyer_io_spec {
         assert_eq!(keyer.get_speed(), Ok(KeyerSpeed::from(12)));
         keyer.set_speed(KeyerSpeed::from(20));
         assert_eq!(keyer.get_speed(), Ok(KeyerSpeed::from(20)));
+    }
+
+    #[test]
+    fn get_set_mode() {
+        let mut keyer = keyer();
+        assert_eq!(keyer.get_keying_mode(), Ok(KeyingMode::Straight));
+        keyer.set_keying_mode(KeyingMode::Paddle);
+        assert_eq!(keyer.get_keying_mode(), Ok(KeyingMode::Paddle));
+    }
+
+    #[test]
+    fn get_set_polarity() {
+        let mut keyer = keyer();
+        assert_eq!(keyer.get_keyer_polarity(), Ok(KeyerPolarity::Normal));
+        keyer.set_keyer_polarity(KeyerPolarity::Reverse);
+        assert_eq!(keyer.get_keyer_polarity(), Ok(KeyerPolarity::Reverse));
     }
 }

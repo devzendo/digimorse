@@ -11,14 +11,17 @@ use crate::libs::keyer_io::keyer_io::KeyingEvent::{Timed, Start, End};
 pub struct NullKeyer {
     keying_event_tx: Sender<KeyingEvent>,
     keyer_speed: KeyerSpeed,
+    keying_mode: KeyingMode,
+    keyer_polarity: KeyerPolarity,
 }
 
 impl NullKeyer {
     pub fn new(keying_event_tx: Sender<KeyingEvent>) -> Self {
         Self {
-            keying_event_tx: keying_event_tx,
+            keying_event_tx,
             keyer_speed: KeyerSpeed::from(12),
-
+            keying_mode: KeyingMode::Straight,
+            keyer_polarity: KeyerPolarity::Normal,
         }
     }
 }
@@ -38,19 +41,21 @@ impl Keyer for NullKeyer {
     }
 
     fn get_keying_mode(&mut self) -> Result<KeyingMode, String> {
-        todo!()
+        Ok(self.keying_mode)
     }
 
     fn set_keying_mode(&mut self, mode: KeyingMode) -> Result<(), String> {
-        todo!()
+        self.keying_mode = mode;
+        Ok(())
     }
 
     fn get_keyer_polarity(&mut self) -> Result<KeyerPolarity, String> {
-        todo!()
+        Ok(self.keyer_polarity)
     }
 
     fn set_keyer_polarity(&mut self, polarity: KeyerPolarity) -> Result<(), String> {
-        todo!()
+        self.keyer_polarity = polarity;
+        Ok(())
     }
 }
 

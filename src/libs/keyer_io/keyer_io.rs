@@ -5,15 +5,17 @@ use crate::libs::keyer_io::keyer_io::KeyingEvent::{Timed, Start, End};
 use serde_derive::Deserialize;
 use serde_derive::Serialize;
 
+#[derive(Serialize, Deserialize, Debug, PartialOrd, PartialEq, Copy, Clone)]
 pub enum KeyingMode {
     Straight, Paddle, // add Iambic A, Iambic B etc. later
 }
 
+#[derive(Serialize, Deserialize, Debug, PartialOrd, PartialEq, Copy, Clone)]
 pub enum KeyerPolarity {
     Normal, Reverse
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, PartialOrd, PartialEq, Copy, Clone)]
 pub enum KeyerType {
     Arduino, Null
 }
