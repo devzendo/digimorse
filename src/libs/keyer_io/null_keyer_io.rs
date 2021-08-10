@@ -1,15 +1,8 @@
-use log::{warn, debug};
-
 use crate::libs::keyer_io::keyer_io::{Keyer, KeyerSpeed, KeyingMode, KeyerPolarity, KeyingEvent};
-use crate::libs::util::util::printable;
-use std::thread;
-use std::sync::mpsc::{Sender, Receiver};
-use std::sync::{mpsc, Mutex};
-use std::time::Duration;
-use crate::libs::keyer_io::keyer_io::KeyingEvent::{Timed, Start, End};
+use std::sync::mpsc::Sender;
 
 pub struct NullKeyer {
-    keying_event_tx: Sender<KeyingEvent>,
+    _keying_event_tx: Sender<KeyingEvent>,
     keyer_speed: KeyerSpeed,
     keying_mode: KeyingMode,
     keyer_polarity: KeyerPolarity,
@@ -18,7 +11,7 @@ pub struct NullKeyer {
 impl NullKeyer {
     pub fn new(keying_event_tx: Sender<KeyingEvent>) -> Self {
         Self {
-            keying_event_tx,
+            _keying_event_tx: keying_event_tx,
             keyer_speed: KeyerSpeed::from(12),
             keying_mode: KeyingMode::Straight,
             keyer_polarity: KeyerPolarity::Normal,

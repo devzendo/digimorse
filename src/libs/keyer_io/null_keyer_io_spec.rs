@@ -1,22 +1,13 @@
 extern crate hamcrest2;
 
-use log::{debug, warn};
-use crate::libs::serial_io::serial_io::SerialIO;
-use crate::libs::util::util::*;
-use std::io;
-use std::io::{Error, ErrorKind};
-use std::sync::mpsc::{Sender};
-use std::time::Duration;
-
 #[cfg(test)]
 mod null_keyer_io_spec {
     use crate::libs::keyer_io::null_keyer_io::NullKeyer;
-    use crate::libs::keyer_io::keyer_io::{Keyer, KeyerSpeed, KeyingEvent, KeyingTimedEvent, KeyingMode, KeyerPolarity};
+    use crate::libs::keyer_io::keyer_io::{Keyer, KeyerSpeed, KeyingEvent, KeyingMode, KeyerPolarity};
     use std::sync::mpsc::{Sender, Receiver};
     use std::sync::mpsc;
-    use log::info;
-    use std::time::Duration;
     use std::env;
+    use hamcrest2::prelude::*;
 
     #[ctor::ctor]
     fn before_each() {
@@ -50,7 +41,7 @@ mod null_keyer_io_spec {
     fn get_set_speed() {
         let mut keyer = keyer();
         assert_eq!(keyer.get_speed(), Ok(KeyerSpeed::from(12)));
-        keyer.set_speed(KeyerSpeed::from(20));
+        assert_that!(keyer.set_speed(KeyerSpeed::from(20)), has(()) );
         assert_eq!(keyer.get_speed(), Ok(KeyerSpeed::from(20)));
     }
 
@@ -58,7 +49,7 @@ mod null_keyer_io_spec {
     fn get_set_mode() {
         let mut keyer = keyer();
         assert_eq!(keyer.get_keying_mode(), Ok(KeyingMode::Straight));
-        keyer.set_keying_mode(KeyingMode::Paddle);
+        assert_that!(keyer.set_keying_mode(KeyingMode::Paddle), has(()) );
         assert_eq!(keyer.get_keying_mode(), Ok(KeyingMode::Paddle));
     }
 
@@ -66,7 +57,7 @@ mod null_keyer_io_spec {
     fn get_set_polarity() {
         let mut keyer = keyer();
         assert_eq!(keyer.get_keyer_polarity(), Ok(KeyerPolarity::Normal));
-        keyer.set_keyer_polarity(KeyerPolarity::Reverse);
+        assert_that!(keyer.set_keyer_polarity(KeyerPolarity::Reverse), has(()) );
         assert_eq!(keyer.get_keyer_polarity(), Ok(KeyerPolarity::Reverse));
     }
 }
