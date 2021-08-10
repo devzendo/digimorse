@@ -2,8 +2,6 @@ extern crate hamcrest2;
 
 #[cfg(test)]
 mod config_file_spec {
-    use log::info;
-    use std::time::Duration;
     use std::env;
 
     #[ctor::ctor]

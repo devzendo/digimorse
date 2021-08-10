@@ -1,16 +1,10 @@
 use log::debug;
-//use serde::{Serialize, Deserialize};
 use std::path::{Path, PathBuf};
-use std::io::Error;
 
 use crate::libs::keyer_io::keyer_io::KeyerType;
 
 use serde_derive::Deserialize;
 use serde_derive::Serialize;
-
-//use serde::de::{from_str, Deserializer};
-//use serde::error::{Error, Result};
-//use serde::ser::{to_string, Serializer};
 
 #[derive(Serialize, Deserialize, Debug)]
 struct Config {
