@@ -1,7 +1,7 @@
 use log::{warn, debug};
 
 use crate::libs::keyer_io::arduino_keyer_io::KeyerState::{Initial, ResponseGotGt, ResponseGotSpc, ResponseFinish, KeyingDurationGetLSB, KeyingDurationGetMSB};
-use crate::libs::keyer_io::keyer_io::{Keyer, KeyerPolarity, KeyingMode, KeyingEvent, KeyerEdgeDurationMs, KeyingTimedEvent};
+use crate::libs::keyer_io::keyer_io::{Keyer, KeyerPolarity, KeyerMode, KeyingEvent, KeyerEdgeDurationMs, KeyingTimedEvent};
 use crate::libs::serial_io::serial_io::SerialIO;
 use crate::libs::util::util::printable;
 use std::thread;
@@ -70,11 +70,11 @@ impl Keyer for ArduinoKeyer {
         unimplemented!()
     }
 
-    fn get_keying_mode(&mut self) -> Result<KeyingMode, String> {
+    fn get_keyer_mode(&mut self) -> Result<KeyerMode, String> {
         unimplemented!()
     }
 
-    fn set_keying_mode(&mut self, _mode: KeyingMode) -> Result<(), String> {
+    fn set_keyer_mode(&mut self, _mode: KeyerMode) -> Result<(), String> {
         unimplemented!()
     }
 

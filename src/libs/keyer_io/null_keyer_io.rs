@@ -1,10 +1,10 @@
-use crate::libs::keyer_io::keyer_io::{Keyer, KeyerSpeed, KeyingMode, KeyerPolarity, KeyingEvent};
+use crate::libs::keyer_io::keyer_io::{Keyer, KeyerSpeed, KeyerMode, KeyerPolarity, KeyingEvent};
 use std::sync::mpsc::Sender;
 
 pub struct NullKeyer {
     _keying_event_tx: Sender<KeyingEvent>,
     keyer_speed: KeyerSpeed,
-    keying_mode: KeyingMode,
+    keyer_mode: KeyerMode,
     keyer_polarity: KeyerPolarity,
 }
 
@@ -13,7 +13,7 @@ impl NullKeyer {
         Self {
             _keying_event_tx: keying_event_tx,
             keyer_speed: KeyerSpeed::from(12),
-            keying_mode: KeyingMode::Straight,
+            keyer_mode: KeyerMode::Straight,
             keyer_polarity: KeyerPolarity::Normal,
         }
     }
@@ -33,12 +33,12 @@ impl Keyer for NullKeyer {
         Ok(())
     }
 
-    fn get_keying_mode(&mut self) -> Result<KeyingMode, String> {
-        Ok(self.keying_mode)
+    fn get_keyer_mode(&mut self) -> Result<KeyerMode, String> {
+        Ok(self.keyer_mode)
     }
 
-    fn set_keying_mode(&mut self, mode: KeyingMode) -> Result<(), String> {
-        self.keying_mode = mode;
+    fn set_keyer_mode(&mut self, mode: KeyerMode) -> Result<(), String> {
+        self.keyer_mode = mode;
         Ok(())
     }
 

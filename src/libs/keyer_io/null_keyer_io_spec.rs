@@ -3,7 +3,7 @@ extern crate hamcrest2;
 #[cfg(test)]
 mod null_keyer_io_spec {
     use crate::libs::keyer_io::null_keyer_io::NullKeyer;
-    use crate::libs::keyer_io::keyer_io::{Keyer, KeyerSpeed, KeyingEvent, KeyingMode, KeyerPolarity};
+    use crate::libs::keyer_io::keyer_io::{Keyer, KeyerSpeed, KeyingEvent, KeyerMode, KeyerPolarity};
     use std::sync::mpsc::{Sender, Receiver};
     use std::sync::mpsc;
     use std::env;
@@ -48,9 +48,9 @@ mod null_keyer_io_spec {
     #[test]
     fn get_set_mode() {
         let mut keyer = keyer();
-        assert_eq!(keyer.get_keying_mode(), Ok(KeyingMode::Straight));
-        assert_that!(keyer.set_keying_mode(KeyingMode::Paddle), has(()) );
-        assert_eq!(keyer.get_keying_mode(), Ok(KeyingMode::Paddle));
+        assert_eq!(keyer.get_keyer_mode(), Ok(KeyerMode::Straight));
+        assert_that!(keyer.set_keyer_mode(KeyerMode::Paddle), has(()) );
+        assert_eq!(keyer.get_keyer_mode(), Ok(KeyerMode::Paddle));
     }
 
     #[test]

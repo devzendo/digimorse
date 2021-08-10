@@ -6,7 +6,7 @@ use serde_derive::Deserialize;
 use serde_derive::Serialize;
 
 #[derive(Serialize, Deserialize, Debug, PartialOrd, PartialEq, Copy, Clone)]
-pub enum KeyingMode {
+pub enum KeyerMode {
     Straight, Paddle, // add Iambic A, Iambic B etc. later
 }
 
@@ -91,8 +91,8 @@ pub trait Keyer {
     fn get_speed(&mut self) -> Result<KeyerSpeed, String>;
     fn set_speed(&mut self, wpm: KeyerSpeed) -> Result<(), String>;
 
-    fn get_keying_mode(&mut self) -> Result<KeyingMode, String>;
-    fn set_keying_mode(&mut self, mode: KeyingMode)-> Result<(), String>;
+    fn get_keyer_mode(&mut self) -> Result<KeyerMode, String>;
+    fn set_keyer_mode(&mut self, mode: KeyerMode) -> Result<(), String>;
 
     fn get_keyer_polarity(&mut self) -> Result<KeyerPolarity, String>;
     fn set_keyer_polarity(&mut self, polarity: KeyerPolarity)-> Result<(), String>;
