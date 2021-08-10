@@ -2,6 +2,9 @@ use log::debug;
 //use serde::{Serialize, Deserialize};
 use std::path::{Path, PathBuf};
 use std::io::Error;
+
+use crate::libs::keyer_io::keyer_io::KeyerType;
+
 use serde_derive::Deserialize;
 use serde_derive::Serialize;
 
@@ -16,6 +19,7 @@ struct Config {
 
 #[derive(Serialize, Deserialize, Debug)]
 struct Keyer {
+    keyerType: KeyerType,
     port: String,
     wpm: usize,
 }
@@ -37,6 +41,7 @@ impl ConfigurationStore {
             debug!("Creating config dir {:?}", config_file_path);
             let config = Config {
                 keyer: Keyer {
+                    keyerType: KeyerType::Null,
                     port: "".to_string(),
                     wpm: 20
                 }

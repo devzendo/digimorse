@@ -1,6 +1,9 @@
 use std::fmt::{Display, Formatter, Debug};
 use std::fmt;
+
 use crate::libs::keyer_io::keyer_io::KeyingEvent::{Timed, Start, End};
+use serde_derive::Deserialize;
+use serde_derive::Serialize;
 
 pub enum KeyingMode {
     Straight, Paddle, // add Iambic A, Iambic B etc. later
@@ -8,6 +11,11 @@ pub enum KeyingMode {
 
 pub enum KeyerPolarity {
     Normal, Reverse
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub enum KeyerType {
+    Arduino, Null
 }
 
 // Speed in WPM
