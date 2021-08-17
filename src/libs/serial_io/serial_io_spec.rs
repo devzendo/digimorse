@@ -14,7 +14,9 @@ mod serial_io_spec {
 
     }
 
+    // This requires the real arduino keyer connecting on a mac
     #[test]
+    #[ignore]
     fn timeout() {
         let serial_io = DefaultSerialIO::new("/dev/tty.usbserial-1410".to_string());
         match serial_io {

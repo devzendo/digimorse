@@ -6,7 +6,6 @@ mod config_dir_spec {
     use hamcrest2::prelude::*;
     use temp_testdir::TempDir;
     use crate::libs::config_dir::config_dir::configuration_directory;
-    use fltk::dialog::dir_chooser;
     use std::ops::Deref;
 
     #[ctor::ctor]
