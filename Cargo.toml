@@ -26,6 +26,7 @@ ctor = "0.1"
 hamcrest2 = "0.3.0"
 mockall = "0.8.3"
 tempfile = "3.1.0"
+temp_testdir = "0.2"
 
 [[bin]]
 name = "digimorse"

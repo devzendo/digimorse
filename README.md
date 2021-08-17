@@ -51,7 +51,7 @@ What do I need to try it?
   Arduino Nano-based Morse key/paddle <-> USB Serial interface and simple keyer.
 
 
-(C) 2020 Matt J. Gumbley
+(C) 2020-2021 Matt J. Gumbley
 matt.gumbley@devzendo.org
 @mattgumbley @devzendo
 http://devzendo.github.io/digimorse
