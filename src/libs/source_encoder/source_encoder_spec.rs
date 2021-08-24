@@ -1,21 +1,12 @@
 extern crate hamcrest2;
 
-use log::{debug, warn};
-
-use crate::libs::util::util::*;
-use std::io;
-use std::io::{Error, ErrorKind};
-use std::sync::mpsc::{Sender};
-use std::time::Duration;
-
 #[cfg(test)]
 mod source_encoder_spec {
-    use crate::libs::keyer_io::keyer_io::{Keyer, KeyingEvent, KeyerSpeed, KeyingTimedEvent};
+    use crate::libs::keyer_io::keyer_io::{KeyingEvent, KeyerSpeed, KeyingTimedEvent};
     use crate::libs::source_encoder::source_encoder::{DefaultSourceEncoder, SourceEncoder};
     use std::sync::mpsc::{Sender, Receiver};
     use std::sync::mpsc;
     use log::info;
-    use std::time::Duration;
     use std::env;
 
     #[ctor::ctor]
@@ -29,15 +20,15 @@ mod source_encoder_spec {
 
     #[test]
     fn default_keying_speed() {
-        let (keying_event_tx, keying_event_rx): (Sender<KeyingEvent>, Receiver<KeyingEvent>) = mpsc::channel();
-        let mut source_encoder = DefaultSourceEncoder::new(keying_event_rx);
+        let (_keying_event_tx, keying_event_rx): (Sender<KeyingEvent>, Receiver<KeyingEvent>) = mpsc::channel();
+        let source_encoder = DefaultSourceEncoder::new(keying_event_rx);
 
         assert_eq!(source_encoder.get_keyer_speed(), 12 as KeyerSpeed);
     }
 
     #[test]
     fn can_change_keying_speed() {
-        let (keying_event_tx, keying_event_rx): (Sender<KeyingEvent>, Receiver<KeyingEvent>) = mpsc::channel();
+        let (_keying_event_tx, keying_event_rx): (Sender<KeyingEvent>, Receiver<KeyingEvent>) = mpsc::channel();
         let mut source_encoder = DefaultSourceEncoder::new(keying_event_rx);
         let new_keyer_speed: KeyerSpeed = 20;
         source_encoder.set_keyer_speed(new_keyer_speed);
@@ -48,16 +39,17 @@ mod source_encoder_spec {
 
     #[test]
     fn encode_keying() {
-        let (keying_event_tx, keying_event_rx): (Sender<KeyingEvent>, Receiver<KeyingEvent>) = mpsc::channel();
+        let (_keying_event_tx, keying_event_rx): (Sender<KeyingEvent>, Receiver<KeyingEvent>) = mpsc::channel();
         // define new encoding event, a type alias of vec u8?
         // create a encoding_tx, encoding_rx mpsc::channel and pass the encoding_tx to the encoder.
         // the loop below reads encodings and puts them in a vec for testing.
         // then inject some keyings
         let keyer_speed: KeyerSpeed = 20;
         let mut source_encoder = DefaultSourceEncoder::new(keying_event_rx);
+        source_encoder.set_keyer_speed(keyer_speed);
 
         // inject these keyings...
-        let keyings = vec![
+        let _keyings = vec![
             KeyingEvent::Start(),
 
             KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 10 }),
@@ -70,27 +62,24 @@ mod source_encoder_spec {
 
             KeyingEvent::End()
         ];
-
-
-
-/*
-        info!("In wait loop for encodings...");
-        let mut received_keying_events: Vec<KeyingEvent> = vec!();
-        loop {
-            let result = keying_event_rx.recv_timeout(Duration::from_millis(250));
-            match result {
-                Ok(keying_event) => {
-                    info!("Keying Event {}", keying_event);
-                    received_keying_events.push(keying_event);
-                }
-                Err(err) => {
-                    info!("timeout reading keying events channel {}", err);
-                    break
-                }
-            }
-        }
+        // for x in keyings {
+        //
+        // }
+        // info!("In wait loop for encodings...");
+        // let mut received_keying_events: Vec<KeyingEvent> = vec!();
+        // loop {
+        //     let result = keying_event_rx.recv_timeout(Duration::from_millis(250));
+        //     match result {
+        //         Ok(keying_event) => {
+        //             info!("Keying Event {}", keying_event);
+        //             received_keying_events.push(keying_event);
+        //         }
+        //         Err(err) => {
+        //             info!("timeout reading keying events channel {}", err);
+        //             break
+        //         }
+        //     }
+        // }
         info!("Out of keying wait loop");
-*/
-
     }
 }
