@@ -61,6 +61,38 @@ impl ConfigurationStore {
     pub fn get_config_file_path(&self) -> &Path {
         self.config_file_path.deref()
     }
+
+    fn save(&self)-> Result<(), String> {
+        save_configuration(&self.config_file_path.to_path_buf(), &self.config)
+    }
+
+
+    pub fn set_keyer_type(&mut self, new_keyer_type: KeyerType) -> Result<(), String> {
+        self.config.keyer.keyer_type = new_keyer_type;
+        self.save()
+    }
+
+    pub fn get_keyer_type(&self) -> KeyerType {
+        self.config.keyer.keyer_type
+    }
+
+    pub fn set_port(&mut self, new_port: String) -> Result<(), String> {
+        self.config.keyer.port = new_port.clone();
+        self.save()
+    }
+
+    pub fn get_port(&self) -> String {
+        self.config.keyer.port.to_owned()
+    }
+
+    pub fn set_wpm(&mut self, new_wpm: usize) -> Result<(), String> {
+        self.config.keyer.wpm = new_wpm;
+        self.save()
+    }
+
+    pub fn get_wpm(&self) -> usize {
+        self.config.keyer.wpm
+    }
 }
 
 

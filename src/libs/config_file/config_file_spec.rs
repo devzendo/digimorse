@@ -2,12 +2,12 @@ extern crate hamcrest2;
 
 #[cfg(test)]
 mod config_file_spec {
-    use log::{info};
     use std::env;
     use temp_testdir::TempDir;
     use crate::libs::config_file::config_file::ConfigurationStore;
     use hamcrest2::prelude::*;
-
+    use std::path::Path;
+    use crate::libs::keyer_io::keyer_io::KeyerType;
 
     #[ctor::ctor]
     fn before_each() {
@@ -18,13 +18,20 @@ mod config_file_spec {
     #[ctor::dtor]
     fn after_each() {}
 
-    #[test]
-    fn new_config_creates_a_toml_file() {
+    fn temp_config_dir() -> (Box<Path>, TempDir) {
+        // Return both objects as if temp_dir is not moved back to the caller, it'll drop and
+        // delete.
         let temp_dir = TempDir::default();
         let temp = temp_dir.to_path_buf();
         assert_that!(temp.as_path(), dir_exists());
 
-        let config = ConfigurationStore::new(temp.into_boxed_path()).unwrap();
+        (temp.into_boxed_path(), temp_dir)
+    }
+
+    #[test]
+    fn new_config_creates_a_toml_file() {
+        let (temp, _temp_dir) = temp_config_dir();
+        let config = ConfigurationStore::new(temp).unwrap();
 
         let config_file_path = config.get_config_file_path();
         assert_that!(config_file_path, path_exists());
@@ -32,5 +39,33 @@ mod config_file_spec {
         assert_that!(config_file_path.to_string_lossy(), matches_regex("digimorse.toml$"));
     }
 
-    // TODO change wpm, save, reload to new object, assert wpm persisted round-trip
+    #[test]
+    fn default_settings() {
+        let (temp, _temp_dir) = temp_config_dir();
+        let config = ConfigurationStore::new(temp.clone()).unwrap();
+
+        assert_that!(config.get_keyer_type(), eq(KeyerType::Null));
+        assert_that!(config.get_port(), eq(""));
+        assert_that!(config.get_wpm(), eq(20));
+    }
+
+    #[test]
+    fn settings_can_be_changed_persisted_and_reloaded() {
+        let (temp, _temp_dir) = temp_config_dir();
+        let mut config = ConfigurationStore::new(temp.clone()).unwrap();
+
+        config.set_keyer_type(KeyerType::Arduino).unwrap();
+        config.set_port("/dev/imaginary-usb-port".to_string()).unwrap();
+        config.set_wpm(40).unwrap();
+
+        assert_that!(config.get_keyer_type(), eq(KeyerType::Arduino));
+        assert_that!(config.get_port(), eq("/dev/imaginary-usb-port"));
+        assert_that!(config.get_wpm(), eq(40));
+
+        let reread_config = ConfigurationStore::new(temp.clone()).unwrap();
+
+        assert_that!(reread_config.get_keyer_type(), eq(KeyerType::Arduino));
+        assert_that!(reread_config.get_port(), eq("/dev/imaginary-usb-port"));
+        assert_that!(reread_config.get_wpm(), eq(40));
+    }
 }
