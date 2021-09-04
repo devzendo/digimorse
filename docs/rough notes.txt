@@ -84,9 +84,48 @@
 
  Source Encoder Frame Types
  --------------------------
- 1. WPM/Polarity - add on first keying event of a new block.
- 2. Callsign
- 3. Location
- 4. Power
- 5. Keying - is start / stop needed?
- 6. Padding
+ 0. WPM/Polarity - add on first keying event of a new block.
+ 1. Callsign
+ 2. Location
+ 3. Power
+ 4. Keying - is start / stop needed?
+ 5. Padding
+ 6. (unused A)
+ 7. Extension
+ This suggests 3 bits to encode the frame type would be sufficient. If the all-ones Extension type is found, this would
+ then be followed by a further 3 bits - which could also be an Extension. Leading to:
+ Second frame types:
+ 0. (unused B)
+ 1. (unused C)
+ 2. (unused D)
+ 3. (unused E)
+ 4. (unused F)
+ 5. (unused G)
+ 6. (unused H)
+ 7. Extension 2
+ Third frame types:
+ 0. (unused I)
+ 1. (unused J)
+ 2. (unused K)
+ 3. (unused L)
+ 4. (unused M)
+ 5. (unused N)
+ 6. (unused O)
+ 7. Extension 3
+ etc., etc. We'd have to cut this off sometime.... could be a denial of service / abused? And how would it work from a
+ forwards-compatibility perspective, as each frame type has a fixed length; how would an old client know how long a
+ received frame with an unused frame tag would be? Unless we also encode the frame length, or define an end of frame
+ marker or escaping mechanism
+
+
+ Keying Frames
+ -------------
+ Timing of each dit/dah/gap is given in milliseconds, as sent via the keyer. What range of ms might we see if we allow
+ the range 5-40WPM (cf Yaesu transceivers allow 5-60WPM). Perhaps I should increase the upper bound? (Where did I pick
+ 40WPM from?)
+
+ http://www.k4icy.com/cw.html gives an overview of timing, incl. PARIS as the standard 'word' of 50 units in length that
+ can be divided into one minute to give the WPM rate. Other lengths: dit=1 unit, dah=3 units, pause between elements=1
+ unit, pause between letters=3 units, pause between words=7 units. PARIS includes a pause between words at the end.
+
+ So at 20WPM, that's 20x50=1,000 units in 1 minute. 1 minute = 60,000ms. So 60,000/1,000 = 60ms for each unit.
