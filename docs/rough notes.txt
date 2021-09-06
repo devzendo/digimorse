@@ -1,131 +1,127 @@
 
- Overall flow
- ------------
- Transmitter:
- Keyer -> [Keying Events] -> Source Encoder -> [Encoded Blocks] -> CRC Append -> [ Block Bytes ] -> Channel Encoder -> Costas Array Surround -> Modulator
-                    |         ^                                                                                                                      ^
-                    v        /                                                                                                                       |
-                   CQ Detector                                                                                                                 UI TX Offset
+Overall flow
+------------
+Transmitter:
+Keyer -> [Keying Events] -> Source Encoder -> [Encoded Blocks] -> CRC Append -> [ Block Bytes ] -> Channel Encoder -> Costas Array Surround -> Modulator
+                   |         ^                                                                                                                      ^
+                   v        /                                                                                                                       |
+                  CQ Detector                                                                                                                 UI TX Offset
 
- Q. Does the Source Encoder add the CRC, or is it a separate step?
+Q. Does the Source Encoder add the CRC, or is it a separate step?
 
- Receiver:
- Audio In -> Fourier Transform -> [Spectrum] -> Costas Array Detector -> Channel Detectors
+Receiver:
+Audio In -> Fourier Transform -> [Spectrum] -> Costas Array Detector -> Channel Detectors
 
- The Costas Array Detector finds Costas Arrays in the Spectrum stream, and allocates a Channel Detector at the Audio
- Offset it finds the array. Each Channel Detector receives the Spectrum stream, which it passes through a Narrow Band
- Pass Filter to see if it has any data - if so it demodulates it, etc...
+The Costas Array Detector finds Costas Arrays in the Spectrum stream, and allocates a Channel Detector at the Audio
+Offset it finds the array. Each Channel Detector receives the Spectrum stream, which it passes through a Narrow Band
+Pass Filter to see if it has any data - if so it demodulates it, etc...
 
- Channel Detectors time out and are destroyed after 1 minute (configurable) of not receiving anything. This removes the
- metadata they have received from the Waterfall display.
-
-
- Channel Detector: [Spectrum, Audio Offset of Costas Array] -> Narrow Band Pass Filter -> Demodulator -> Channel Decoder -> [Source Encoded Block, Erasures?] -> CRC Filter ->
-   -> Source Decoder -> [Metadata, Audio Offset, Keying Events] -> Receiver UI
-
- Receiver UI: [Metadata, Audio Offset, Keying Events] -> Current User Band Pass Filter -> Merged Sound Output -> Audio Out
-                                  |
-                                  |
-                                  v
-                      Waterfall metadata display
+Channel Detectors time out and are destroyed after 1 minute (configurable) of not receiving anything. This removes the
+metadata they have received from the Waterfall display.
 
 
+Channel Detector: [Spectrum, Audio Offset of Costas Array] -> Narrow Band Pass Filter -> Demodulator -> Channel Decoder -> [Source Encoded Block, Erasures?] -> CRC Filter ->
+  -> Source Decoder -> [Metadata, Audio Offset, Keying Events] -> Receiver UI
+
+Receiver UI: [Metadata, Audio Offset, Keying Events] -> Current User Band Pass Filter -> Merged Sound Output -> Audio Out
+                                 |
+                                 |
+                                 v
+                     Waterfall metadata display
 
 
- Source Encoder Frames and Block Size
- ------------------------------------
- The source encoder receives a stream of
- keying data, and must encode this into a compressed stream of encoded frames, which are concatenated
- to form a block, which has a fixed size. If an incoming encoded frame would overflow the size of the
- current block, the block is instead padded out to its maximum size, and emitted. The incoming encoded
- frame then becomes the first frame of the new block. (It is pushed onto a stack of frames to emit)
-
- Not holding back a block if the user pauses keying
- --------------------------------------------------
- If the stream of keying events 'dries up' without a keying end event, the block should be padded
- and emitted.
- This would also happen on receipt of a keying end event.
-
- Adding metadata into the source encoder frame stream
- ----------------------------------------------------
- The keying stream would be split and connected to:
- * a CQ detector (whose output is connected to the source encoder)
- * the source encoder
- The source encoder receives the keying stream, but when CQ is detected, it resets a state machine
- that includes the callsign metadata as a source encoder frame in the current block (by pushing it
- onto the stack of frames to emit). [this stack mechanism might cause the next metadata frame, the
- location, to be added to the same frame as the callsign]. the state machine will queue up the three
- metadata frames (callsign, locator, power) to be encoded in the next three blocks. If CQ is asserted
- when the state machine is not idle, it is ignored - if the user sends many CQs that overflow a block
- then the first block emitted would contain the callsign and some CQ keying; the second block would
- include the location and some CQ keying; the third block would include the power and some CQ keying.
- If they're still CQing when the state machine goes idle, the fourth block could include the callsign
- again.
-
- The source encoder also has a timer that queues the callsign metadata periodically even if there is
- no CQ detected; this is to comply with license regulations that state stations must periodically
- identify themselves. This does not trigger the three frames, just the callsign; a block will only
- contain one instance of the three frames: it could not contain two callsigns for example.
-
- If the user isn't keying, but leaves the station alone for a while, should this timer automatically
- generate a single callsign metadata frame, padded to the block size, and emit it for channel
- encoding and transmission? Or should this only happen during active operation?
-
- Additional metadata frames
- --------------------------
- Every block contains a WPM and start-of-keying polarity frame, emitted prior to the first keying
- event.
-
- Cyclic Redundancy Check
- -----------------------
- Upon emitting a block, a suitable CRC is appended. The strength of this would be chosen to be
- efficient but capable of detecting a decent proportion of decode errors. What is 'good enough'?
- What are the trade-offs? To be investigated.
-
- Source Encoder Frame Types
- --------------------------
- 0. WPM/Polarity - add on first keying event of a new block.
- 1. Callsign
- 2. Location
- 3. Power
- 4. Keying - is start / stop needed?
- 5. Padding
- 6. (unused A)
- 7. Extension
- This suggests 3 bits to encode the frame type would be sufficient. If the all-ones Extension type is found, this would
- then be followed by a further 3 bits - which could also be an Extension. Leading to:
- Second frame types:
- 0. (unused B)
- 1. (unused C)
- 2. (unused D)
- 3. (unused E)
- 4. (unused F)
- 5. (unused G)
- 6. (unused H)
- 7. Extension 2
- Third frame types:
- 0. (unused I)
- 1. (unused J)
- 2. (unused K)
- 3. (unused L)
- 4. (unused M)
- 5. (unused N)
- 6. (unused O)
- 7. Extension 3
- etc., etc. We'd have to cut this off sometime.... could be a denial of service / abused? And how would it work from a
- forwards-compatibility perspective, as each frame type has a fixed length; how would an old client know how long a
- received frame with an unused frame tag would be? Unless we also encode the frame length, or define an end of frame
- marker or escaping mechanism
 
 
- Keying Frames
- -------------
- Timing of each dit/dah/gap is given in milliseconds, as sent via the keyer. What range of ms might we see if we allow
- the range 5-40WPM (cf Yaesu transceivers allow 5-60WPM). Perhaps I should increase the upper bound? (Where did I pick
- 40WPM from?)
+Source Encoder Frames and Block Size
+------------------------------------
+The source encoder receives a stream of keying data, and must encode this into a compressed stream of encoded frames,
+which are concatenated to form a block, which has a fixed size. If an incoming encoded frame would overflow the size of
+the current block, the block is instead padded out to its maximum size, and emitted. The incoming encoded frame then
+becomes the first frame of the new block. (It is pushed onto a stack of frames to emit)
 
- http://www.k4icy.com/cw.html gives an overview of timing, incl. PARIS as the standard 'word' of 50 units in length that
- can be divided into one minute to give the WPM rate. Other lengths: dit=1 unit, dah=3 units, pause between elements=1
- unit, pause between letters=3 units, pause between words=7 units. PARIS includes a pause between words at the end.
+Not holding back a block if the user pauses keying
+--------------------------------------------------
 
- So at 20WPM, that's 20x50=1,000 units in 1 minute. 1 minute = 60,000ms. So 60,000/1,000 = 60ms for each unit.
+If the stream of keying events 'dries up' without a keying end event, the block should be padded and emitted. This
+would also happen on receipt of a keying end event.
+
+Adding metadata into the source encoder frame stream
+----------------------------------------------------
+The keying stream would be split and connected to:
+* a CQ detector (whose output is connected to the source encoder)
+* the source encoder
+
+The source encoder receives the keying stream, but when CQ is detected, it resets a state machine that includes the
+callsign metadata as a source encoder frame in the current block (by pushing it onto the stack of frames to emit). [this
+stack mechanism might cause the next metadata frame, the location, to be added to the same frame as the callsign]. the
+state machine will queue up the three metadata frames (callsign, locator, power) to be encoded in the next three blocks.
+If CQ is asserted when the state machine is not idle, it is ignored - if the user sends many CQs that overflow a block
+then the first block emitted would contain the callsign and some CQ keying; the second block would include the location
+and some CQ keying; the third block would include the power and some CQ keying. If they're still CQing when the state
+machine goes idle, the fourth block could include the callsign again.
+
+The source encoder also has a timer that queues the callsign metadata periodically even if there is no CQ detected; this
+is to comply with license regulations that state stations must periodically identify themselves. This does not trigger
+the three frames, just the callsign; a block will only contain one instance of the three frames: it could not contain
+two callsigns for example.
+
+If the user isn't keying, but leaves the station alone for a while, should this timer automatically generate a single
+callsign metadata frame, padded to the block size, and emit it for channel encoding and transmission? Or should this
+only happen during active operation?
+
+Additional metadata frames
+--------------------------
+Every block contains a WPM and start-of-keying polarity frame, emitted prior to the first keying event.
+
+Cyclic Redundancy Check
+-----------------------
+Upon emitting a block, a suitable CRC is appended. The strength of this would be chosen to be efficient but capable of
+detecting a decent proportion of decode errors. What is 'good enough'? What are the trade-offs? To be investigated.
+
+Source Encoder Frame Types
+--------------------------
+0. WPM/Polarity - add on first keying event of a new block.
+1. Callsign
+2. Location
+3. Power
+4. Keying - is start / stop needed?
+5. Padding
+6. (unused A)
+7. Extension
+This suggests 3 bits to encode the frame type would be sufficient. If the all-ones Extension type is found, this would
+then be followed by a further 3 bits - which could also be an Extension. Leading to:
+Second frame types:
+0. (unused B)
+1. (unused C)
+2. (unused D)
+3. (unused E)
+4. (unused F)
+5. (unused G)
+6. (unused H)
+7. Extension 2
+Third frame types:
+0. (unused I)
+1. (unused J)
+2. (unused K)
+3. (unused L)
+4. (unused M)
+5. (unused N)
+6. (unused O)
+7. Extension 3
+etc., etc. We'd have to cut this off sometime.... could be a denial of service / abused? And how would it work from a
+forwards-compatibility perspective, as each frame type has a fixed length; how would an old client know how long a
+received frame with an unused frame tag would be? Unless we also encode the frame length, or define an end of frame
+marker or escaping mechanism
+
+
+Keying Frames
+-------------
+Timing of each dit/dah/gap is given in milliseconds, as sent via the keyer. What range of ms might we see if we allow
+the range 5-40WPM (cf Yaesu transceivers allow 5-60WPM). Perhaps I should increase the upper bound? (Where did I pick
+40WPM from?)
+
+http://www.k4icy.com/cw.html gives an overview of timing, incl. PARIS as the standard 'word' of 50 units in length that
+can be divided into one minute to give the WPM rate. Other lengths: dit=1 unit, dah=3 units, pause between elements=1
+unit, pause between letters=3 units, pause between words=7 units. PARIS includes a pause between words at the end.
+
+So at 20WPM, that's 20x50=1,000 units in 1 minute. 1 minute = 60,000ms. So 60,000/1,000 = 60ms for each unit.
