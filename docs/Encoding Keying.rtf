@@ -1,0 +1,25 @@
+{\rtf1\ansi\ansicpg1252\cocoartf2513
+\cocoatextscaling0\cocoaplatform0{\fonttbl\f0\fnil\fcharset0 OpenSans;}
+{\colortbl;\red255\green255\blue255;}
+{\*\expandedcolortbl;;}
+\pard\tx560\tx1120\tx1680\tx2240\tx2800\tx3360\tx3920\tx4480\tx5040\tx5600\tx6160\tx6720\partightenfactor0
+
+\f0\fs24 \cf0 There are three Morse elements: the dit takes 1 unit; the dah 3; the pause between elements is 1 unit, pause between letters is 3 units, pause between words is 7 units. So the elements require 1, 3 and 7 units\
+At 20WPM, each dit is 60ms, each dah is 180ms. A word gap is 420ms.\
+\
+I\'92m supporting a range of 5 to 60WPM.\
+At 5WPM, that\'92s 240ms, 720ms and 1680ms.\
+At 60WPM, that\'92s 20ms, 60ms and 140ms.\
+So the range is just under 20ms to just over 1680ms.\
+\
+If we expand the range to 10..1690ms, then subtract the lower bound, that\'92s 0\'851690. 1690 as a binary number is 11010011010 - requiring 11 bits.\
+(This could encode a decimal number up to 2047)\
+11 bits even for a single dit is clearly a waste; Claude Shannon would not be impressed. This stream of timing information samples must be compressed, requiring a scheme that packs it tightly, requiring few bits to encode each sample.\
+\
+In the Digimorse application, the user will choose their keying rate in WPM, and in future versions of the software, the actual keying rate will be determined and shown to the user. Assuming that they may not be keying perfectly - ie at 20WPM, not sending dits, dahs and word gaps precisely as  60ms, 180ms and 420ms - we could encode each sample as a delta, ie how far \'91off\'92 any of these three durations they are. A slow dit of 65ms would be encoded as dit+5. A fast dah of 140ms would be encoded as dah-40. A perfect word break of 420ms would be encoded as word+0. Note that the \'92dit\'92, \'91dah\'92 and \'91word\'92 in these encodings does not record what they actually sent, it\'92s just a way of compactly representing which order of duration this specific keying is closest to. They may send a very elongated dah of 300ms, which could be encoded as dah+120 or word-80. Using a fixed-length encoding of these deltas, 80 is 1010000 ie 7 bits; 120 is 1111000, also 7 bits. There would need to be a way of indicating whether this sample is close to a dit, dah or word, and there would also need to be a sign bit. So 2 bits for the type,  since there are three types (00=dit, 01=dah, 10=word, 11=unused), and one sign bit. So that\'92s 2+1+7=9 bits. a 2-bit improvement over the \'91raw\'92 11 bits, but this is still not ideal.\
+\
+We cannot expect our users to send perfect Morse. After some experience, and coaching, their keying durations will be around the three element timings, but not perfect. And we must accommodate users for whom perfect timing is not attainable, or perhaps those for whom injury, ailments, or old age severely affects their keying. Using our hardware keyer and a paddle will provide an element of precision but we must accommodate the range of timings given above, and therefore devise an optimal encoding.\
+\
+Considering that in the optimal case, durations will be around the three element timings, and given that from an information theory perspective, these timings should be encoded using the most compact encoding, it seems clear that a variable length numeric encoding of the duration would serve this purpose best. A duration very close to an element would encode in the most compact manner; a duration a little way off would require more, etc. This does disadvantage those for whom near-perfect timings are unattainable. However, it may be possible to encode such timings using multiple encodings, which may require fewer bits than a long, single, variable length encoding.\
+\
+}
