@@ -3,7 +3,7 @@ extern crate clap;
 
 use clap::{App, Arg, ArgMatches};
 use fltk::{app, prelude::*, window::Window};
-use log::{debug, error, info};
+use log::{debug, error, info, warn};
 
 use std::path::{PathBuf, Path};
 use std::fs;
@@ -17,8 +17,11 @@ use digimorse::libs::config_dir::config_dir;
 use digimorse::libs::keyer_io::arduino_keyer_io::ArduinoKeyer;
 use digimorse::libs::keyer_io::keyer_io::KeyingEvent;
 use digimorse::libs::keyer_io::keyer_io::KeyerSpeed;
-use digimorse::libs::serial_io::serial_io::DefaultSerialIO;
+use digimorse::libs::serial_io::serial_io::{DefaultSerialIO, SerialIO};
 use digimorse::libs::source_encoder::source_encoder::DefaultSourceEncoder;
+use digimorse::libs::util::util::printable;
+
+use std::time::Duration;
 
 const VERSION: &'static str = env!("CARGO_PKG_VERSION");
 
@@ -38,6 +41,7 @@ arg_enum! {
     #[derive(Debug, Clone, PartialEq)]
     enum Mode {
         GUI,
+        SerialDiag,
         KeyerDiag,
         SourceEncoderDiag
     }
@@ -79,12 +83,44 @@ fn run(arguments: ArgMatches, mode: Mode) -> Result<i32, Box<dyn Error>> {
     info!("Configuration path is [{:?}]", config_path);
 
     // TODO get port from the configuration file
-    let port = "/dev/tty.usbserial-1410".to_string();
+    let port = "/dev/tty.usbserial-1420".to_string();
     info!("Initialising serial port at {}", port);
-    let serial_io = DefaultSerialIO::new(port)?;
+    let mut serial_io = DefaultSerialIO::new(port)?;
+    if (mode == Mode::SerialDiag) {
+        loop {
+            let mut read_buf: [u8; 1] = [0];
+            let read_bytes = serial_io.read(&mut read_buf);
+            match read_bytes {
+                Ok(1) => {
+                    info!("read {}", printable(read_buf[0]));
+                }
+                Ok(n) => {
+                    warn!("In build loop, received {} bytes, but should be only 1?!", n);
+                }
+                Err(_) => {
+                    // Be silent when there's nothing incoming..
+                }
+            }
+        }
+    }
+
     info!("Initialising keyer...");
     let (keying_event_tx, keying_event_rx): (Sender<KeyingEvent>, Receiver<KeyingEvent>) = mpsc::channel();
     let mut keyer = ArduinoKeyer::new(Box::new(serial_io), keying_event_tx);
+    if (mode == Mode::KeyerDiag) {
+        loop {
+            let result = keying_event_rx.recv_timeout(Duration::from_millis(250));
+            match result {
+                Ok(keying_event) => {
+                    info!("Keying Event {}", keying_event);
+                }
+                Err(err) => {
+                    // be quiet, it's ok..
+                }
+            }
+        }
+    }
+
     info!("Initialising source encoder...");
     // TODO get WPM from the configuration file
     // TODO ARCHITECTURE need a backbone/application to which various subsystems/implementations or
@@ -92,7 +128,9 @@ fn run(arguments: ArgMatches, mode: Mode) -> Result<i32, Box<dyn Error>> {
     // changed by the preferences dialog, etc.)
     let keyer_speed: KeyerSpeed = 20;
     let mut source_encoder = DefaultSourceEncoder::new(keying_event_rx);
+    if (mode == Mode::SourceEncoderDiag) {
 
+    }
 
     //Ok(0)
     Err("message goes here".into())

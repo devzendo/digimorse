@@ -34,14 +34,14 @@ pub type KeyerEdgeDurationMs = u16; // 20ms is 60WPM dit, 720ms is 5WPM dah
 
 impl Display for KeyingTimedEvent {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        let c = if self.up { '-' } else { '+' };
+        let c = if self.up { '^' } else { 'v' };
         write!(f, "TIMED {} {}", c, self.duration)
     }
 }
 
 impl Debug for KeyingTimedEvent {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        let c = if self.up { '-' } else { '+' };
+        let c = if self.up { '^' } else { 'v' };
         write!(f, "TIMED {} {}", c, self.duration)
     }
 }

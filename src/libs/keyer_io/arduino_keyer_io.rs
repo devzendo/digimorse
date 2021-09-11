@@ -1,6 +1,6 @@
 use log::{warn, debug};
 
-use crate::libs::keyer_io::arduino_keyer_io::KeyerState::{Initial, ResponseGotGt, ResponseGotSpc, ResponseFinish, KeyingDurationGetLSB, KeyingDurationGetMSB};
+use crate::libs::keyer_io::arduino_keyer_io::KeyerState::{Initial, ResponseGotGt, ResponseGotSpc, ResponseFinish, KeyingDurationGetLSB, KeyingDurationGetMSB, WaitForEndOfComment};
 use crate::libs::keyer_io::keyer_io::{Keyer, KeyerPolarity, KeyerMode, KeyingEvent, KeyerEdgeDurationMs, KeyingTimedEvent};
 use crate::libs::serial_io::serial_io::SerialIO;
 use crate::libs::util::util::printable;
@@ -91,7 +91,8 @@ impl Keyer for ArduinoKeyer {
 pub enum KeyerState {
     Initial,
     KeyingDurationGetLSB, KeyingDurationGetMSB,
-    ResponseGotGt, ResponseGotSpc, ResponseFinish
+    ResponseGotGt, ResponseGotSpc, ResponseFinish,
+    WaitForEndOfComment
 }
 
 struct ArduinoKeyerThread {
@@ -176,6 +177,10 @@ impl ArduinoKeyerThread {
                         KeyerState::ResponseFinish => {
                             self.response_finish(read_buf[0])
                         }
+                        KeyerState::WaitForEndOfComment => {
+                            self.wait_for_end_of_comment(read_buf[0])
+                        }
+
                     };
                     debug!("return from state routines: {:?}", next);
                 }
@@ -183,7 +188,9 @@ impl ArduinoKeyerThread {
                     warn!("In build loop, received {} bytes, but should be only 1?!", n);
                 }
                 Err(e) => {
-                    warn!("Error in build loop: {}", e);
+                    // Be silent when there's nothing incoming..
+                    //warn!("Error in build loop: {}", e);
+
                     // With fake serial, there's no read timeout, so this is returned when the
                     // test data is exhausted and causes a busy loop.
                 }
@@ -214,6 +221,10 @@ impl ArduinoKeyerThread {
 
     fn initial(&mut self, ch: u8) -> Option<Result<String, String>> {
         match ch {
+            b'#' => {
+                self.read_text.clear();
+                self.set_state(WaitForEndOfComment);
+            }
             b'>' => {
                 self.read_text.clear();
                 self.set_state(ResponseGotGt);
@@ -305,6 +316,19 @@ impl ArduinoKeyerThread {
             _ => {
                 warn!("Unexpected response data {}", printable(ch));
                 Some(Err(format!("Unexpected response data {}", printable(ch))))
+            }
+        }
+    }
+
+    fn wait_for_end_of_comment(&mut self, ch: u8) -> Option<Result<String, String>> {
+        return match ch {
+            b'\n' => {
+                self.set_state(Initial);
+                None
+            }
+            _ => {
+                debug!("Ignoring comment data {}", printable(ch));
+                None
             }
         }
     }
