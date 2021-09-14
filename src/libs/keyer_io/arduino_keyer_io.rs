@@ -187,7 +187,7 @@ impl ArduinoKeyerThread {
                 Ok(n) => {
                     warn!("In build loop, received {} bytes, but should be only 1?!", n);
                 }
-                Err(e) => {
+                Err(_) => {
                     // Be silent when there's nothing incoming..
                     //warn!("Error in build loop: {}", e);
 
@@ -242,12 +242,12 @@ impl ArduinoKeyerThread {
             b'+' => {
                 self.up = false;
                 self.duration = 0;
-                self.set_state(KeyingDurationGetLSB);
+                self.set_state(KeyingDurationGetMSB);
             }
             b'-' => {
                 self.up = true;
                 self.duration = 0;
-                self.set_state(KeyingDurationGetLSB);
+                self.set_state(KeyingDurationGetMSB);
             }
             _ => {
                 warn!("Unexpected out-of-state data {}", printable(ch));
@@ -257,17 +257,17 @@ impl ArduinoKeyerThread {
     }
 
     fn keying_duration_get_lsb(&mut self, ch: u8) -> Option<Result<String, String>> {
-        self.duration = ch as KeyerEdgeDurationMs;
-        self.set_state(KeyingDurationGetMSB);
-        None
-    }
-
-    fn keying_duration_get_msb(&mut self, ch: u8) -> Option<Result<String, String>> {
-        self.duration |= (ch as KeyerEdgeDurationMs) << 8;
+        self.duration |= (ch as KeyerEdgeDurationMs) & 0x00FF;
         let event = Timed(KeyingTimedEvent { up: self.up, duration: self.duration });
         debug!("Keying: {}", event);
         self.keying_event_tx.send(event).unwrap();
         self.set_state(Initial);
+        None
+    }
+
+    fn keying_duration_get_msb(&mut self, ch: u8) -> Option<Result<String, String>> {
+        self.duration = ((ch as KeyerEdgeDurationMs) << 8) & 0xFF00;
+        self.set_state(KeyingDurationGetLSB);
         None
     }
 

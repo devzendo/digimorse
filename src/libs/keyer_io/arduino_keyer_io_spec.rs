@@ -115,41 +115,41 @@ mod arduino_keyer_io_spec {
         let keyer_will_receive = vec![
             START,     // start of keying
 
-            PL, 10, 0, // P
-            MI, 10, 0,
-            PL, 30, 0,
-            MI, 10, 0,
-            PL, 30, 0,
-            MI, 10, 0,
-            PL, 10, 0,
+            PL, 0, 10, // P
+            MI, 0, 10,
+            PL, 0, 30,
+            MI, 0, 10,
+            PL, 0, 30,
+            MI, 0, 10,
+            PL, 0, 10,
 
-            MI, 30, 0, // pause between letters
-
-            PL, 10, 0, // A
-            MI, 10, 0,
-            PL, 30, 0,
-
-            MI, 30, 0, // pause between letters
-
-            PL, 10, 0, // R
-            MI, 10, 0,
-            PL, 30, 0,
-            MI, 10, 0,
-            PL, 10, 0,
-
-            MI, 30, 0, // pause between letters
-
-            PL, 10, 0, // I
-            MI, 10, 0,
-            PL, 10, 0,
-
-            MI, 30, 0, // pause between letters
-
-            PL, 10, 0, // S
-            MI, 10, 0,
-            PL, 10, 0,
-            MI, 10, 0,
-            PL, 10, 0,
+            MI, 0, 30, // pause between letters
+   
+            PL, 0, 10, // A
+            MI, 0, 10,
+            PL, 0, 30,
+   
+            MI, 0, 30, // pause between letters
+   
+            PL, 0, 10, // R
+            MI, 0, 10,
+            PL, 0, 30,
+            MI, 0, 10,
+            PL, 0, 10,
+   
+            MI, 0, 30, // pause between letters
+   
+            PL, 0, 10, // I
+            MI, 0, 10,
+            PL, 0, 10,
+   
+            MI, 0, 30, // pause between letters
+   
+            PL, 0, 10, // S
+            MI, 0, 10,
+            PL, 0, 10,
+            MI, 0, 10,
+            PL, 0, 10,
 
             END,       // end of keying
         ];
