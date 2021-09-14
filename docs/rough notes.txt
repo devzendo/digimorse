@@ -30,6 +30,59 @@ Receiver UI: [Metadata, Audio Offset, Keying Events] -> Current User Band Pass F
                      Waterfall metadata display
 
 
+Source Decoders are configured with their audio offset, and are given incoming, checksum-correct blocks of metadata and
+keying events upon correct decoding by the channel decoder. Each channel detector can be marked by the UI as being in or
+out of the overall bandpass filter. All channel detectors that are in the filter bandpass use their incoming keying
+frames to reconstruct their keying sequence, which is used in a real-time-loop to control their amplitude. The audio
+callback will iterate over all in-bandpass channel detectors' tone generators with the following algorithm:
+
+// Add together all the active waveforms.
+let sample = 0;
+for generator in in_bandpass_set:
+  let this_sample = generator.sinewave[generator.waveindex];
+  // generator.sinewave lookup table constructed for each generator when
+  // it is instantiated. the frequency of the lookup table is based on the audio offset of the detected signal.
+  generator.waveindex ++;
+  generator.waveindex %= generator.sinewave.length() // loop round the sinewave
+
+  sample += this_sample * generator.amplitude // generator.amplitude is varied by processing the reconstructed keying sequence
+sample /= in_bandpass_set.length();
+output sample to buffer
+
+There will always be at least one generator in the in_bandpass_set: the sidetone generator for the keyer. This is
+different to channel decoders, as it receives a real-time stream of keying events from the keyer. Its amplitudes is
+adjusted now, in real-time - no reconstruction required.
+
+
+The reconstruction of the real-time keying for each channel decoder could be done by inserting
+[decoder index, actual time of event, event type]...[..] into a priority heap, and pulling from this with reads that block until the
+event occurs. e.g. given the following events for decoder index 0 (sidetone generator):
+
+[0, now, START]
+[0, 1000, UP] // dah
+[0, 330, DOWN] // _
+[0, 330, UP] // dit
+[0, 330, DOWN] // _
+[0, 1000, UP] // dah
+[0, 2000, END] // maybe we get this instead of the last UP?
+We would enqueue amplitude changes to be scheduled at:
+(now, 1000, 1330, 1660, 1990, 2990, 4990?)
+We decode the whole of the above block in one go, so can reconstruct easily.
+What about keying that straddles multiple blocks? We have to filter out metadata and assume the keying continues
+directly.
+If a block fails to decode, we have to assume the end of keying; subsequent blocks start with sufficient information
+to inform the generator what to do.
+
+Any channel detectors that are removed due to timeout would have all entries for their decoder-index removed from the
+priority heap.
+
+The above sampling callback algorithm could also be responsible for adjusting the amplitude; the reconstruction
+playback scheduler would set a variable in each generator to indicate the change required in the amplitude:
+RISING, FALLING, STEADY. When RISING, the generator.amplitude is increased by some increment that generates a smooth
+output waveform without key clicks. When it reaches its maximum, the variable would be set to STEADY. Similarly
+when the scheduler sets it to FALLING, the generator amplitude will be decreased to minimum at which point the
+callback sets it to STEADY.
+
 
 
 Source Encoder Frames and Block Size
