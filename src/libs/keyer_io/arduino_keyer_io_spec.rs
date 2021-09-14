@@ -220,4 +220,43 @@ mod arduino_keyer_io_spec {
         assert_eq!(received_keying_events[28], KeyingEvent::End());
     }
 
+    #[test]
+    fn ignore_comment() {
+        const START: u8 = 0x53;
+        let keyer_will_receive = vec![
+            0x23,     // #
+            0x31,     // 1
+            0x32,     // 2
+            0x0A,     // /n
+            START,     // start of keying
+        ];
+        let expected_keying_event_count = 1;
+
+        let (recording_tx, _recording_rx): (Sender<u8>, Receiver<u8>) = mpsc::channel();
+        let (keying_event_tx, keying_event_rx): (Sender<KeyingEvent>, Receiver<KeyingEvent>) = mpsc::channel();
+
+        let serial_io = FakeSerialIO::new(keyer_will_receive, recording_tx);
+        let _keyer = ArduinoKeyer::new(Box::new(serial_io), keying_event_tx);
+
+        info!("In wait loop for keying...");
+        let mut received_keying_events: Vec<KeyingEvent> = vec!();
+        loop {
+            let result = keying_event_rx.recv_timeout(Duration::from_millis(250));
+            match result {
+                Ok(keying_event) => {
+                    info!("Keying Event {}", keying_event);
+                    received_keying_events.push(keying_event);
+                }
+                Err(err) => {
+                    info!("timeout reading keying events channel {}", err);
+                    break
+                }
+            }
+        }
+        info!("Out of keying wait loop");
+        assert_eq!(received_keying_events.len(), expected_keying_event_count);
+
+        assert_eq!(received_keying_events[0], KeyingEvent::Start());
+    }
+
 }
