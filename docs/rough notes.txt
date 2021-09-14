@@ -125,3 +125,4 @@ can be divided into one minute to give the WPM rate. Other lengths: dit=1 unit, 
 unit, pause between letters=3 units, pause between words=7 units. PARIS includes a pause between words at the end.
 
 So at 20WPM, that's 20x50=1,000 units in 1 minute. 1 minute = 60,000ms. So 60,000/1,000 = 60ms for each unit.
+See Appendix A of "The Digimorse Communications Protocol".
