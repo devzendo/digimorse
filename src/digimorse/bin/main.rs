@@ -1,9 +1,11 @@
 #[macro_use]
 extern crate clap;
+extern crate portaudio;
 
 use clap::{App, Arg, ArgMatches};
 use fltk::{app, prelude::*, window::Window};
 use log::{debug, error, info, warn};
+use portaudio as pa;
 
 use std::path::{PathBuf, Path};
 use std::fs;
@@ -22,6 +24,7 @@ use digimorse::libs::source_encoder::source_encoder::DefaultSourceEncoder;
 use digimorse::libs::util::util::printable;
 
 use std::time::Duration;
+use portaudio::PortAudio;
 
 const VERSION: &'static str = env!("CARGO_PKG_VERSION");
 
@@ -37,10 +40,14 @@ const KEYER_VALUE_NAME: &str = "Serial character device";
 
 // TODO Not sure what a suitable port name for Linux would be
 
+const INTERLEAVED: bool = true;
+const LATENCY: pa::Time = 0.0; // Ignored by PortAudio::is_*_format_supported.
+
 arg_enum! {
     #[derive(Debug, Clone, PartialEq)]
     enum Mode {
         GUI,
+        ListAudioDevices,
         SerialDiag,
         KeyerDiag,
         SourceEncoderDiag
@@ -80,7 +87,13 @@ fn initialise_logging() {
 fn run(arguments: ArgMatches, mode: Mode) -> Result<i32, Box<dyn Error>> {
     let home_dir = dirs::home_dir();
     let config_path = config_dir::configuration_directory(home_dir)?;
-    info!("Configuration path is [{:?}]", config_path);
+    debug!("Configuration path is [{:?}]", config_path);
+
+    let pa = pa::PortAudio::new()?;
+    if mode == Mode::ListAudioDevices {
+        list_audio_devices(&pa)?;
+        return Ok(0)
+    }
 
     // TODO get port from the configuration file
     let port = "/dev/tty.usbserial-1420".to_string();
@@ -134,6 +147,36 @@ fn run(arguments: ArgMatches, mode: Mode) -> Result<i32, Box<dyn Error>> {
 
     //Ok(0)
     Err("message goes here".into())
+}
+
+/* Bill Somerville on the WSJT-X mailing list says, on sample rates:
+   "WSJT-X requests a 48 kHz 16-bit audio stream for input and it generates output in the same
+   format. The reason we suggest you use 48 kHz as the default sample rate is because operating
+   system re-sampling is prone to audio artefacts that can degrade the receive audio performance.
+   We actually re-sample in WSJT-X down to 12 kHz before the DSP processing which gives us a
+   bandwidth of up to 6 kHz, the down sampling in WSJT-X uses a high quality algorithm but it is
+   always better to do integral factor re-sampling so an input sample rate that is an exact power
+   of two of the requested rate is most efficient."
+ */
+fn list_audio_devices(pa: &PortAudio) -> Result<i32, Box<dyn Error>> {
+    let num_devices = pa.device_count()?;
+    info!("Number of audio devices = {}", num_devices);
+
+    for device in pa.devices()? {
+        let (idx, info) = device?;
+
+        let in_channels = info.max_input_channels;
+        let input_params = pa::StreamParameters::<i16>::new(idx, in_channels, INTERLEAVED, LATENCY);
+        let out_channels = info.max_output_channels;
+        let output_params =
+            pa::StreamParameters::<i16>::new(idx, out_channels, INTERLEAVED, LATENCY);
+        let in_48k_supported = pa.is_input_format_supported(input_params, 48000.0).is_ok();
+        let out_48k_supported = pa.is_output_format_supported(output_params, 48000.0).is_ok();
+        let support_48k = if (in_channels > 0 && in_48k_supported) || (out_channels > 0 && out_48k_supported) { "48000Hz supported" } else { "48000Hz not supported" };
+        info!("{:?}: {:?} / IN:{} OUT:{} @ {}Hz default; {}", idx.0, info.name, info.max_input_channels,
+            info.max_output_channels, info.default_sample_rate, support_48k);
+    }
+    Ok(0)
 }
 
 fn main() {
