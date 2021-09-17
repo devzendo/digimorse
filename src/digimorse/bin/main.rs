@@ -39,7 +39,6 @@ const KEYER_HELP: &str = "Sets the port that the Digimorse Arduino Keyer is conn
 #[cfg(not(windows))]
 const KEYER_VALUE_NAME: &str = "serial character device";
 
-// TODO Not sure what a suitable port name for Linux would be
 const KEYER_PORT_DEVICE: &'static str = "keyer-port-device";
 const AUDIO_OUT_DEVICE: &'static str = "audio-out-device";
 const RIG_OUT_DEVICE: &'static str = "rig-out-device";
@@ -121,16 +120,17 @@ fn run(arguments: ArgMatches, mode: Mode) -> Result<i32, Box<dyn Error>> {
     // still valid.
     configure_audio_and_keyer_devices(&arguments, &mut config, &pa)?;
 
-    // Examine configured audio devices (may be repeating checks just made if they're being set, or
-    // checking what was previously configured).
+    // Examine configured audio and keyer devices (may be repeating checks just made if they're
+    // being set, or checking what was previously configured).
     check_audio_devices(&mut config, &pa)?;
-
     check_keyer_device(&mut config)?;
 
     let port_string = config.get_port();
     let port = port_string.as_str();
+
     info!("Initialising serial port at {}", port);
     let mut serial_io = DefaultSerialIO::new(port.to_string())?;
+
     if mode == Mode::SerialDiag {
         serial_diag(&mut serial_io)?;
         return Ok(0)
@@ -139,18 +139,9 @@ fn run(arguments: ArgMatches, mode: Mode) -> Result<i32, Box<dyn Error>> {
     info!("Initialising keyer...");
     let (keying_event_tx, keying_event_rx): (Sender<KeyingEvent>, Receiver<KeyingEvent>) = mpsc::channel();
     let mut keyer = ArduinoKeyer::new(Box::new(serial_io), keying_event_tx);
+
     if mode == Mode::KeyerDiag {
-        loop {
-            let result = keying_event_rx.recv_timeout(Duration::from_millis(250));
-            match result {
-                Ok(keying_event) => {
-                    info!("Keying Event {}", keying_event);
-                }
-                Err(_) => {
-                    // be quiet, it's ok..
-                }
-            }
-        }
+        keyer_diag(&keying_event_rx)?;
     }
 
     info!("Initialising source encoder...");
@@ -303,25 +294,6 @@ fn check_keyer_device(config: &mut ConfigurationStore) -> Result<(), Box<dyn Err
 }
 
 
-fn serial_diag(serial_io: &mut DefaultSerialIO) -> Result<i32, Box<dyn Error>> {
-    loop {
-        let mut read_buf: [u8; 1] = [0];
-        let read_bytes = serial_io.read(&mut read_buf);
-        match read_bytes {
-            Ok(1) => {
-                info!("read {}", printable(read_buf[0]));
-            }
-            Ok(n) => {
-                warn!("In build loop, received {} bytes, but should be only 1?!", n);
-            }
-            Err(_) => {
-                // Be silent when there's nothing incoming..
-            }
-        }
-    }
-
-}
-
 /* Bill Somerville on the WSJT-X mailing list says, on sample rates:
    "WSJT-X requests a 48 kHz 16-bit audio stream for input and it generates output in the same
    format. The reason we suggest you use 48 kHz as the default sample rate is because operating
@@ -385,6 +357,39 @@ fn input_audio_device_exists(pa: &PortAudio, dev_name: &str) -> Result<bool, Box
 fn port_exists(dev_name: &str) -> Result<bool, Box<dyn Error>> {
     // Might have to do something funky on Windows to check whether COMx: exists? Would this suffice?
     Ok(std::path::Path::new(dev_name).exists())
+}
+
+fn serial_diag(serial_io: &mut DefaultSerialIO) -> Result<(), Box<dyn Error>> {
+    loop {
+        let mut read_buf: [u8; 1] = [0];
+        let read_bytes = serial_io.read(&mut read_buf);
+        match read_bytes {
+            Ok(1) => {
+                info!("read {}", printable(read_buf[0]));
+            }
+            Ok(n) => {
+                warn!("In build loop, received {} bytes, but should be only 1?!", n);
+            }
+            Err(_) => {
+                // Be silent when there's nothing incoming..
+            }
+        }
+    }
+}
+
+fn keyer_diag(keying_event_rx: &Receiver<KeyingEvent>) -> Result<(), Box<dyn Error>> {
+    loop {
+        let result = keying_event_rx.recv_timeout(Duration::from_millis(250));
+        match result {
+            Ok(keying_event) => {
+                info!("Keying Event {}", keying_event);
+            }
+            Err(_) => {
+                // be quiet, it's ok..
+            }
+        }
+    }
+
 }
 
 fn main() {
