@@ -119,123 +119,16 @@ fn run(arguments: ArgMatches, mode: Mode) -> Result<i32, Box<dyn Error>> {
     // command line that will set the various devices in the configuration file, and then pick the
     // values from config to initialise the system, after checking that these configured values are
     // still valid.
-    let mut set_devices_ok = true;
-
-    // Set any audio devices in the configuration, if present.
-    if arguments.is_present(AUDIO_OUT_DEVICE) {
-        let dev = arguments.value_of(AUDIO_OUT_DEVICE).unwrap();
-        let exists = output_audio_device_exists(&pa, dev)?;
-        if exists {
-            info!("Setting audio output device to '{}'", dev);
-            config.set_audio_out_device(dev.to_string())?;
-        } else {
-            warn!("Setting {}: No output audio device named '{}' is present in your system.", AUDIO_OUT_DEVICE, dev);
-            set_devices_ok = false;
-        }
-    }
-    if arguments.is_present(RIG_OUT_DEVICE) {
-        let dev = arguments.value_of(RIG_OUT_DEVICE).unwrap();
-        let exists = output_audio_device_exists(&pa, dev)?;
-        if exists {
-            info!("Setting rig output device to '{}'", dev);
-            config.set_rig_out_device(dev.to_string())?;
-        } else {
-            warn!("Setting {}: No output audio device named '{}' is present in your system.", RIG_OUT_DEVICE, dev);
-            set_devices_ok = false;
-        }
-    }
-    if arguments.is_present(RIG_IN_DEVICE) {
-        let dev = arguments.value_of(RIG_IN_DEVICE).unwrap();
-        let exists = input_audio_device_exists(&pa, dev)?;
-        if exists {
-            info!("Setting audio input device to '{}'", dev);
-            config.set_rig_in_device(dev.to_string())?;
-        } else {
-            warn!("Setting {}: No input audio device named '{}' is present in your system.", RIG_IN_DEVICE, dev);
-            set_devices_ok = false;
-        }
-    }
+    configure_audio_and_keyer_devices(&arguments, &mut config, &pa)?;
 
     // Examine configured audio devices (may be repeating checks just made if they're being set, or
     // checking what was previously configured).
-    {
-        let dev_string = config.get_audio_out_device();
-        let dev = dev_string.as_str();
-        if dev.is_empty() {
-            warn!("No audio output device has been configured; use the -a or --audioout options");
-            set_devices_ok = false;
-        } else {
-            let exists = output_audio_device_exists(&pa, dev)?;
-            if !exists {
-                warn!("Checking {}: No output audio device named '{}' is present in your system.", AUDIO_OUT_DEVICE, dev);
-                set_devices_ok = false;
-            }
-            info!("Audio output device is '{}'", dev);
-        }
-    }
-    {
-        let dev_string = config.get_rig_out_device();
-        let dev = dev_string.as_str();
-        if dev.is_empty() {
-            warn!("No rig output device has been configured; use the -t or --rigaudioout options");
-            set_devices_ok = false;
-        } else {
-            let exists = output_audio_device_exists(&pa, dev)?;
-            if !exists {
-                warn!("Checking {}: No output audio device named '{}' is present in your system.", RIG_OUT_DEVICE, dev);
-                set_devices_ok = false;
-            }
-            info!("Rig output device is '{}'", dev);
-        }
-    }
-    {
-        let dev_string = config.get_rig_in_device();
-        let dev = dev_string.as_str();
-        if dev.is_empty() {
-            warn!("No rig input device has been configured; use the -r or --rigaudioin options");
-            set_devices_ok = false;
-        } else {
-            let exists = input_audio_device_exists(&pa, dev)?;
-            if !exists {
-                warn!("Checking {}: No input audio device named '{}' is present in your system.", RIG_IN_DEVICE, dev);
-                set_devices_ok = false;
-            }
-            info!("Rig input device is '{}'", dev);
-        }
-    }
+    check_audio_devices(&mut config, &pa)?;
 
-
-    // Set the port in the configuration file, if present.
-    if arguments.is_present(KEYER_PORT_DEVICE) {
-        let dev = arguments.value_of(KEYER_PORT_DEVICE).unwrap();
-        let exists = port_exists(dev)?;
-        if exists {
-            info!("Setting keyer serial port device to '{}'", dev);
-            config.set_port(dev.to_string())?;
-        } else {
-            warn!("Setting {}: No keyer serial port device named '{}' is present in your system.", KEYER_PORT_DEVICE, dev);
-            set_devices_ok = false;
-        }
-    }
+    check_keyer_device(&mut config)?;
 
     let port_string = config.get_port();
     let port = port_string.as_str();
-    if port.is_empty() {
-        warn!("No keyer serial port device has been configured; use the -k or --keyer options");
-        set_devices_ok = false;
-    } else {
-        let port_exists = port_exists(port)?;
-        if !port_exists {
-            warn!("Checking {}: No keyer serial port device named '{}' is present in your system.", KEYER_PORT_DEVICE, port);
-            set_devices_ok = false;
-        }
-        info!("Keyer serial port device is '{}'", port);
-    }
-
-    if !set_devices_ok {
-        return Err("Configuration error in devices. To show current audio devices, use the ListAudioDevices mode.".into())
-    }
-
     info!("Initialising serial port at {}", port);
     let mut serial_io = DefaultSerialIO::new(port.to_string())?;
     if mode == Mode::SerialDiag {
@@ -272,6 +165,143 @@ fn run(arguments: ArgMatches, mode: Mode) -> Result<i32, Box<dyn Error>> {
 
     Ok(0)
 }
+
+fn configure_audio_and_keyer_devices(arguments: &ArgMatches, config: &mut ConfigurationStore, pa: &PortAudio) -> Result<(), Box<dyn Error>> {
+    let mut audio_devices_ok = true;
+
+    // Set any audio devices in the configuration, if present.
+    if arguments.is_present(AUDIO_OUT_DEVICE) {
+        let dev = arguments.value_of(AUDIO_OUT_DEVICE).unwrap();
+        let exists = output_audio_device_exists(&pa, dev)?;
+        if exists {
+            info!("Setting audio output device to '{}'", dev);
+            config.set_audio_out_device(dev.to_string())?;
+        } else {
+            warn!("Setting {}: No output audio device named '{}' is present in your system.", AUDIO_OUT_DEVICE, dev);
+            audio_devices_ok = false;
+        }
+    }
+    if arguments.is_present(RIG_OUT_DEVICE) {
+        let dev = arguments.value_of(RIG_OUT_DEVICE).unwrap();
+        let exists = output_audio_device_exists(&pa, dev)?;
+        if exists {
+            info!("Setting rig output device to '{}'", dev);
+            config.set_rig_out_device(dev.to_string())?;
+        } else {
+            warn!("Setting {}: No output audio device named '{}' is present in your system.", RIG_OUT_DEVICE, dev);
+            audio_devices_ok = false;
+        }
+    }
+    if arguments.is_present(RIG_IN_DEVICE) {
+        let dev = arguments.value_of(RIG_IN_DEVICE).unwrap();
+        let exists = input_audio_device_exists(&pa, dev)?;
+        if exists {
+            info!("Setting audio input device to '{}'", dev);
+            config.set_rig_in_device(dev.to_string())?;
+        } else {
+            warn!("Setting {}: No input audio device named '{}' is present in your system.", RIG_IN_DEVICE, dev);
+            audio_devices_ok = false;
+        }
+    }
+
+    if !audio_devices_ok {
+        return Err("Configuration error when setting audio devices. To show current audio devices, use the ListAudioDevices mode.".into())
+    }
+
+    // Set the port in the configuration file, if present.
+    if arguments.is_present(KEYER_PORT_DEVICE) {
+        let dev = arguments.value_of(KEYER_PORT_DEVICE).unwrap();
+        let exists = port_exists(dev)?;
+        if exists {
+            info!("Setting keyer serial port device to '{}'", dev);
+            config.set_port(dev.to_string())?;
+        } else {
+            warn!("Setting {}: No keyer serial port device named '{}' is present in your system.", KEYER_PORT_DEVICE, dev);
+            return Err("Configuration error in keyer device.".into());
+        }
+    }
+
+    Ok(())
+}
+
+fn check_audio_devices(config: &mut ConfigurationStore, pa: &PortAudio) -> Result<(), Box<dyn Error>> {
+    let mut audio_devices_ok = true;
+    {
+        let dev_string = config.get_audio_out_device();
+        let dev = dev_string.as_str();
+        if dev.is_empty() {
+            warn!("No audio output device has been configured; use the -a or --audioout options");
+            audio_devices_ok = false;
+        } else {
+            let exists = output_audio_device_exists(&pa, dev)?;
+            if !exists {
+                warn!("Checking {}: No output audio device named '{}' is present in your system.", AUDIO_OUT_DEVICE, dev);
+                audio_devices_ok = false;
+            }
+            info!("Audio output device is '{}'", dev);
+        }
+    }
+    {
+        let dev_string = config.get_rig_out_device();
+        let dev = dev_string.as_str();
+        if dev.is_empty() {
+            warn!("No rig output device has been configured; use the -t or --rigaudioout options");
+            audio_devices_ok = false;
+        } else {
+            let exists = output_audio_device_exists(&pa, dev)?;
+            if !exists {
+                warn!("Checking {}: No output audio device named '{}' is present in your system.", RIG_OUT_DEVICE, dev);
+                audio_devices_ok = false;
+            }
+            info!("Rig output device is '{}'", dev);
+        }
+    }
+    {
+        let dev_string = config.get_rig_in_device();
+        let dev = dev_string.as_str();
+        if dev.is_empty() {
+            warn!("No rig input device has been configured; use the -r or --rigaudioin options");
+            audio_devices_ok = false;
+        } else {
+            let exists = input_audio_device_exists(&pa, dev)?;
+            if !exists {
+                warn!("Checking {}: No input audio device named '{}' is present in your system.", RIG_IN_DEVICE, dev);
+                audio_devices_ok = false;
+            }
+            info!("Rig input device is '{}'", dev);
+        }
+    }
+
+    if audio_devices_ok {
+        Ok(())
+    } else {
+        Err("Configuration error when checking audio devices. To show current audio devices, use the ListAudioDevices mode.".into())
+    }
+}
+
+fn check_keyer_device(config: &mut ConfigurationStore) -> Result<(), Box<dyn Error>> {
+    let mut keyer_ok = true;
+    let port_string = config.get_port();
+    let port = port_string.as_str();
+    if port.is_empty() {
+        warn!("No keyer serial port device has been configured; use the -k or --keyer options");
+        keyer_ok = false;
+    } else {
+        let port_exists = port_exists(port)?;
+        if !port_exists {
+            warn!("Checking {}: No keyer serial port device named '{}' is present in your system.", KEYER_PORT_DEVICE, port);
+            keyer_ok = false;
+        }
+        info!("Keyer serial port device is '{}'", port);
+    }
+
+    if keyer_ok {
+        Ok(())
+    } else {
+        Err("Configuration error checking keyer device.".into())
+    }
+}
+
 
 fn serial_diag(serial_io: &mut DefaultSerialIO) -> Result<i32, Box<dyn Error>> {
     loop {
