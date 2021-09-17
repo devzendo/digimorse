@@ -37,10 +37,10 @@ const KEYER_VALUE_NAME: &str = "COM port";
 #[cfg(not(windows))]
 const KEYER_HELP: &str = "Sets the port that the Digimorse Arduino Keyer is connected to, e.g. /dev/cu-usbserial-1410";
 #[cfg(not(windows))]
-const KEYER_VALUE_NAME: &str = "Serial character device";
+const KEYER_VALUE_NAME: &str = "serial character device";
 
 // TODO Not sure what a suitable port name for Linux would be
-const KEYER_PORT: &'static str = "keyer";
+const KEYER_PORT_DEVICE: &'static str = "keyer-port-device";
 const AUDIO_OUT_DEVICE: &'static str = "audio-out-device";
 const RIG_OUT_DEVICE: &'static str = "rig-out-device";
 const RIG_IN_DEVICE: &'static str = "rig-in-device";
@@ -68,9 +68,9 @@ fn parse_command_line<'a>() -> (ArgMatches<'a>, Mode) {
 
         .arg(Arg::from_usage("<mode> 'The mode to use, usually GUI.'").possible_values(&Mode::variants()).default_value("GUI"))
 
-        .arg(Arg::with_name("keyerport")
+        .arg(Arg::with_name(KEYER_PORT_DEVICE)
             .short("k")
-            .long(KEYER_PORT)
+            .long("keyer")
             .value_name(KEYER_VALUE_NAME)
             .help(KEYER_HELP)
             .takes_value(true))
@@ -206,14 +206,14 @@ fn run(arguments: ArgMatches, mode: Mode) -> Result<i32, Box<dyn Error>> {
 
 
     // Set the port in the configuration file, if present.
-    if arguments.is_present(KEYER_PORT) {
-        let dev = arguments.value_of(KEYER_PORT).unwrap();
+    if arguments.is_present(KEYER_PORT_DEVICE) {
+        let dev = arguments.value_of(KEYER_PORT_DEVICE).unwrap();
         let exists = port_exists(dev)?;
         if exists {
             info!("Setting keyer serial port device to '{}'", dev);
             config.set_port(dev.to_string())?;
         } else {
-            warn!("Setting {}: No keyer serial port device named '{}' is present in your system.", KEYER_PORT, dev);
+            warn!("Setting {}: No keyer serial port device named '{}' is present in your system.", KEYER_PORT_DEVICE, dev);
             set_devices_ok = false;
         }
     }
@@ -226,7 +226,7 @@ fn run(arguments: ArgMatches, mode: Mode) -> Result<i32, Box<dyn Error>> {
     } else {
         let port_exists = port_exists(port)?;
         if !port_exists {
-            warn!("Checking {}: No keyer serial port device named '{}' is present in your system.", KEYER_PORT, port);
+            warn!("Checking {}: No keyer serial port device named '{}' is present in your system.", KEYER_PORT_DEVICE, port);
             set_devices_ok = false;
         }
         info!("Keyer serial port device is '{}'", port);
