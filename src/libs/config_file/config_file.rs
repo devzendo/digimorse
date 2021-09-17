@@ -11,6 +11,7 @@ use std::fs;
 #[derive(Serialize, Deserialize, Debug)]
 struct Config {
     keyer: Keyer,
+    audio_devices: AudioDevices,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -20,11 +21,23 @@ struct Keyer {
     wpm: usize,
 }
 
+#[derive(Serialize, Deserialize, Debug)]
+struct AudioDevices {
+    audio_out_device: String,
+    rig_out_device: String,
+    rig_in_device: String,
+}
+
 const DEFAULT_CONFIG: Config = Config {
     keyer: Keyer {
         keyer_type: KeyerType::Null,
         port: String::new(),
         wpm: 20,
+    },
+    audio_devices: AudioDevices {
+        audio_out_device: String::new(),
+        rig_out_device: String::new(),
+        rig_in_device: String::new(),
     }
 };
 
@@ -92,6 +105,33 @@ impl ConfigurationStore {
 
     pub fn get_wpm(&self) -> usize {
         self.config.keyer.wpm
+    }
+
+    pub fn set_audio_out_device(&mut self, new_device: String) -> Result<(), String> {
+        self.config.audio_devices.audio_out_device = new_device.clone();
+        self.save()
+    }
+
+    pub fn get_audio_out_device(&self) -> String {
+        self.config.audio_devices.audio_out_device.to_owned()
+    }
+
+    pub fn set_rig_out_device(&mut self, new_device: String) -> Result<(), String> {
+        self.config.audio_devices.rig_out_device = new_device.clone();
+        self.save()
+    }
+
+    pub fn get_rig_out_device(&self) -> String {
+        self.config.audio_devices.rig_out_device.to_owned()
+    }
+
+    pub fn set_rig_in_device(&mut self, new_device: String) -> Result<(), String> {
+        self.config.audio_devices.rig_in_device = new_device.clone();
+        self.save()
+    }
+
+    pub fn get_rig_in_device(&self) -> String {
+        self.config.audio_devices.rig_in_device.to_owned()
     }
 }
 
