@@ -1,3 +1,4 @@
+pub mod audio;
 pub mod config_dir;
 pub mod config_file;
 pub mod keyer_io;
