@@ -122,6 +122,15 @@ If the user isn't keying, but leaves the station alone for a while, should this 
 callsign metadata frame, padded to the block size, and emit it for channel encoding and transmission? Or should this
 only happen during active operation?
 
+Every block that does not contain a callsign must include a callsign hash frame. This is so that receivers can reliably
+detect which Channel Detector incoming frames must be sent to, so that the decoded keying events can be replayed with
+the correct timing/audio offset frequency.
+
+The hash algorithm should significantly compress the callsign to reduce possible collisions between different incoming
+transmissions. Mapping incoming data onto a Channel Detector merely by audio offset frequency alone is insufficient.
+There may be a hash algorithm used in recent WSJT-X for similar purposes - packing identity information into a frame
+where the callsign is special or cannot be compressed using the usual algorithms.
+
 Additional metadata frames
 --------------------------
 Every block contains a WPM and start-of-keying polarity frame, emitted prior to the first keying event.
@@ -139,7 +148,7 @@ Source Encoder Frame Types
 3. Power
 4. Keying - is start / stop needed?
 5. Padding
-6. (unused A)
+6. Callsign hash
 7. Extension
 This suggests 3 bits to encode the frame type would be sufficient. If the all-ones Extension type is found, this would
 then be followed by a further 3 bits - which could also be an Extension. Leading to:
