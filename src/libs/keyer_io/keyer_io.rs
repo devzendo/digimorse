@@ -1,6 +1,6 @@
 use std::fmt::{Display, Formatter, Debug};
 use std::fmt;
-
+use actix::prelude::*;
 use crate::libs::keyer_io::keyer_io::KeyingEvent::{Timed, Start, End};
 use serde_derive::Deserialize;
 use serde_derive::Serialize;
@@ -46,11 +46,21 @@ impl Debug for KeyingTimedEvent {
     }
 }
 
+#[derive(Message)]
+#[rtype(result = "()")]
 #[derive(Clone, PartialEq)]
 pub enum KeyingEvent {
     Timed(KeyingTimedEvent),
     Start(),
     End(),
+}
+
+pub struct KeyingEventReceiver {
+    // This function is responsible for actually handling the KeyingEvent, so that different aspects
+    // of the system can handle it in different ways, whilst maintaining a single Actor type that
+    // handles KeyingEvents.
+    // May need to enhance this fn to receive the Context
+    pub dispatcher: Box<dyn FnMut(KeyingEvent) -> ()>,
 }
 
 impl Display for KeyingEvent {

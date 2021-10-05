@@ -3,30 +3,26 @@ extern crate clap;
 extern crate portaudio;
 
 use clap::{App, Arg, ArgMatches};
-use fltk::{app, prelude::*, window::Window};
+use fltk::{app, prelude::*};
 use log::{debug, error, info, warn};
 use portaudio as pa;
 
-use std::path::{PathBuf, Path};
-use std::fs;
 use std::env;
-use std::any::Any;
 use std::error::Error;
-use std::sync::mpsc::{Sender, Receiver};
-use std::sync::{mpsc, Mutex};
 
 use digimorse::libs::config_dir::config_dir;
 use digimorse::libs::keyer_io::arduino_keyer_io::ArduinoKeyer;
-use digimorse::libs::keyer_io::keyer_io::KeyingEvent;
+use digimorse::libs::keyer_io::keyer_io::{KeyingEvent, KeyingEventReceiver};
 use digimorse::libs::keyer_io::keyer_io::KeyerSpeed;
 use digimorse::libs::serial_io::serial_io::{DefaultSerialIO, SerialIO};
-use digimorse::libs::source_encoder::source_encoder::DefaultSourceEncoder;
+//use digimorse::libs::source_encoder::source_encoder::DefaultSourceEncoder;
 use digimorse::libs::util::util::printable;
 
-use std::time::Duration;
 use portaudio::PortAudio;
 use digimorse::libs::config_file::config_file::ConfigurationStore;
 use digimorse::libs::audio::checks::{list_audio_devices, output_audio_device_exists, input_audio_device_exists};
+use actix::prelude::*;
+use std::borrow::Borrow;
 
 const VERSION: &'static str = env!("CARGO_PKG_VERSION");
 
@@ -105,6 +101,7 @@ fn run(arguments: ArgMatches, mode: Mode) -> Result<i32, Box<dyn Error>> {
     let mut config = ConfigurationStore::new(config_path).unwrap();
     debug!("Configuration file is [{:?}]", config.get_config_file_path());
 
+    info!("Initialising audio...");
     let pa = pa::PortAudio::new()?;
 
     if mode == Mode::ListAudioDevices {
@@ -136,21 +133,37 @@ fn run(arguments: ArgMatches, mode: Mode) -> Result<i32, Box<dyn Error>> {
 
     info!("Initialising audio callback...");
 
+    info!("Initialising actix...");
+    let system = actix::System::new();
+
+    fn info_keying_event(keying_event: KeyingEvent) -> () {
+        info!("Closure Keying Event {}", keying_event);
+    }
+    fn null_keying_event(_keying_event: KeyingEvent) -> () {
+        // noop
+    }
+    let keying_event_receiver: Addr<KeyingEventReceiver>;
+    if mode == Mode::KeyerDiag {
+        keying_event_receiver = KeyingEventReceiver { dispatcher: Box::new(info_keying_event) }.start();
+    } else {
+        keying_event_receiver = KeyingEventReceiver { dispatcher: Box::new(null_keying_event) }.start();
+    }
+    let keying_event_recipient = keying_event_receiver.borrow().recipient();
 
     info!("Initialising keyer...");
-    let (keying_event_tx, keying_event_rx): (Sender<KeyingEvent>, Receiver<KeyingEvent>) = mpsc::channel();
-    let mut keyer = ArduinoKeyer::new(Box::new(serial_io), keying_event_tx);
+    let mut keyer_addr = ArduinoKeyer::new(Box::new(serial_io), keying_event_recipient);
+    // let (keying_event_tx, keying_event_rx): (Sender<KeyingEvent>, Receiver<KeyingEvent>) = mpsc::channel();
+    // let mut keyer = ArduinoKeyer::new(Box::new(serial_io), keying_event_tx);
 
-    if mode == Mode::KeyerDiag {
-        keyer_diag(&keying_event_rx)?;
-    }
+
+    system.run()?;
 
     info!("Initialising source encoder...");
     // TODO ARCHITECTURE need a backbone/application to which various subsystems/implementations or
     // implementations with modified configuration are attached dynamically at runtime (and can be
     // changed by the preferences dialog, etc.)
     let keyer_speed: KeyerSpeed = config.get_wpm() as KeyerSpeed;
-    let mut source_encoder = DefaultSourceEncoder::new(keying_event_rx);
+    //let mut source_encoder = DefaultSourceEncoder::new(keying_event_rx);
 
     if mode == Mode::SourceEncoderDiag {
 
@@ -318,20 +331,7 @@ fn serial_diag(serial_io: &mut DefaultSerialIO) -> Result<(), Box<dyn Error>> {
     }
 }
 
-fn keyer_diag(keying_event_rx: &Receiver<KeyingEvent>) -> Result<(), Box<dyn Error>> {
-    loop {
-        let result = keying_event_rx.recv_timeout(Duration::from_millis(250));
-        match result {
-            Ok(keying_event) => {
-                info!("Keying Event {}", keying_event);
-            }
-            Err(_) => {
-                // be quiet, it's ok..
-            }
-        }
-    }
 
-}
 
 fn main() {
     initialise_logging();

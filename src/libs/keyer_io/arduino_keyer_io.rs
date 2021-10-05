@@ -1,9 +1,10 @@
 use log::{warn, debug};
 
 use crate::libs::keyer_io::arduino_keyer_io::KeyerState::{Initial, ResponseGotGt, ResponseGotSpc, ResponseFinish, KeyingDurationGetLSB, KeyingDurationGetMSB, WaitForEndOfComment};
-use crate::libs::keyer_io::keyer_io::{Keyer, KeyerPolarity, KeyerMode, KeyingEvent, KeyerEdgeDurationMs, KeyingTimedEvent};
+use crate::libs::keyer_io::keyer_io::{Keyer, KeyerPolarity, KeyerMode, KeyerEdgeDurationMs, KeyingTimedEvent, KeyingEvent};
 use crate::libs::serial_io::serial_io::SerialIO;
 use crate::libs::util::util::printable;
+use actix::prelude::*;
 use std::thread;
 use std::thread::JoinHandle;
 use std::sync::mpsc::{Sender, Receiver};
@@ -21,16 +22,17 @@ pub struct ArduinoKeyer {
 }
 
 impl ArduinoKeyer {
-    pub fn new(serial_io: Box<dyn SerialIO>, keying_event_tx: Sender<KeyingEvent>) -> Self {
+    pub fn new(serial_io: Box<dyn SerialIO>, keying_event_recipient: Recipient<KeyingEvent>) -> Self {
         // Channels have two endpoints: the `Sender<T>` and the `Receiver<T>`,
         // where `T` is the type of the message to be transferred
         // (type annotation is superfluous)
         let (command_request_tx, command_request_rx): (Sender<String>, Receiver<String>) = mpsc::channel();
         let (command_response_tx, command_response_rx): (Sender<Result<String, String>>, Receiver<Result<String, String>>) = mpsc::channel();
         let mutex_command_request_tx = Mutex::new(command_request_tx);
-
+        // TODO do we need to spawn this Actor in a SyncArbiter if it creates its own thread? The
+        // Actor will have its own thread...
         let thread_handle = thread::spawn(move || {
-            let mut arduino_keyer_thread = ArduinoKeyerThread::new(serial_io, command_request_rx, command_response_tx, keying_event_tx);
+            let mut arduino_keyer_thread = ArduinoKeyerThread::new(serial_io, command_request_rx, command_response_tx, keying_event_recipient);
             arduino_keyer_thread.thread_runner();
         });
         Self {
@@ -103,8 +105,8 @@ struct ArduinoKeyerThread {
     command_request_rx: Receiver<String>,
     command_response_tx: Sender<Result<String, String>>,
 
-    // Keying channel
-    keying_event_tx: Sender<KeyingEvent>,
+    // Keying event receiver actor
+    keying_event_recipient: Recipient<KeyingEvent>,
 
     // State machine data
     state: KeyerState,
@@ -116,16 +118,16 @@ struct ArduinoKeyerThread {
 
 impl ArduinoKeyerThread {
     fn new(serial_io: Box<dyn SerialIO>,
-        command_request_rx: Receiver<String>,
+           command_request_rx: Receiver<String>,
            command_response_tx: Sender<Result<String, String>>,
-        keying_event_tx: Sender<KeyingEvent>
+           keying_event_recipient: Recipient<KeyingEvent>
     ) -> Self {
         debug!("Constructing ArduinoKeyerThread");
         Self {
             serial_io,
             command_request_rx,
             command_response_tx,
-            keying_event_tx,
+            keying_event_recipient,
             state: Initial,
             up: false,
             duration: 0,
@@ -232,12 +234,20 @@ impl ArduinoKeyerThread {
             b'S' => {
                 let event = Start();
                 debug!("Keying: {}", event);
-                self.keying_event_tx.send(event).unwrap();
+                match self.keying_event_recipient.do_send(event) {
+                    Ok(_) => {}
+                    Err(err) => { warn!("Could not send keying start to recipient: {}", err) }
+                }
+                // TODO use try_send?
             }
             b'E' => {
                 let event = End();
                 debug!("Keying: {}", event);
-                self.keying_event_tx.send(event).unwrap();
+                match self.keying_event_recipient.do_send(event) {
+                    Ok(_) => {}
+                    Err(err) => { warn!("Could not send keying end to recipient: {}", err) }
+                }
+                // TODO use try_send?
             }
             b'+' => {
                 self.up = false;
@@ -259,8 +269,11 @@ impl ArduinoKeyerThread {
     fn keying_duration_get_lsb(&mut self, ch: u8) -> Option<Result<String, String>> {
         self.duration |= (ch as KeyerEdgeDurationMs) & 0x00FF;
         let event = Timed(KeyingTimedEvent { up: self.up, duration: self.duration });
-        debug!("Keying: {}", event);
-        self.keying_event_tx.send(event).unwrap();
+        debug!("Sending Keying: {}", event);
+        match self.keying_event_recipient.try_send(event) {
+            Ok(_) => { debug!("Sent.") }
+            Err(err) => { warn!("Could not send keying duration to recipient: {}", err) }
+        }
         self.set_state(Initial);
         None
     }
