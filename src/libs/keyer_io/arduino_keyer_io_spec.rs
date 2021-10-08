@@ -28,7 +28,7 @@ impl SerialIO for FakeSerialIO {
         for n in 0..buf.len() {
             if self.playback_index == self.playback_chars.len() {
                 // Simulate real serial read timeout with a little sleep here..
-                std::thread::sleep(Duration::from_millis(50));
+                std::thread::sleep(Duration::from_millis(100));
                 warn!("Out of playback data at index {}", self.playback_index);
                 return Err(Error::new(ErrorKind::Other, format!("Out of playback data at index {}", self.playback_index)));
             }
@@ -61,10 +61,11 @@ mod arduino_keyer_io_spec {
     use crate::libs::keyer_io::arduino_keyer_io::ArduinoKeyer;
     use crate::libs::keyer_io::keyer_io::{Keyer, KeyingEvent, KeyingTimedEvent};
     use std::sync::mpsc::{Sender, Receiver};
-    use std::sync::mpsc;
-    use log::info;
+    use std::sync::{Arc, mpsc, RwLock};
+    use log::{debug, info};
     use std::time::Duration;
-    use std::env;
+    use std::{env, thread};
+    use std::thread::JoinHandle;
 
     #[ctor::ctor]
     fn before_each() {
@@ -77,13 +78,62 @@ mod arduino_keyer_io_spec {
 
     }
 
+    struct CapturingKeyingEventReceiver {
+        received_keying_events: Arc<RwLock<Vec<KeyingEvent>>>,
+        thread_handle: Option<JoinHandle<()>>,
+    }
+
+    impl CapturingKeyingEventReceiver {
+        fn new(receiver: Receiver<KeyingEvent>) -> Self {
+            let vec: Vec<KeyingEvent> = vec![];
+            let a_vec = Arc::new(RwLock::new(vec));
+            let thread_a_vec = a_vec.clone();
+            let thread_handle = thread::spawn(move || {
+                debug!("CapturingKeyingEventReceiver starting");
+                loop {
+                    // Any incoming commands?
+                    match receiver.recv_timeout(Duration::from_millis(250)) {
+                        Ok(event) => {
+                            debug!("CapturingKeyingEventReceiver received {}", &event);
+                            thread_a_vec.write().unwrap().push(event);
+                        }
+                        Err(err) => {
+                            // could timeout, or be disconnected?
+                            debug!("CapturingKeyingEventReceiver error: {}", err);
+                            break;
+                        }
+                    }
+                }
+                debug!("CapturingKeyingEventReceiver finished");
+            });
+            Self {
+                received_keying_events: a_vec,
+                thread_handle: Some(thread_handle),
+            }
+        }
+
+        fn get(&self) -> Vec<KeyingEvent> {
+            self.received_keying_events.read().unwrap().clone()
+        }
+    }
+
+    impl Drop for CapturingKeyingEventReceiver {
+        fn drop(&mut self) {
+            debug!("CapturingKeyingEventReceiver joining thread handle...");
+            self.thread_handle.take().map(JoinHandle::join);
+            debug!("CapturingKeyingEventReceiver ...joined thread handle");
+        }
+    }
+
     #[test]
     fn get_version() {
         let keyer_will_send = "v\n"; // sent to the 'arduino' ie FakeSerialIO
         let keyer_will_receive = "> v1.0.0\n\n"; // sent back from the 'arduino' ie FakeSerialIO
 
         let (recording_tx, recording_rx): (Sender<u8>, Receiver<u8>) = mpsc::channel();
-        let (keying_event_tx, _keying_event_rx): (Sender<KeyingEvent>, Receiver<KeyingEvent>) = mpsc::channel();
+        let (keying_event_tx, keying_event_rx): (Sender<KeyingEvent>, Receiver<KeyingEvent>) = mpsc::channel();
+
+        let capture = CapturingKeyingEventReceiver::new(keying_event_rx);
 
         let serial_io = FakeSerialIO::new(keyer_will_receive.as_bytes().to_vec(), recording_tx);
         let mut keyer = ArduinoKeyer::new(Box::new(serial_io), keying_event_tx);
@@ -102,6 +152,9 @@ mod arduino_keyer_io_spec {
         let recording: Vec<u8> = iter.collect();
         let recording_string = String::from_utf8(recording).expect("Found invalid UTF-8");
         assert_eq!(recording_string, keyer_will_send.to_string());
+
+        let events = capture.get();
+        assert_eq!(events.is_empty(), true);
     }
 
     #[test]
@@ -158,25 +211,16 @@ mod arduino_keyer_io_spec {
         let (recording_tx, _recording_rx): (Sender<u8>, Receiver<u8>) = mpsc::channel();
         let (keying_event_tx, keying_event_rx): (Sender<KeyingEvent>, Receiver<KeyingEvent>) = mpsc::channel();
 
+        let capture = CapturingKeyingEventReceiver::new(keying_event_rx);
+
         let serial_io = FakeSerialIO::new(keyer_will_receive, recording_tx);
         let _keyer = ArduinoKeyer::new(Box::new(serial_io), keying_event_tx);
 
-        info!("In wait loop for keying...");
-        let mut received_keying_events: Vec<KeyingEvent> = vec!();
-        loop {
-            let result = keying_event_rx.recv_timeout(Duration::from_millis(250));
-            match result {
-                Ok(keying_event) => {
-                    info!("Keying Event {}", keying_event);
-                    received_keying_events.push(keying_event);
-                }
-                Err(err) => {
-                    info!("timeout reading keying events channel {}", err);
-                    break
-                }
-            }
-        }
+        info!("Waiting for for keying...");
+        thread::sleep(Duration::from_secs(4));
         info!("Out of keying wait loop");
+
+        let received_keying_events = capture.get();
         assert_eq!(received_keying_events.len(), expected_keying_event_count);
 
         assert_eq!(received_keying_events[0], KeyingEvent::Start());
@@ -235,28 +279,18 @@ mod arduino_keyer_io_spec {
         let (recording_tx, _recording_rx): (Sender<u8>, Receiver<u8>) = mpsc::channel();
         let (keying_event_tx, keying_event_rx): (Sender<KeyingEvent>, Receiver<KeyingEvent>) = mpsc::channel();
 
+        let capture = CapturingKeyingEventReceiver::new(keying_event_rx);
+
         let serial_io = FakeSerialIO::new(keyer_will_receive, recording_tx);
         let _keyer = ArduinoKeyer::new(Box::new(serial_io), keying_event_tx);
 
-        info!("In wait loop for keying...");
-        let mut received_keying_events: Vec<KeyingEvent> = vec!();
-        loop {
-            let result = keying_event_rx.recv_timeout(Duration::from_millis(250));
-            match result {
-                Ok(keying_event) => {
-                    info!("Keying Event {}", keying_event);
-                    received_keying_events.push(keying_event);
-                }
-                Err(err) => {
-                    info!("timeout reading keying events channel {}", err);
-                    break
-                }
-            }
-        }
+        info!("Waiting for keying...");
+        thread::sleep(Duration::from_secs(5));
         info!("Out of keying wait loop");
+
+        let received_keying_events = capture.get();
         assert_eq!(received_keying_events.len(), expected_keying_event_count);
 
         assert_eq!(received_keying_events[0], KeyingEvent::Start());
     }
-
 }
