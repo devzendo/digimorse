@@ -35,7 +35,7 @@ mod serial_io_spec {
                 }
             }
             Err(e) => {
-                panic!(e);
+                panic!("{}", e);
             }
         }
     }
