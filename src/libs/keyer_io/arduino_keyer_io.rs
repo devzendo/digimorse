@@ -17,7 +17,7 @@ pub struct ArduinoKeyer {
     command_request_tx: Mutex<Sender<String>>,
     command_response_rx: Receiver<Result<String, String>>,
 
-    _thread_handle: JoinHandle<()>,
+    thread_handle: JoinHandle<()>,
 }
 
 impl ArduinoKeyer {
@@ -36,7 +36,7 @@ impl ArduinoKeyer {
         Self {
             command_request_tx: mutex_command_request_tx,
             command_response_rx,
-            _thread_handle: thread_handle,
+            thread_handle: thread_handle,
         }
     }
 

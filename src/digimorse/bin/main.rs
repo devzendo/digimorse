@@ -134,12 +134,11 @@ fn run(arguments: ArgMatches, mode: Mode) -> Result<i32, Box<dyn Error>> {
         return Ok(0)
     }
 
-    info!("Initialising audio callback...");
-
-
     info!("Initialising keyer...");
     let (keying_event_tx, keying_event_rx): (Sender<KeyingEvent>, Receiver<KeyingEvent>) = mpsc::channel();
     let mut keyer = ArduinoKeyer::new(Box::new(serial_io), keying_event_tx);
+
+    info!("Initialising audio callback...");
 
     if mode == Mode::KeyerDiag {
         keyer_diag(&keying_event_rx)?;
