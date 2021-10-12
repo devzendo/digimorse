@@ -26,7 +26,8 @@ use digimorse::libs::util::util::printable;
 use std::time::Duration;
 use portaudio::PortAudio;
 use digimorse::libs::config_file::config_file::ConfigurationStore;
-use digimorse::libs::audio::checks::{list_audio_devices, output_audio_device_exists, input_audio_device_exists};
+use digimorse::libs::audio::audio_devices::{list_audio_devices, output_audio_device_exists, input_audio_device_exists, open_output_audio_device};
+use digimorse::libs::audio::tone_generator::ToneGenerator;
 
 const VERSION: &'static str = env!("CARGO_PKG_VERSION");
 
@@ -139,6 +140,13 @@ fn run(arguments: ArgMatches, mode: Mode) -> Result<i32, Box<dyn Error>> {
     let mut keyer = ArduinoKeyer::new(Box::new(serial_io), keying_event_tx);
 
     info!("Initialising audio callback...");
+    let dev_string = config.get_audio_out_device();
+    let dev = dev_string.as_str();
+    let output_settings = open_output_audio_device(&pa, dev)?;
+    let callback = move |pa::OutputStreamCallbackArgs { buffer, frames, .. }| {
+        pa::Continue
+    };
+    let tone_generator = ToneGenerator::new(sidetone_frequency, keying_event_rx);
 
     if mode == Mode::KeyerDiag {
         keyer_diag(&keying_event_rx)?;
@@ -149,7 +157,9 @@ fn run(arguments: ArgMatches, mode: Mode) -> Result<i32, Box<dyn Error>> {
     // implementations with modified configuration are attached dynamically at runtime (and can be
     // changed by the preferences dialog, etc.)
     let keyer_speed: KeyerSpeed = config.get_wpm() as KeyerSpeed;
-    let mut source_encoder = DefaultSourceEncoder::new(keying_event_rx);
+    // TODO change to single producer/multiple consumer channels from tokio instead of the std mpsc
+    // channel.
+    //let mut source_encoder = DefaultSourceEncoder::new(keying_event_rx);
 
     if mode == Mode::SourceEncoderDiag {
 

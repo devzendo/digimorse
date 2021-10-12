@@ -1,4 +1,4 @@
-use portaudio::{PortAudio, StreamSettings};
+use portaudio::PortAudio;
 use portaudio as pa;
 use std::error::Error;
 use log::info;
@@ -62,7 +62,7 @@ pub fn input_audio_device_exists(pa: &PortAudio, dev_name: &str) -> Result<bool,
     Ok(false)
 }
 
-pub fn open_output_audio_device(pa: &PortAudio, dev_name: &str) -> Result<(), Box<dyn Error>> {
+pub fn open_output_audio_device(pa: &PortAudio, dev_name: &str) -> Result<OutputSettings<i16>, Box<dyn Error>> {
     for device in pa.devices()? {
         let (idx, info) = device?;
 
@@ -71,14 +71,9 @@ pub fn open_output_audio_device(pa: &PortAudio, dev_name: &str) -> Result<(), Bo
             pa::StreamParameters::<i16>::new(idx, out_channels, INTERLEAVED, LATENCY);
         let out_48k_supported = pa.is_output_format_supported(output_params, SAMPLE_RATE).is_ok();
         if info.name == dev_name && out_channels > 0 && out_48k_supported {
-            // How to get from a DeviceIndex / DeviceInfo to a StreamSettings for use in the callback.
-            let callback = move |pa::OutputStreamCallbackArgs { buffer, frames, .. }| {
-                pa::Continue
-            };
-            // pa.default_output_stream_settings(;
-            let settings: OutputSettings<i16> = OutputSettings::new(output_params, SAMPLE_RATE, FRAMES_PER_BUFFER);
-            Ok(settings)
+            let settings = OutputSettings::new(output_params, SAMPLE_RATE, FRAMES_PER_BUFFER);
+            return Ok(settings);
         }
     }
-    Err(format!("Can't find settings for device '{}'", dev_name))
+    Err(Box::<dyn Error + Send + Sync>::from(format!("Can't find settings for device '{}'", dev_name)))
 }

@@ -15,7 +15,6 @@ use std::sync::mpsc::Receiver;
 use crate::libs::keyer_io::keyer_io::KeyingEvent;
 use crate::libs::audio::tone_generator::AmplitudeRamping::Stable;
 use std::f64::consts::PI;
-use std::ops::Deref;
 use std::thread::JoinHandle;
 use std::thread;
 use std::sync::{Arc, RwLock};
