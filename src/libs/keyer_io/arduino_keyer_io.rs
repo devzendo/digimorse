@@ -17,7 +17,7 @@ pub struct ArduinoKeyer {
     command_request_tx: Mutex<Sender<String>>,
     command_response_rx: Receiver<Result<String, String>>,
 
-    thread_handle: JoinHandle<()>,
+    thread_handle: Option<JoinHandle<()>>,
 }
 
 impl ArduinoKeyer {
@@ -36,7 +36,7 @@ impl ArduinoKeyer {
         Self {
             command_request_tx: mutex_command_request_tx,
             command_response_rx,
-            thread_handle: thread_handle,
+            thread_handle: Some(thread_handle),
         }
     }
 
@@ -53,6 +53,15 @@ impl ArduinoKeyer {
             }
             Err(send_error) => { Err(format!("SendError: {}", send_error)) }
         }
+    }
+}
+
+
+impl Drop for ArduinoKeyer {
+    fn drop(&mut self) {
+        debug!("ArduinoKeyer joining thread handle...");
+        self.thread_handle.take().map(JoinHandle::join);
+        debug!("ArduinoKeyer ...joined thread handle");
     }
 }
 
