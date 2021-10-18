@@ -19,6 +19,7 @@ struct Keyer {
     keyer_type: KeyerType,
     port: String,
     wpm: usize,
+    sidetone_frequency: u16,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -33,6 +34,7 @@ const DEFAULT_CONFIG: Config = Config {
         keyer_type: KeyerType::Null,
         port: String::new(),
         wpm: 20,
+        sidetone_frequency: 600,
     },
     audio_devices: AudioDevices {
         audio_out_device: String::new(),
@@ -105,6 +107,15 @@ impl ConfigurationStore {
 
     pub fn get_wpm(&self) -> usize {
         self.config.keyer.wpm
+    }
+
+    pub fn set_sidetone_frequency(&mut self, new_freq: u16) -> Result<(), String> {
+        self.config.keyer.sidetone_frequency = new_freq;
+        self.save()
+    }
+
+    pub fn get_sidetone_frequency(&self) -> u16 {
+        self.config.keyer.sidetone_frequency
     }
 
     pub fn set_audio_out_device(&mut self, new_device: String) -> Result<(), String> {

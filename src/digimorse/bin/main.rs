@@ -143,7 +143,7 @@ fn run(arguments: ArgMatches, mode: Mode) -> Result<i32, Box<dyn Error>> {
     let dev_string = config.get_audio_out_device();
     let dev = dev_string.as_str();
     let output_settings = open_output_audio_device(&pa, dev)?;
-    let mut tone_generator = ToneGenerator::new(sidetone_frequency, keying_event_rx);
+    let mut tone_generator = ToneGenerator::new(config.get_sidetone_frequency(), keying_event_rx);
     tone_generator.start_callback(&pa, output_settings);
 
     if mode == Mode::KeyerDiag {

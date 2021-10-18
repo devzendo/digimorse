@@ -47,6 +47,7 @@ mod config_file_spec {
         assert_that!(config.get_keyer_type(), eq(KeyerType::Null));
         assert_that!(config.get_port(), eq(""));
         assert_that!(config.get_wpm(), eq(20));
+        assert_that!(config.get_sidetone_frequency(), eq(600));
         assert_that!(config.get_audio_out_device(), eq(""));
         assert_that!(config.get_rig_out_device(), eq(""));
         assert_that!(config.get_rig_in_device(), eq(""));
@@ -60,6 +61,7 @@ mod config_file_spec {
         config.set_keyer_type(KeyerType::Arduino).unwrap();
         config.set_port("/dev/imaginary-usb-port".to_string()).unwrap();
         config.set_wpm(40).unwrap();
+        config.set_sidetone_frequency(400).unwrap();
 
         config.set_audio_out_device("/dev/audio-out".to_string()).unwrap();
         config.set_rig_out_device("/dev/rig-out".to_string()).unwrap();
@@ -68,6 +70,7 @@ mod config_file_spec {
         assert_that!(config.get_keyer_type(), eq(KeyerType::Arduino));
         assert_that!(config.get_port(), eq("/dev/imaginary-usb-port"));
         assert_that!(config.get_wpm(), eq(40));
+        assert_that!(config.get_sidetone_frequency(), eq(400));
 
         assert_that!(config.get_audio_out_device(), eq("/dev/audio-out"));
         assert_that!(config.get_rig_out_device(), eq("/dev/rig-out"));
@@ -77,6 +80,7 @@ mod config_file_spec {
         assert_that!(reread_config.get_keyer_type(), eq(KeyerType::Arduino));
         assert_that!(reread_config.get_port(), eq("/dev/imaginary-usb-port"));
         assert_that!(reread_config.get_wpm(), eq(40));
+        assert_that!(reread_config.get_sidetone_frequency(), eq(400));
 
         assert_that!(reread_config.get_audio_out_device(), eq("/dev/audio-out"));
         assert_that!(reread_config.get_rig_out_device(), eq("/dev/rig-out"));
