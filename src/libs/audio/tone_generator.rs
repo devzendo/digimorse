@@ -11,7 +11,7 @@
 // Thanks to BartMassey's PortAudio-rs examples at https://github.com/BartMassey/portaudio-rs-demos
 
 use std::error::Error;
-use portaudio::{NonBlocking, Output, OutputStreamSettings, PortAudio, Stream, StreamCallbackResult};
+use portaudio::{NonBlocking, Output, OutputStreamSettings, PortAudio, Stream};
 use portaudio as pa;
 use log::{info, debug};
 use std::sync::mpsc::Receiver;
@@ -44,7 +44,6 @@ enum AmplitudeRamping {
 // the receiver playback system.
 pub struct ToneGenerator {
     enabled_in_filter_bandpass: bool,
-    //tone_generator_thread: Arc<ToneGeneratorThread>,
     audio_frequency: u16,
     sine: [f32; TABLE_SIZE],
     ramping: Arc<RwLock<AmplitudeRamping>>,
@@ -52,30 +51,22 @@ pub struct ToneGenerator {
     stream: Option<Stream<NonBlocking, Output<i16>>>,
 }
 
-/*    where S: StreamSettings,
-    S::Flow: Flow,
-    C: FnMut(<S::Flow as Flow>::CallbackArgs) -> StreamCallbackResult + 'static;
-*/
 impl ToneGenerator {
     pub fn new(audio_frequency: u16, keying_events: Receiver<KeyingEvent>) -> Self {
-        //let mut tone_generator_thread = ToneGeneratorThread::new(audio_frequency);
-        // let mut a_tone_generator_thread = Arc::new(tone_generator_thread);
-        // let mut a_tone_generator_thread_clone = a_tone_generator_thread.clone();
         let mut sine: [f32; TABLE_SIZE] = [0.0; TABLE_SIZE];
         for i in 0..TABLE_SIZE {
             sine[i] = (i as f64 / TABLE_SIZE as f64 * PI * 2.0).sin() as f32;
         }
+        // TODO replace this RwLock with atomics to reduce contention in the callback.
         let ramping = Arc::new(RwLock::new(AmplitudeRamping::Stable));
         let mut move_clone_ramping = ramping.clone();
         Self {
             enabled_in_filter_bandpass: true,
-            //tone_generator_thread: a_tone_generator_thread,
             audio_frequency,
             sine,
             ramping,
             thread_handle: Some(thread::spawn(move || {
                 let mut amplitude: f32 = 0.0; // used for ramping up/down output waveform for key click suppression
-                // let mut ramping: AmplitudeRamping = AmplitudeRamping::Stable;
 
                 debug!("Tone generator thread started");
                 // TODO until poisoned?
@@ -161,51 +152,3 @@ impl Drop for ToneGenerator {
         debug!("ToneGenerator ...joined thread handle");
     }
 }
-/*
-struct ToneGeneratorThread {
-    audio_frequency: u16,
-    amplitude: f32, // used for ramping up/down output waveform for key click suppression
-    ramping: AmplitudeRamping,
-    sine: [f32; TABLE_SIZE],
-}
-
-impl ToneGeneratorThread {
-    fn new(audio_frequency: u16) -> Self {
-        debug!("Constructing ToneGeneratorThread");
-        let mut sine: [f32; TABLE_SIZE] = [0.0; TABLE_SIZE];
-        for i in 0..TABLE_SIZE {
-            sine[i] = (i as f64 / TABLE_SIZE as f64 * PI * 2.0).sin() as f32;
-        }
-        Self {
-            audio_frequency,
-            amplitude: 0.0,
-            ramping: Stable,
-            sine,
-        }
-    }
-
-    // Thread that handles receiving keying events asynchronously...
-    fn thread_runner(&mut self, keying_events: Receiver<KeyingEvent>) -> () {
-        debug!("Tone generator thread started");
-        // TODO until poisoned?
-        loop {
-            // Any incoming commands?
-            match keying_events.try_recv() {
-                Ok(keying_event) => {
-                }
-                Err(_) => {
-                    // could timeout, or be disconnected?
-                    // ignore for now...
-                }
-            }
-        }
-        // TODO when we swallow poison, exit here.
-        debug!("Tone generator thread stopped");
-    }
-
-    fn set_audio_frequency(&mut self, freq: u16) -> () {
-        self.audio_frequency = freq;
-        // TODO recompute sine
-    }
-}
-*/
