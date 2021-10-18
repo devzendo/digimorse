@@ -1,13 +1,12 @@
-use portaudio::PortAudio;
+use portaudio::{OutputStreamSettings, PortAudio};
 use portaudio as pa;
 use std::error::Error;
 use log::info;
-use portaudio::stream::OutputSettings;
 
 // PortAudio constants
 const INTERLEAVED: bool = true;
 const LATENCY: pa::Time = 0.0; // Ignored by PortAudio::is_*_format_supported.
-const FRAMES_PER_BUFFER: u32 = 64;
+const FRAMES_PER_BUFFER: u32 = 64; // May have to increase this to 1024
 const SAMPLE_RATE: f64 = 48000.0;
 
 
@@ -62,7 +61,7 @@ pub fn input_audio_device_exists(pa: &PortAudio, dev_name: &str) -> Result<bool,
     Ok(false)
 }
 
-pub fn open_output_audio_device(pa: &PortAudio, dev_name: &str) -> Result<OutputSettings<i16>, Box<dyn Error>> {
+pub fn open_output_audio_device(pa: &PortAudio, dev_name: &str) -> Result<OutputStreamSettings<i16>, Box<dyn Error>> {
     for device in pa.devices()? {
         let (idx, info) = device?;
 
@@ -71,7 +70,7 @@ pub fn open_output_audio_device(pa: &PortAudio, dev_name: &str) -> Result<Output
             pa::StreamParameters::<i16>::new(idx, out_channels, INTERLEAVED, LATENCY);
         let out_48k_supported = pa.is_output_format_supported(output_params, SAMPLE_RATE).is_ok();
         if info.name == dev_name && out_channels > 0 && out_48k_supported {
-            let settings = OutputSettings::new(output_params, SAMPLE_RATE, FRAMES_PER_BUFFER);
+            let settings = OutputStreamSettings::new(output_params, SAMPLE_RATE, FRAMES_PER_BUFFER);
             return Ok(settings);
         }
     }

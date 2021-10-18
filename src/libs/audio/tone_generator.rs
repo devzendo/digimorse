@@ -8,7 +8,10 @@
    always better to do integral factor re-sampling so an input sample rate that is an exact power
    of two of the requested rate is most efficient."
  */
-use portaudio::PortAudio;
+// Thanks to BartMassey's PortAudio-rs examples at https://github.com/BartMassey/portaudio-rs-demos
+
+use std::error::Error;
+use portaudio::{OutputStreamSettings, PortAudio, StreamCallbackResult};
 use portaudio as pa;
 use log::{info, debug};
 use std::sync::mpsc::Receiver;
@@ -18,7 +21,10 @@ use std::f64::consts::PI;
 use std::thread::JoinHandle;
 use std::thread;
 use std::sync::{Arc, RwLock};
-use portaudio::stream::CallbackResult;
+use portaudio::stream::{CallbackResult, OutputCallbackArgs};
+use portaudio::stream::OutputSettings;
+use portaudio::OutputStreamCallbackArgs;
+
 
 const CHANNELS: i32 = 2;
 const NUM_SECONDS: i32 = 5;
@@ -45,6 +51,10 @@ pub struct ToneGenerator {
     thread_handle: Option<JoinHandle<()>>,
 }
 
+/*    where S: StreamSettings,
+    S::Flow: Flow,
+    C: FnMut(<S::Flow as Flow>::CallbackArgs) -> StreamCallbackResult + 'static;
+*/
 impl ToneGenerator {
     pub fn new(audio_frequency: u16, keying_events: Receiver<KeyingEvent>) -> Self {
         //let mut tone_generator_thread = ToneGeneratorThread::new(audio_frequency);
@@ -99,8 +109,11 @@ impl ToneGenerator {
         }
     }
 
-    /*
-    pub fn get_callback<X>(&self) -> fn(X) -> CallbackResult {
+    // The odd form of this callback setup (pass in the PortAudio and settings) rather than just
+    // returning the callback to the caller to do stuff with... is because I can't work out what
+    // the correct type signature of a callback-returning function should be.
+    pub fn start_callback(&self, pa: &PortAudio, output_settings: OutputStreamSettings<i16>) -> Result<(), Box<dyn Error>> {
+        /*
         let rrrr = move |pa::OutputStreamCallbackArgs { buffer, frames, .. }| {
             let mut idx = 0;
             for _ in 0..frames {
@@ -119,9 +132,15 @@ impl ToneGenerator {
             pa::Continue
         };
         rrrr
-    }
+        */
+        let callback = move |pa::OutputStreamCallbackArgs { buffer, frames, .. }| {
+            pa::Continue
+        };
 
-    */
+        let _stream = pa.open_non_blocking_stream(output_settings, callback)?;
+        Ok(())
+        // Now it's playing...
+    }
 
     pub fn set_audio_frequency(&mut self, freq: u16) -> () {
         self.audio_frequency = freq;
@@ -139,7 +158,7 @@ impl Drop for ToneGenerator {
         debug!("ToneGenerator ...joined thread handle");
     }
 }
-
+/*
 struct ToneGeneratorThread {
     audio_frequency: u16,
     amplitude: f32, // used for ramping up/down output waveform for key click suppression
@@ -186,3 +205,4 @@ impl ToneGeneratorThread {
         // TODO recompute sine
     }
 }
+*/
