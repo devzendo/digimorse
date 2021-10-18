@@ -172,6 +172,9 @@ This code is released under the Apache 2.0 License: http://www.apache.org/licens
 (C) 2020 Matt Gumbley, DevZendo.org
 
 
+Acknowledgements
+----------------
+Bart Massey's PortAudio examples at https://github.com/BartMassey/portaudio-rs-demos
 
 Bibliography
 ------------

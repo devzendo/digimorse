@@ -11,7 +11,7 @@
 // Thanks to BartMassey's PortAudio-rs examples at https://github.com/BartMassey/portaudio-rs-demos
 
 use std::error::Error;
-use portaudio::{OutputStreamSettings, PortAudio, StreamCallbackResult};
+use portaudio::{NonBlocking, Output, OutputStreamSettings, PortAudio, Stream, StreamCallbackResult};
 use portaudio as pa;
 use log::{info, debug};
 use std::sync::mpsc::Receiver;
@@ -49,6 +49,7 @@ pub struct ToneGenerator {
     sine: [f32; TABLE_SIZE],
     ramping: Arc<RwLock<AmplitudeRamping>>,
     thread_handle: Option<JoinHandle<()>>,
+    stream: Option<Stream<NonBlocking, Output<i16>>>,
 }
 
 /*    where S: StreamSettings,
@@ -106,13 +107,14 @@ impl ToneGenerator {
                 // TODO when we swallow poison, exit here.
                 debug!("Tone generator thread stopped");
             })),
+            stream: None,
         }
     }
 
     // The odd form of this callback setup (pass in the PortAudio and settings) rather than just
     // returning the callback to the caller to do stuff with... is because I can't work out what
     // the correct type signature of a callback-returning function should be.
-    pub fn start_callback(&self, pa: &PortAudio, output_settings: OutputStreamSettings<i16>) -> Result<(), Box<dyn Error>> {
+    pub fn start_callback(&mut self, pa: &PortAudio, output_settings: OutputStreamSettings<i16>) -> Result<(), Box<dyn Error>> {
         /*
         let rrrr = move |pa::OutputStreamCallbackArgs { buffer, frames, .. }| {
             let mut idx = 0;
@@ -137,7 +139,8 @@ impl ToneGenerator {
             pa::Continue
         };
 
-        let _stream = pa.open_non_blocking_stream(output_settings, callback)?;
+        let stream = pa.open_non_blocking_stream(output_settings, callback)?;
+        self.stream = Some(stream);
         Ok(())
         // Now it's playing...
     }
