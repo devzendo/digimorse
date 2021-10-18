@@ -13,23 +13,15 @@
 use std::error::Error;
 use portaudio::{NonBlocking, Output, OutputStreamSettings, PortAudio, Stream};
 use portaudio as pa;
-use log::{info, debug};
+use log::debug;
 use std::sync::mpsc::Receiver;
 use crate::libs::keyer_io::keyer_io::KeyingEvent;
-use crate::libs::audio::tone_generator::AmplitudeRamping::Stable;
 use std::f64::consts::PI;
 use std::thread::JoinHandle;
 use std::thread;
 use std::sync::{Arc, RwLock};
-use portaudio::stream::{CallbackResult, OutputCallbackArgs};
-use portaudio::stream::OutputSettings;
-use portaudio::OutputStreamCallbackArgs;
 
 
-const CHANNELS: i32 = 2;
-const NUM_SECONDS: i32 = 5;
-const SAMPLE_RATE: f64 = 48000.0;
-const FRAMES_PER_BUFFER: u32 = 64;
 const TABLE_SIZE: usize = 200;
 
 enum AmplitudeRamping {
@@ -59,7 +51,7 @@ impl ToneGenerator {
         }
         // TODO replace this RwLock with atomics to reduce contention in the callback.
         let ramping = Arc::new(RwLock::new(AmplitudeRamping::Stable));
-        let mut move_clone_ramping = ramping.clone();
+        let move_clone_ramping = ramping.clone();
         Self {
             enabled_in_filter_bandpass: true,
             audio_frequency,
@@ -96,7 +88,7 @@ impl ToneGenerator {
                     }
                 }
                 // TODO when we swallow poison, exit here.
-                debug!("Tone generator thread stopped");
+                // debug!("Tone generator thread stopped");
             })),
             stream: None,
         }
