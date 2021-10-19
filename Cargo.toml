@@ -19,6 +19,7 @@ rustfft = "4.0.0"
 serialport = "3.3.0"
 serde = "1.0.126"
 serde_derive = "1.0.126"
+tokio = { version = "1.12.0", features = ["sync"] }
 toml = "0.5.8"
 
 [dev-dependencies]

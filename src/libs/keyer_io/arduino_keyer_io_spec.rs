@@ -5,7 +5,7 @@ use crate::libs::serial_io::serial_io::SerialIO;
 use crate::libs::util::util::*;
 use std::io;
 use std::io::{Error, ErrorKind};
-use std::sync::mpsc::{Sender};
+use std::sync::mpsc;
 use std::time::Duration;
 
 struct FakeSerialIO {
@@ -13,11 +13,11 @@ struct FakeSerialIO {
     playback_index: usize,
 
     // Returns whatever has been sent by higher levels (the keyer's command sending routine).
-    recording_tx: Sender<u8>
+    recording_tx: mpsc::Sender<u8>
 }
 
 impl FakeSerialIO {
-    fn new(playback: Vec<u8>, recording_tx: Sender<u8>) -> Self {
+    fn new(playback: Vec<u8>, recording_tx: mpsc::Sender<u8>) -> Self {
         Self { playback_chars: playback, playback_index: 0, recording_tx }
     }
 }
@@ -60,12 +60,13 @@ mod arduino_keyer_io_spec {
     use crate::libs::keyer_io::arduino_keyer_io::arduino_keyer_io_spec::FakeSerialIO;
     use crate::libs::keyer_io::arduino_keyer_io::ArduinoKeyer;
     use crate::libs::keyer_io::keyer_io::{Keyer, KeyingEvent, KeyingTimedEvent};
-    use std::sync::mpsc::{Sender, Receiver};
     use std::sync::{Arc, mpsc, RwLock};
     use log::{debug, info};
     use std::time::Duration;
     use std::{env, thread};
     use std::thread::JoinHandle;
+    use tokio::sync::broadcast;
+    use tokio::sync::broadcast::{Receiver, Sender};
 
     #[ctor::ctor]
     fn before_each() {
@@ -130,8 +131,8 @@ mod arduino_keyer_io_spec {
         let keyer_will_send = "v\n"; // sent to the 'arduino' ie FakeSerialIO
         let keyer_will_receive = "> v1.0.0\n\n"; // sent back from the 'arduino' ie FakeSerialIO
 
-        let (recording_tx, recording_rx): (Sender<u8>, Receiver<u8>) = mpsc::channel();
-        let (keying_event_tx, keying_event_rx): (Sender<KeyingEvent>, Receiver<KeyingEvent>) = mpsc::channel();
+        let (recording_tx, recording_rx): (mpsc::Sender<u8>, mpsc::Receiver<u8>) = mpsc::channel();
+        let (keying_event_tx, keying_event_rx): (Sender<KeyingEvent>, Receiver<KeyingEvent>) = broadcast::channel(16);
 
         let capture = CapturingKeyingEventReceiver::new(keying_event_rx);
 
@@ -208,8 +209,8 @@ mod arduino_keyer_io_spec {
         ];
         let expected_keying_event_count = 29;
 
-        let (recording_tx, _recording_rx): (Sender<u8>, Receiver<u8>) = mpsc::channel();
-        let (keying_event_tx, keying_event_rx): (Sender<KeyingEvent>, Receiver<KeyingEvent>) = mpsc::channel();
+        let (recording_tx, _recording_rx): (mpsc::Sender<u8>, mpsc::Receiver<u8>) = mpsc::channel();
+        let (keying_event_tx, keying_event_rx): (Sender<KeyingEvent>, Receiver<KeyingEvent>) = broadcast::channel(16);
 
         let capture = CapturingKeyingEventReceiver::new(keying_event_rx);
 
@@ -276,8 +277,8 @@ mod arduino_keyer_io_spec {
         ];
         let expected_keying_event_count = 1;
 
-        let (recording_tx, _recording_rx): (Sender<u8>, Receiver<u8>) = mpsc::channel();
-        let (keying_event_tx, keying_event_rx): (Sender<KeyingEvent>, Receiver<KeyingEvent>) = mpsc::channel();
+        let (recording_tx, _recording_rx): (mpsc::Sender<u8>, mpsc::Receiver<u8>) = mpsc::channel();
+        let (keying_event_tx, keying_event_rx): (Sender<KeyingEvent>, Receiver<KeyingEvent>) = broadcast::channel(16);
 
         let capture = CapturingKeyingEventReceiver::new(keying_event_rx);
 

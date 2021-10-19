@@ -6,16 +6,16 @@ use crate::libs::serial_io::serial_io::SerialIO;
 use crate::libs::util::util::printable;
 use std::thread;
 use std::thread::JoinHandle;
-use std::sync::mpsc::{Sender, Receiver};
 use std::sync::{mpsc, Mutex};
 use std::time::Duration;
+use tokio::sync::broadcast::{Receiver, Sender};
 use crate::libs::keyer_io::keyer_io::KeyingEvent::{Timed, Start, End};
 
 pub struct ArduinoKeyer {
     // Command channel to/from the thread. Sender is guarded by a Mutex to ensure a single command
     // in flight at a time.
-    command_request_tx: Mutex<Sender<String>>,
-    command_response_rx: Receiver<Result<String, String>>,
+    command_request_tx: Mutex<mpsc::Sender<String>>,
+    command_response_rx: mpsc::Receiver<Result<String, String>>,
 
     thread_handle: Option<JoinHandle<()>>,
 }
@@ -25,8 +25,8 @@ impl ArduinoKeyer {
         // Channels have two endpoints: the `Sender<T>` and the `Receiver<T>`,
         // where `T` is the type of the message to be transferred
         // (type annotation is superfluous)
-        let (command_request_tx, command_request_rx): (Sender<String>, Receiver<String>) = mpsc::channel();
-        let (command_response_tx, command_response_rx): (Sender<Result<String, String>>, Receiver<Result<String, String>>) = mpsc::channel();
+        let (command_request_tx, command_request_rx): (mpsc::Sender<String>, mpsc::Receiver<String>) = mpsc::channel();
+        let (command_response_tx, command_response_rx): (mpsc::Sender<Result<String, String>>, mpsc::Receiver<Result<String, String>>) = mpsc::channel();
         let mutex_command_request_tx = Mutex::new(command_request_tx);
 
         let thread_handle = thread::spawn(move || {
@@ -109,8 +109,8 @@ struct ArduinoKeyerThread {
     serial_io: Box<dyn SerialIO>,
 
     // Command channels
-    command_request_rx: Receiver<String>,
-    command_response_tx: Sender<Result<String, String>>,
+    command_request_rx: mpsc::Receiver<String>,
+    command_response_tx: mpsc::Sender<Result<String, String>>,
 
     // Keying channel
     keying_event_tx: Sender<KeyingEvent>,
@@ -125,8 +125,8 @@ struct ArduinoKeyerThread {
 
 impl ArduinoKeyerThread {
     fn new(serial_io: Box<dyn SerialIO>,
-        command_request_rx: Receiver<String>,
-           command_response_tx: Sender<Result<String, String>>,
+        command_request_rx: mpsc::Receiver<String>,
+        command_response_tx: mpsc::Sender<Result<String, String>>,
         keying_event_tx: Sender<KeyingEvent>
     ) -> Self {
         debug!("Constructing ArduinoKeyerThread");

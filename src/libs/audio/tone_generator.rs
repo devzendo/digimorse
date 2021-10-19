@@ -14,12 +14,12 @@ use std::error::Error;
 use portaudio::{NonBlocking, Output, OutputStreamSettings, PortAudio, Stream};
 use portaudio as pa;
 use log::debug;
-use std::sync::mpsc::Receiver;
 use crate::libs::keyer_io::keyer_io::KeyingEvent;
 use std::f64::consts::PI;
 use std::thread::JoinHandle;
 use std::thread;
 use std::sync::{Arc, RwLock};
+use tokio::sync::broadcast::Receiver;
 
 
 const TABLE_SIZE: usize = 200;
@@ -44,7 +44,7 @@ pub struct ToneGenerator {
 }
 
 impl ToneGenerator {
-    pub fn new(audio_frequency: u16, keying_events: Receiver<KeyingEvent>) -> Self {
+    pub fn new(audio_frequency: u16, mut keying_events: Receiver<KeyingEvent>) -> Self {
         let mut sine: [f32; TABLE_SIZE] = [0.0; TABLE_SIZE];
         for i in 0..TABLE_SIZE {
             sine[i] = (i as f64 / TABLE_SIZE as f64 * PI * 2.0).sin() as f32;

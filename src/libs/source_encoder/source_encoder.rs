@@ -1,5 +1,4 @@
-use std::sync::mpsc::Receiver;
-
+use tokio::sync::broadcast::Receiver;
 use crate::libs::keyer_io::keyer_io::{KeyingEvent, KeyerSpeed};
 
 /*
