@@ -9,6 +9,7 @@ use std::thread::JoinHandle;
 use std::sync::mpsc::{Sender, Receiver};
 use std::sync::{mpsc, Mutex};
 use std::time::Duration;
+use bus::Bus;
 use crate::libs::keyer_io::keyer_io::KeyingEvent::{Timed, Start, End};
 
 pub struct ArduinoKeyer {
@@ -21,18 +22,20 @@ pub struct ArduinoKeyer {
 }
 
 impl ArduinoKeyer {
-    pub fn new(serial_io: Box<dyn SerialIO>, keying_event_tx: Sender<KeyingEvent>) -> Self {
+    pub fn new(serial_io: Box<dyn SerialIO>, keying_event_tx: Bus<KeyingEvent>) -> Self {
         // Channels have two endpoints: the `Sender<T>` and the `Receiver<T>`,
         // where `T` is the type of the message to be transferred
         // (type annotation is superfluous)
+        eprintln!("in ArduinoKeyer ctor");
         let (command_request_tx, command_request_rx): (Sender<String>, Receiver<String>) = mpsc::channel();
         let (command_response_tx, command_response_rx): (Sender<Result<String, String>>, Receiver<Result<String, String>>) = mpsc::channel();
         let mutex_command_request_tx = Mutex::new(command_request_tx);
-
+        eprintln!("Creating ArduinoKeyerThread");
         let thread_handle = thread::spawn(move || {
             let mut arduino_keyer_thread = ArduinoKeyerThread::new(serial_io, command_request_rx, command_response_tx, keying_event_tx);
             arduino_keyer_thread.thread_runner();
         });
+        eprintln!("Starting");
         Self {
             command_request_tx: mutex_command_request_tx,
             command_response_rx,
@@ -113,7 +116,7 @@ struct ArduinoKeyerThread {
     command_response_tx: Sender<Result<String, String>>,
 
     // Keying channel
-    keying_event_tx: Sender<KeyingEvent>,
+    keying_event_tx: Bus<KeyingEvent>,
 
     // State machine data
     state: KeyerState,
@@ -127,7 +130,7 @@ impl ArduinoKeyerThread {
     fn new(serial_io: Box<dyn SerialIO>,
         command_request_rx: Receiver<String>,
            command_response_tx: Sender<Result<String, String>>,
-        keying_event_tx: Sender<KeyingEvent>
+        keying_event_tx: Bus<KeyingEvent>
     ) -> Self {
         debug!("Constructing ArduinoKeyerThread");
         Self {
@@ -241,12 +244,12 @@ impl ArduinoKeyerThread {
             b'S' => {
                 let event = Start();
                 debug!("Keying: {}", event);
-                self.keying_event_tx.send(event).unwrap();
+                self.keying_event_tx.try_broadcast(event).unwrap();
             }
             b'E' => {
                 let event = End();
                 debug!("Keying: {}", event);
-                self.keying_event_tx.send(event).unwrap();
+                self.keying_event_tx.try_broadcast(event).unwrap();
             }
             b'+' => {
                 self.up = false;
@@ -269,7 +272,7 @@ impl ArduinoKeyerThread {
         self.duration |= (ch as KeyerEdgeDurationMs) & 0x00FF;
         let event = Timed(KeyingTimedEvent { up: self.up, duration: self.duration });
         debug!("Keying: {}", event);
-        self.keying_event_tx.send(event).unwrap();
+        self.keying_event_tx.try_broadcast(event).unwrap();
         self.set_state(Initial);
         None
     }

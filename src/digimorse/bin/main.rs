@@ -9,8 +9,6 @@ use portaudio as pa;
 
 use std::env;
 use std::error::Error;
-use std::sync::mpsc::{Sender, Receiver};
-use std::sync::mpsc;
 
 use digimorse::libs::config_dir::config_dir;
 use digimorse::libs::keyer_io::arduino_keyer_io::ArduinoKeyer;
@@ -21,6 +19,7 @@ use digimorse::libs::serial_io::serial_io::{DefaultSerialIO, SerialIO};
 use digimorse::libs::util::util::printable;
 
 use std::time::Duration;
+use bus::{Bus, BusReader};
 use portaudio::PortAudio;
 use digimorse::libs::config_file::config_file::ConfigurationStore;
 use digimorse::libs::audio::audio_devices::{list_audio_devices, output_audio_device_exists, input_audio_device_exists, open_output_audio_device};
@@ -133,7 +132,13 @@ fn run(arguments: ArgMatches, mode: Mode) -> Result<i32, Box<dyn Error>> {
     }
 
     info!("Initialising keyer...");
-    let (keying_event_tx, keying_event_rx): (Sender<KeyingEvent>, Receiver<KeyingEvent>) = mpsc::channel();
+    let mut keying_event_tx = Bus::new(16);
+    let tone_generator_keying_event_rx = keying_event_tx.add_rx();
+    let keyer_diag_keying_event_rx: Option<BusReader<KeyingEvent>> = if mode == Mode::KeyerDiag {
+        Some(keying_event_tx.add_rx())
+    } else {
+        None
+    };
     let mut keyer = ArduinoKeyer::new(Box::new(serial_io), keying_event_tx);
     let keyer_speed: KeyerSpeed = config.get_wpm() as KeyerSpeed;
     keyer.set_speed(keyer_speed);
@@ -142,11 +147,11 @@ fn run(arguments: ArgMatches, mode: Mode) -> Result<i32, Box<dyn Error>> {
     let dev_string = config.get_audio_out_device();
     let dev = dev_string.as_str();
     let output_settings = open_output_audio_device(&pa, dev)?;
-    let mut tone_generator = ToneGenerator::new(config.get_sidetone_frequency(), keying_event_rx);
+    let mut tone_generator = ToneGenerator::new(config.get_sidetone_frequency(), tone_generator_keying_event_rx);
     tone_generator.start_callback(&pa, output_settings);
 
     if mode == Mode::KeyerDiag {
-        keyer_diag(&keying_event_rx)?;
+        keyer_diag(keyer_diag_keying_event_rx.unwrap())?;
     }
 
     info!("Initialising source encoder...");
@@ -154,7 +159,7 @@ fn run(arguments: ArgMatches, mode: Mode) -> Result<i32, Box<dyn Error>> {
     // implementations with modified configuration are attached dynamically at runtime (and can be
     // changed by the preferences dialog, etc.)
 
-    // TODO change to single producer/multiple consumer channels from tokio instead of the std mpsc
+    // TODO change to single producer/multiple consumer channels from bus instead of the std mpsc
     // channel.
     //let mut source_encoder = DefaultSourceEncoder::new(keying_event_rx);
 
@@ -324,7 +329,7 @@ fn serial_diag(serial_io: &mut DefaultSerialIO) -> Result<(), Box<dyn Error>> {
     }
 }
 
-fn keyer_diag(keying_event_rx: &Receiver<KeyingEvent>) -> Result<(), Box<dyn Error>> {
+fn keyer_diag(mut keying_event_rx: BusReader<KeyingEvent>) -> Result<(), Box<dyn Error>> {
     loop {
         let result = keying_event_rx.recv_timeout(Duration::from_millis(250));
         match result {

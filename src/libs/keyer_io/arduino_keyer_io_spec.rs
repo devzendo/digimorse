@@ -66,16 +66,18 @@ mod arduino_keyer_io_spec {
     use std::time::Duration;
     use std::{env, thread};
     use std::thread::JoinHandle;
+    use bus::{Bus, BusReader};
 
     #[ctor::ctor]
     fn before_each() {
         env::set_var("RUST_LOG", "debug");
         let _ = env_logger::builder().is_test(true).try_init();
+        eprintln!("hello from ctor");
     }
 
     #[ctor::dtor]
     fn after_each() {
-
+        eprintln!("in dtor");
     }
 
     struct CapturingKeyingEventReceiver {
@@ -84,7 +86,7 @@ mod arduino_keyer_io_spec {
     }
 
     impl CapturingKeyingEventReceiver {
-        fn new(receiver: Receiver<KeyingEvent>) -> Self {
+        fn new(mut receiver: BusReader<KeyingEvent>) -> Self {
             let vec: Vec<KeyingEvent> = vec![];
             let a_vec = Arc::new(RwLock::new(vec));
             let thread_a_vec = a_vec.clone();
@@ -125,36 +127,69 @@ mod arduino_keyer_io_spec {
         }
     }
 
+    // Thanks to Shepmaster, https://github.com/rust-lang/rfcs/issues/2798
+    fn panic_after<T, F>(d: Duration, f: F) -> T
+        where
+            T: Send + 'static,
+            F: FnOnce() -> T,
+            F: Send + 'static,
+    {
+        let (done_tx, done_rx) = mpsc::channel();
+        let handle = thread::spawn(move || {
+            let val = f();
+            done_tx.send(()).expect("Unable to send completion signal");
+            val
+        });
+
+        match done_rx.recv_timeout(d) {
+            Ok(_) => handle.join().expect("Thread panicked"),
+            Err(_) => panic!("Thread took too long"),
+        }
+    }
+
     #[test]
     fn get_version() {
-        let keyer_will_send = "v\n"; // sent to the 'arduino' ie FakeSerialIO
-        let keyer_will_receive = "> v1.0.0\n\n"; // sent back from the 'arduino' ie FakeSerialIO
+        panic_after(Duration::from_secs(2), || {
+            eprintln!("started test");
+            let keyer_will_send = "v\n"; // sent to the 'arduino' ie FakeSerialIO
+            let keyer_will_receive = "> v1.0.0\n\n"; // sent back from the 'arduino' ie FakeSerialIO
 
-        let (recording_tx, recording_rx): (Sender<u8>, Receiver<u8>) = mpsc::channel();
-        let (keying_event_tx, keying_event_rx): (Sender<KeyingEvent>, Receiver<KeyingEvent>) = mpsc::channel();
+            let (recording_tx, recording_rx): (Sender<u8>, Receiver<u8>) = mpsc::channel();
+            let mut keying_event_tx: Bus<KeyingEvent> = Bus::new(10);
+            debug!("created bus");
+            let keying_event_rx = keying_event_tx.add_rx();
+            let capture = CapturingKeyingEventReceiver::new(keying_event_rx);
+            debug!("created capture");
 
-        let capture = CapturingKeyingEventReceiver::new(keying_event_rx);
+            let serial_io = FakeSerialIO::new(keyer_will_receive.as_bytes().to_vec(), recording_tx);
+            let mut keyer = ArduinoKeyer::new(Box::new(serial_io), keying_event_tx);
+            eprintln!("got to here");
 
-        let serial_io = FakeSerialIO::new(keyer_will_receive.as_bytes().to_vec(), recording_tx);
-        let mut keyer = ArduinoKeyer::new(Box::new(serial_io), keying_event_tx);
-        match keyer.get_version() {
-            Ok(v) => {
-                // Keyer replied with....
-                assert_eq!(v, "v1.0.0");
+            debug!("asking for version");
+            match keyer.get_version() {
+                Ok(v) => {
+                    // Keyer replied with....
+                    debug!("Received a response: {}", v);
+                    assert_eq!(v, "v1.0.0");
+                }
+                Err(e) => {
+                    panic!("Did not get version: {}", e);
+                }
             }
-            Err(e) => {
-                panic!("Did not get version: {}", e);
-            }
-        }
 
-        // Keyer was sent...
-        let iter = recording_rx.try_iter();
-        let recording: Vec<u8> = iter.collect();
-        let recording_string = String::from_utf8(recording).expect("Found invalid UTF-8");
-        assert_eq!(recording_string, keyer_will_send.to_string());
+            debug!("checking recording");
+            // Keyer was sent...
+            let iter = recording_rx.try_iter();
+            let recording: Vec<u8> = iter.collect();
+            let recording_string = String::from_utf8(recording).expect("Found invalid UTF-8");
+            assert_eq!(recording_string, keyer_will_send.to_string());
 
-        let events = capture.get();
-        assert_eq!(events.is_empty(), true);
+            debug!("checking lack of events");
+            let events = capture.get();
+            assert_eq!(events.is_empty(), true);
+
+            debug!("end of test");
+        });
     }
 
     #[test]
@@ -209,7 +244,8 @@ mod arduino_keyer_io_spec {
         let expected_keying_event_count = 29;
 
         let (recording_tx, _recording_rx): (Sender<u8>, Receiver<u8>) = mpsc::channel();
-        let (keying_event_tx, keying_event_rx): (Sender<KeyingEvent>, Receiver<KeyingEvent>) = mpsc::channel();
+        let mut keying_event_tx = Bus::new(16);
+        let keying_event_rx = keying_event_tx.add_rx();
 
         let capture = CapturingKeyingEventReceiver::new(keying_event_rx);
 
@@ -277,7 +313,8 @@ mod arduino_keyer_io_spec {
         let expected_keying_event_count = 1;
 
         let (recording_tx, _recording_rx): (Sender<u8>, Receiver<u8>) = mpsc::channel();
-        let (keying_event_tx, keying_event_rx): (Sender<KeyingEvent>, Receiver<KeyingEvent>) = mpsc::channel();
+        let mut keying_event_tx = Bus::new(16);
+        let keying_event_rx = keying_event_tx.add_rx();
 
         let capture = CapturingKeyingEventReceiver::new(keying_event_rx);
 
