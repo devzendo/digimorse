@@ -176,6 +176,8 @@ Acknowledgements
 ----------------
 Bart Massey's PortAudio examples at https://github.com/BartMassey/portaudio-rs-demos
 
+Shepmaster's panic_after test helper routine at https://github.com/rust-lang/rfcs/issues/2798
+
 Bibliography
 ------------
 TBC
