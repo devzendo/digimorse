@@ -20,6 +20,8 @@ use std::f64::consts::PI;
 use std::thread::JoinHandle;
 use std::thread;
 use std::sync::{Arc, RwLock};
+use portaudio::stream::OutputSettings;
+use crate::libs::audio::audio_devices;
 
 
 const TABLE_SIZE: usize = 200;
@@ -37,26 +39,25 @@ enum AmplitudeRamping {
 pub struct ToneGenerator {
     enabled_in_filter_bandpass: bool,
     audio_frequency: u16,
-    sine: [f32; TABLE_SIZE],
-    ramping: Arc<RwLock<AmplitudeRamping>>,
     thread_handle: Option<JoinHandle<()>>,
     stream: Option<Stream<NonBlocking, Output<i16>>>,
+    callback_data: Arc<RwLock<CallbackData>>,
 }
 
+pub struct CallbackData {
+    ramping: AmplitudeRamping,
+}
 impl ToneGenerator {
     pub fn new(audio_frequency: u16, keying_events: crossbeam_channel::Receiver<KeyingEvent>) -> Self {
-        let mut sine: [f32; TABLE_SIZE] = [0.0; TABLE_SIZE];
-        for i in 0..TABLE_SIZE {
-            sine[i] = (i as f64 / TABLE_SIZE as f64 * PI * 2.0).sin() as f32;
-        }
+        let callback_data = CallbackData {
+            ramping: AmplitudeRamping::Stable,
+        };
         // TODO replace this RwLock with atomics to reduce contention in the callback.
-        let ramping = Arc::new(RwLock::new(AmplitudeRamping::Stable));
-        let move_clone_ramping = ramping.clone();
+        let arc_lock_callback_data = Arc::new(RwLock::new(callback_data));
+        let move_clone_callback_data = arc_lock_callback_data.clone();
         Self {
             enabled_in_filter_bandpass: true,
             audio_frequency,
-            sine,
-            ramping,
             thread_handle: Some(thread::spawn(move || {
                 let mut amplitude: f32 = 0.0; // used for ramping up/down output waveform for key click suppression
 
@@ -65,7 +66,8 @@ impl ToneGenerator {
                 loop {
                     match keying_events.try_recv() { // should this be a timeout?
                         Ok(keying_event) => {
-                            *(move_clone_ramping.write().unwrap()) = match keying_event {
+                            let mut locked_callback_data = move_clone_callback_data.write().unwrap();
+                            locked_callback_data.ramping = match keying_event {
                                 KeyingEvent::Timed(event) => {
                                     if event.up {
                                         AmplitudeRamping::RampingDown
@@ -90,6 +92,7 @@ impl ToneGenerator {
                 // TODO when we swallow poison, exit here.
                 // debug!("Tone generator thread stopped");
             })),
+            callback_data: arc_lock_callback_data,
             stream: None,
         }
     }
@@ -97,33 +100,40 @@ impl ToneGenerator {
     // The odd form of this callback setup (pass in the PortAudio and settings) rather than just
     // returning the callback to the caller to do stuff with... is because I can't work out what
     // the correct type signature of a callback-returning function should be.
-    pub fn start_callback(&mut self, pa: &PortAudio, output_settings: OutputStreamSettings<i16>) -> Result<(), Box<dyn Error>> {
-        /*
-        let rrrr = move |pa::OutputStreamCallbackArgs { buffer, frames, .. }| {
+    pub fn start_callback(&mut self, pa: &PortAudio, _output_settings: OutputStreamSettings<i16>) -> Result<(), Box<dyn Error>> {
+        let mut sine: [f32; TABLE_SIZE] = [0.0; TABLE_SIZE];
+        for i in 0..TABLE_SIZE {
+            sine[i] = (i as f64 / TABLE_SIZE as f64 * PI * 2.0).sin() as f32;
+        }
+        let mut phase: usize = 0;
+        //let move_clone_callback_data = self.callback_data.clone();
+        let callback = move |pa::OutputStreamCallbackArgs { buffer, frames, .. }| {
+            //let mut locked_callback_data = move_clone_callback_data.write().unwrap();
+
             let mut idx = 0;
             for _ in 0..frames {
-                buffer[idx] = sine[left_phase];
-                buffer[idx + 1] = sine[right_phase];
-                left_phase += 1;
-                if left_phase >= TABLE_SIZE {
-                    left_phase -= TABLE_SIZE;
-                }
-                right_phase += 3;
-                if right_phase >= TABLE_SIZE {
-                    right_phase -= TABLE_SIZE;
+                let sine_val = sine[phase];
+                // TODO MONO - if opening the stream with a single channel causes the same values to
+                // be written to both left and right outputs, this could be optimised..
+                buffer[idx] = sine_val;
+                buffer[idx + 1] = sine_val;
+                phase += 1;
+                if phase >= TABLE_SIZE {
+                    phase -= TABLE_SIZE;
                 }
                 idx += 2;
             }
             pa::Continue
         };
-        rrrr
-        */
-        let callback = move |pa::OutputStreamCallbackArgs { buffer, frames, .. }| {
-            pa::Continue
-        };
 
-        let stream = pa.open_non_blocking_stream(output_settings, callback)?;
-        self.stream = Some(stream);
+        // TODO should be using output_settings but can't get the types right
+        let settings =
+            pa.default_output_stream_settings(2, audio_devices::SAMPLE_RATE, audio_devices::FRAMES_PER_BUFFER)?;
+
+
+        let _stream = pa.open_non_blocking_stream(settings, callback)?;
+        // TODO this needs storing, but the types, the types!
+        // self.stream = Some(_stream);
         Ok(())
         // Now it's playing...
     }
