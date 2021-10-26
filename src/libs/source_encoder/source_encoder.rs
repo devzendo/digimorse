@@ -32,12 +32,12 @@ pub trait SourceEncoder {
 #[readonly::make]
 pub struct DefaultSourceEncoder {
     keyer_speed: KeyerSpeed,
-    keying_event_rx: Receiver<KeyingEvent>,
+    keying_event_rx: crossbeam_channel::Receiver<KeyingEvent>,
 
 }
 
 impl DefaultSourceEncoder {
-    pub fn new(keying_event_rx: Receiver<KeyingEvent>) -> Self {
+    pub fn new(keying_event_rx: crossbeam_channel::Receiver<KeyingEvent>) -> Self {
         Self {
             keyer_speed: 12,
             keying_event_rx

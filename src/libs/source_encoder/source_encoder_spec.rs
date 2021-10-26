@@ -20,7 +20,7 @@ mod source_encoder_spec {
 
     #[test]
     fn default_keying_speed() {
-        let (_keying_event_tx, keying_event_rx): (Sender<KeyingEvent>, Receiver<KeyingEvent>) = mpsc::channel();
+        let (_keying_event_tx, keying_event_rx): (crossbeam_channel::Sender<KeyingEvent>, crossbeam_channel::Receiver<KeyingEvent>) = crossbeam_channel::bounded(16);
         let source_encoder = DefaultSourceEncoder::new(keying_event_rx);
 
         assert_eq!(source_encoder.get_keyer_speed(), 12 as KeyerSpeed);
@@ -28,7 +28,7 @@ mod source_encoder_spec {
 
     #[test]
     fn can_change_keying_speed() {
-        let (_keying_event_tx, keying_event_rx): (Sender<KeyingEvent>, Receiver<KeyingEvent>) = mpsc::channel();
+        let (_keying_event_tx, keying_event_rx): (crossbeam_channel::Sender<KeyingEvent>, crossbeam_channel::Receiver<KeyingEvent>) = crossbeam_channel::bounded(16);
         let mut source_encoder = DefaultSourceEncoder::new(keying_event_rx);
         let new_keyer_speed: KeyerSpeed = 20;
         source_encoder.set_keyer_speed(new_keyer_speed);
@@ -39,7 +39,7 @@ mod source_encoder_spec {
 
     #[test]
     fn encode_keying() {
-        let (_keying_event_tx, keying_event_rx): (Sender<KeyingEvent>, Receiver<KeyingEvent>) = mpsc::channel();
+        let (_keying_event_tx, keying_event_rx): (crossbeam_channel::Sender<KeyingEvent>, crossbeam_channel::Receiver<KeyingEvent>) = crossbeam_channel::bounded(16);
         // define new encoding event, a type alias of vec u8?
         // create a encoding_tx, encoding_rx mpsc::channel and pass the encoding_tx to the encoder.
         // the loop below reads encodings and puts them in a vec for testing.

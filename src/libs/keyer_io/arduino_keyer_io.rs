@@ -1,3 +1,4 @@
+use std::io::ErrorKind;
 use log::{warn, debug};
 
 use crate::libs::keyer_io::arduino_keyer_io::KeyerState::{Initial, ResponseGotGt, ResponseGotSpc, ResponseFinish, KeyingDurationGetLSB, KeyingDurationGetMSB, WaitForEndOfComment};
@@ -21,7 +22,7 @@ pub struct ArduinoKeyer {
 }
 
 impl ArduinoKeyer {
-    pub fn new(serial_io: Box<dyn SerialIO>, keying_event_tx: Sender<KeyingEvent>) -> Self {
+    pub fn new(serial_io: Box<dyn SerialIO>, keying_event_tx: crossbeam_channel::Sender<KeyingEvent>) -> Self {
         // Channels have two endpoints: the `Sender<T>` and the `Receiver<T>`,
         // where `T` is the type of the message to be transferred
         // (type annotation is superfluous)
@@ -113,7 +114,7 @@ struct ArduinoKeyerThread {
     command_response_tx: Sender<Result<String, String>>,
 
     // Keying channel
-    keying_event_tx: Sender<KeyingEvent>,
+    keying_event_tx: crossbeam_channel::Sender<KeyingEvent>,
 
     // State machine data
     state: KeyerState,
@@ -127,7 +128,7 @@ impl ArduinoKeyerThread {
     fn new(serial_io: Box<dyn SerialIO>,
         command_request_rx: Receiver<String>,
            command_response_tx: Sender<Result<String, String>>,
-        keying_event_tx: Sender<KeyingEvent>
+        keying_event_tx: crossbeam_channel::Sender<KeyingEvent>
     ) -> Self {
         debug!("Constructing ArduinoKeyerThread");
         Self {
@@ -196,17 +197,23 @@ impl ArduinoKeyerThread {
                 Ok(n) => {
                     warn!("In build loop, received {} bytes, but should be only 1?!", n);
                 }
-                Err(_) => {
-                    // Be silent when there's nothing incoming..
-                    //warn!("Error in build loop: {}", e);
-
-                    // With fake serial, there's no read timeout, so this is returned when the
-                    // test data is exhausted and causes a busy loop.
+                Err(e) => {
+                    match e.kind() {
+                        // With fake serial, there's no read timeout, so this is returned when the
+                        // test data is exhausted and causes a busy loop.
+                        ErrorKind::UnexpectedEof => {
+                            warn!("End of build loop: {}", e);
+                            break;
+                        }
+                        _ => {
+                            // Be silent when there's nothing incoming..
+                        }
+                    }
                 }
             }
         }
         // TODO when we swallow poison, exit here.
-        //debug!("Keyer I/O thread stopped");
+        debug!("Keyer I/O thread stopped");
     }
 
     fn send_command(&mut self, command_to_keyer: &str) {
