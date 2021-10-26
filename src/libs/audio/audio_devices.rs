@@ -6,8 +6,8 @@ use log::info;
 // PortAudio constants
 const INTERLEAVED: bool = true;
 const LATENCY: pa::Time = 0.0; // Ignored by PortAudio::is_*_format_supported.
-const FRAMES_PER_BUFFER: u32 = 64; // May have to increase this to 1024
-const SAMPLE_RATE: f64 = 48000.0;
+pub(crate) const FRAMES_PER_BUFFER: u32 = 64; // May have to increase this to 1024
+pub(crate) const SAMPLE_RATE: f64 = 48000.0;
 
 
 pub fn list_audio_devices(pa: &PortAudio) -> Result<i32, Box<dyn Error>> {
