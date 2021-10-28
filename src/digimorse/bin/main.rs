@@ -10,8 +10,6 @@ use crossbeam_channel::bounded;
 
 use std::env;
 use std::error::Error;
-use std::sync::mpsc::{Sender, Receiver};
-use std::sync::mpsc;
 
 use digimorse::libs::config_dir::config_dir;
 use digimorse::libs::keyer_io::arduino_keyer_io::ArduinoKeyer;
@@ -52,8 +50,7 @@ arg_enum! {
         ListAudioDevices,
         SerialDiag,
         KeyerDiag,
-        SourceEncoderDiag,
-        Sine
+        SourceEncoderDiag
     }
 }
 
@@ -124,11 +121,6 @@ fn run(arguments: ArgMatches, mode: Mode) -> Result<i32, Box<dyn Error>> {
     check_audio_devices(&mut config, &pa)?;
     check_keyer_device(&mut config)?;
 
-    if mode == Mode::Sine {
-        sine(&pa);
-        return Ok(0)
-    }
-
     let port_string = config.get_port();
     let port = port_string.as_str();
 
@@ -144,7 +136,7 @@ fn run(arguments: ArgMatches, mode: Mode) -> Result<i32, Box<dyn Error>> {
     let (keying_event_tx, keying_event_rx): (crossbeam_channel::Sender<KeyingEvent>, crossbeam_channel::Receiver<KeyingEvent>) = bounded(16);
     let mut keyer = ArduinoKeyer::new(Box::new(serial_io), keying_event_tx);
     let keyer_speed: KeyerSpeed = config.get_wpm() as KeyerSpeed;
-    keyer.set_speed(keyer_speed);
+    keyer.set_speed(keyer_speed)?;
 
     info!("Initialising audio callback...");
     let dev_string = config.get_audio_out_device();
@@ -152,7 +144,7 @@ fn run(arguments: ArgMatches, mode: Mode) -> Result<i32, Box<dyn Error>> {
     let output_settings = open_output_audio_device(&pa, dev)?;
     let tone_generator_keying_event_rx = keying_event_rx.clone();
     let mut tone_generator = ToneGenerator::new(config.get_sidetone_frequency(), tone_generator_keying_event_rx);
-    tone_generator.start_callback(&pa, output_settings);
+    tone_generator.start_callback(&pa, output_settings)?;
 
     if mode == Mode::KeyerDiag {
         info!("Initialising keyer_diag");
@@ -168,7 +160,7 @@ fn run(arguments: ArgMatches, mode: Mode) -> Result<i32, Box<dyn Error>> {
     // TODO change to single producer/multiple consumer channels from tokio instead of the std mpsc
     // channel.
     let source_encoder_keying_event_rx = keying_event_rx.clone();
-    let mut source_encoder = DefaultSourceEncoder::new(source_encoder_keying_event_rx);
+    let _source_encoder = DefaultSourceEncoder::new(source_encoder_keying_event_rx);
 
     if mode == Mode::SourceEncoderDiag {
 
@@ -349,74 +341,6 @@ fn keyer_diag(keying_event_rx: crossbeam_channel::Receiver<KeyingEvent>) -> Resu
         }
     }
 
-}
-
-fn sine(pa : &PortAudio) -> Result<(), Box<dyn Error>> {
-    //! Play a sine wave for several seconds.
-    //!
-    //! A rusty adaptation of the official PortAudio C "paex_sine.c" example by Phil Burk and Ross
-    //! Bencina.
-
-    use std::f64::consts::PI;
-
-    const CHANNELS: i32 = 2;
-    const NUM_SECONDS: i32 = 5;
-    const SAMPLE_RATE: f64 = 44_100.0;
-    const FRAMES_PER_BUFFER: u32 = 64;
-    const TABLE_SIZE: usize = 200;
-
-    info!(
-        "PortAudio Test: output sine wave. SR = {}, BufSize = {}",
-        SAMPLE_RATE, FRAMES_PER_BUFFER
-    );
-
-    // Initialise sinusoidal wavetable.
-    let mut sine = [0.0; TABLE_SIZE];
-    for i in 0..TABLE_SIZE {
-        sine[i] = (i as f64 / TABLE_SIZE as f64 * PI * 2.0).sin() as f32;
-    }
-    let mut left_phase = 0;
-    let mut right_phase = 0;
-
-    let mut settings =
-        pa.default_output_stream_settings(CHANNELS, SAMPLE_RATE, FRAMES_PER_BUFFER)?;
-    // we won't output out of range samples so don't bother clipping them.
-    settings.flags = pa::stream_flags::CLIP_OFF;
-
-    // This routine will be called by the PortAudio engine when audio is needed. It may called at
-    // interrupt level on some machines so don't do anything that could mess up the system like
-    // dynamic resource allocation or IO.
-    let callback = move |pa::OutputStreamCallbackArgs { buffer, frames, .. }| {
-        let mut idx = 0;
-        for _ in 0..frames {
-            buffer[idx] = sine[left_phase];
-            buffer[idx + 1] = sine[right_phase];
-            left_phase += 1;
-            if left_phase >= TABLE_SIZE {
-                left_phase -= TABLE_SIZE;
-            }
-            right_phase += 3;
-            if right_phase >= TABLE_SIZE {
-                right_phase -= TABLE_SIZE;
-            }
-            idx += 2;
-        }
-        pa::Continue
-    };
-
-    let mut stream = pa.open_non_blocking_stream(settings, callback)?;
-
-    stream.start()?;
-
-    info!("Play for {} seconds.", NUM_SECONDS);
-    pa.sleep(NUM_SECONDS * 1_000);
-
-    stream.stop()?;
-    stream.close()?;
-
-    info!("Test finished.");
-
-    Ok(())
 }
 
 fn main() {

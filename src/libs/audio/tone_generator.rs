@@ -15,18 +15,18 @@ use std::error::Error;
 use portaudio::{NonBlocking, Output, OutputStreamSettings, PortAudio, Stream};
 use portaudio as pa;
 use log::{debug, info, warn};
-use std::sync::mpsc::Receiver;
 use crate::libs::keyer_io::keyer_io::KeyingEvent;
 use std::f64::consts::PI;
 use std::thread::JoinHandle;
 use std::thread;
 use std::sync::{Arc, RwLock};
-use portaudio::stream::OutputSettings;
 use crate::libs::audio::audio_devices;
 
 
 const TABLE_SIZE: usize = 200;
+const AMPLITUDE_DELTA: f32 = 0.01;
 
+#[derive(Clone)]
 enum AmplitudeRamping {
     RampingUp, RampingDown, Stable
 }
@@ -71,8 +71,6 @@ impl ToneGenerator {
             enabled_in_filter_bandpass: true,
             audio_frequency,
             thread_handle: Some(thread::spawn(move || {
-                let mut amplitude: f32 = 0.0; // used for ramping up/down output waveform for key click suppression
-
                 info!("Tone generator thread started");
                 // TODO until poisoned?
                 loop {
@@ -120,14 +118,42 @@ impl ToneGenerator {
             sine[i] = (i as f64 / TABLE_SIZE as f64 * PI * 2.0).sin() as f32;
         }
         let mut phase: usize = 0;
-        //let move_clone_callback_data = self.callback_data.clone();
+        let mut amplitude: f32 = 0.0; // used for ramping up/down output waveform for key click suppression
+        let move_clone_callback_data = self.callback_data.clone();
         let callback = move |pa::OutputStreamCallbackArgs { buffer, frames, .. }| {
-            // buffer length is 128, frames is 64
-            //let mut locked_callback_data = move_clone_callback_data.write().unwrap();
+            // info!("buffer length is {}, frames is {}", buffer.len(), frames);
+            // buffer length is 128, frames is 64; idx goes from [0..128).
+
+            // so buffer holds 64 right/left channel samples at 48000Hz and there are 64 frames in the buffer, so
+            // 256 sample pairs; 48000/256=187.5 calls to this callback in one second. 48000 sample pairs is 1 sec = 1000 msec
 
             let mut idx = 0;
+
             for _ in 0..frames {
-                let sine_val = sine[phase];
+                // Would it be precise enough to adjust the direction of ramping every frame?
+                let mut locked_callback_data = move_clone_callback_data.write().unwrap();
+                match locked_callback_data.ramping {
+                    AmplitudeRamping::RampingUp => {
+                        amplitude += AMPLITUDE_DELTA;
+                        if amplitude >= 1.0 {
+                            amplitude = 1.0;
+                            locked_callback_data.ramping = AmplitudeRamping::Stable;
+                        }
+                    }
+                    AmplitudeRamping::RampingDown => {
+                        amplitude -= AMPLITUDE_DELTA;
+                        if amplitude <= 0.0 {
+                            amplitude = 0.0;
+                            locked_callback_data.ramping = AmplitudeRamping::Stable;
+                        }
+                    }
+                    AmplitudeRamping::Stable => {
+                        // noop
+                    }
+                }
+                std::mem::drop(locked_callback_data);
+
+                let sine_val = sine[phase] * amplitude;
                 // TODO MONO - if opening the stream with a single channel causes the same values to
                 // be written to both left and right outputs, this could be optimised..
                 buffer[idx] = sine_val;
@@ -138,6 +164,7 @@ impl ToneGenerator {
                 }
                 idx += 2;
             }
+            // idx is 128...
             pa::Continue
         };
 
