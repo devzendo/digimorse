@@ -1,5 +1,5 @@
 use std::io::ErrorKind;
-use log::{warn, debug};
+use log::{debug, warn};
 
 use crate::libs::keyer_io::arduino_keyer_io::KeyerState::{Initial, ResponseGotGt, ResponseGotSpc, ResponseFinish, KeyingDurationGetLSB, KeyingDurationGetMSB, WaitForEndOfComment};
 use crate::libs::keyer_io::keyer_io::{Keyer, KeyerPolarity, KeyerMode, KeyingEvent, KeyerEdgeDurationMs, KeyingTimedEvent};
@@ -77,7 +77,8 @@ impl Keyer for ArduinoKeyer {
     }
 
     fn set_speed(&mut self, _wpm: u8) -> Result<(), String> {
-        unimplemented!()
+        warn!("Setting the keyer speed is currently unimplemented");
+        Ok(())
     }
 
     fn get_keyer_mode(&mut self) -> Result<KeyerMode, String> {

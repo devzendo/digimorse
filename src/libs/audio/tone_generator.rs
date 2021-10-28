@@ -10,10 +10,11 @@
  */
 // Thanks to BartMassey's PortAudio-rs examples at https://github.com/BartMassey/portaudio-rs-demos
 
+use core::fmt;
 use std::error::Error;
 use portaudio::{NonBlocking, Output, OutputStreamSettings, PortAudio, Stream};
 use portaudio as pa;
-use log::debug;
+use log::{debug, info, warn};
 use std::sync::mpsc::Receiver;
 use crate::libs::keyer_io::keyer_io::KeyingEvent;
 use std::f64::consts::PI;
@@ -30,6 +31,16 @@ enum AmplitudeRamping {
     RampingUp, RampingDown, Stable
 }
 
+impl fmt::Display for AmplitudeRamping {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            AmplitudeRamping::RampingUp => write!(f, "^"),
+            AmplitudeRamping::RampingDown => write!(f, "v"),
+            AmplitudeRamping::Stable => write!(f, "-"),
+        }
+    }
+}
+
 // The keyer sidetone and all received, decoded streams are given a ToneGenerator each. The keyer
 // sends its KeyingEvents in real-time down the keying_events channel; these are directly used to
 // set the ramping appropriately. This is used in the callback to set the amplitude of the output
@@ -40,7 +51,7 @@ pub struct ToneGenerator {
     enabled_in_filter_bandpass: bool,
     audio_frequency: u16,
     thread_handle: Option<JoinHandle<()>>,
-    stream: Option<Stream<NonBlocking, Output<i16>>>,
+    stream: Option<Stream<NonBlocking, Output<f32>>>, // don't know why f32
     callback_data: Arc<RwLock<CallbackData>>,
 }
 
@@ -49,6 +60,7 @@ pub struct CallbackData {
 }
 impl ToneGenerator {
     pub fn new(audio_frequency: u16, keying_events: crossbeam_channel::Receiver<KeyingEvent>) -> Self {
+        info!("Initialising Tone generator");
         let callback_data = CallbackData {
             ramping: AmplitudeRamping::Stable,
         };
@@ -61,11 +73,12 @@ impl ToneGenerator {
             thread_handle: Some(thread::spawn(move || {
                 let mut amplitude: f32 = 0.0; // used for ramping up/down output waveform for key click suppression
 
-                debug!("Tone generator thread started");
+                info!("Tone generator thread started");
                 // TODO until poisoned?
                 loop {
                     match keying_events.try_recv() { // should this be a timeout?
                         Ok(keying_event) => {
+                            info!("Tone generator got {}", keying_event);
                             let mut locked_callback_data = move_clone_callback_data.write().unwrap();
                             locked_callback_data.ramping = match keying_event {
                                 KeyingEvent::Timed(event) => {
@@ -81,7 +94,8 @@ impl ToneGenerator {
                                 KeyingEvent::End() => {
                                     AmplitudeRamping::RampingDown
                                 }
-                            }
+                            };
+                            info!("Set ramping to {}", locked_callback_data.ramping);
                         }
                         Err(_) => {
                             // could timeout, or be disconnected?
@@ -108,6 +122,7 @@ impl ToneGenerator {
         let mut phase: usize = 0;
         //let move_clone_callback_data = self.callback_data.clone();
         let callback = move |pa::OutputStreamCallbackArgs { buffer, frames, .. }| {
+            // buffer length is 128, frames is 64
             //let mut locked_callback_data = move_clone_callback_data.write().unwrap();
 
             let mut idx = 0;
@@ -127,13 +142,27 @@ impl ToneGenerator {
         };
 
         // TODO should be using output_settings but can't get the types right
-        let settings =
+        let mut settings =
             pa.default_output_stream_settings(2, audio_devices::SAMPLE_RATE, audio_devices::FRAMES_PER_BUFFER)?;
+        // we won't output out of range samples so don't bother clipping them.
+        settings.flags = pa::stream_flags::CLIP_OFF;
+        debug!("output settings: {:?}", settings);
 
-
-        let _stream = pa.open_non_blocking_stream(settings, callback)?;
+        let maybe_stream = pa.open_non_blocking_stream(settings, callback);
+        match maybe_stream {
+            Ok(mut stream) => {
+                info!("Opened tone generator output stream ok");
+                stream.start()?;
+                self.stream = Some(stream);
+                info!("Started tone generator output stream ok");
+            }
+            Err(e) => {
+                warn!("Error opening tone generator output stream: {}", e);
+            }
+        }
         // TODO this needs storing, but the types, the types!
         // self.stream = Some(_stream);
+        info!("Got to the end of tone generator callback setup");
         Ok(())
         // Now it's playing...
     }
