@@ -112,7 +112,7 @@ impl ToneGenerator {
     // The odd form of this callback setup (pass in the PortAudio and settings) rather than just
     // returning the callback to the caller to do stuff with... is because I can't work out what
     // the correct type signature of a callback-returning function should be.
-    pub fn start_callback(&mut self, pa: &PortAudio, _output_settings: OutputStreamSettings<i16>) -> Result<(), Box<dyn Error>> {
+    pub fn start_callback(&mut self, pa: &PortAudio, mut output_settings: OutputStreamSettings<f32>) -> Result<(), Box<dyn Error>> {
         let mut sine: [f32; TABLE_SIZE] = [0.0; TABLE_SIZE];
         for i in 0..TABLE_SIZE {
             sine[i] = (i as f64 / TABLE_SIZE as f64 * PI * 2.0).sin() as f32;
@@ -123,9 +123,9 @@ impl ToneGenerator {
         let callback = move |pa::OutputStreamCallbackArgs { buffer, frames, .. }| {
             // info!("buffer length is {}, frames is {}", buffer.len(), frames);
             // buffer length is 128, frames is 64; idx goes from [0..128).
-
-            // so buffer holds 64 right/left channel samples at 48000Hz and there are 64 frames in the buffer, so
-            // 256 sample pairs; 48000/256=187.5 calls to this callback in one second. 48000 sample pairs is 1 sec = 1000 msec
+            // One frame is a pair of left/right channel samples.
+            // 48000/64=750 so in one second there are 48000 samples (frames), and 750 calls to this callback.
+            // 1000/750=1.33333 so each buffer has a duration of 1.33333ms.
 
             let mut idx = 0;
 
@@ -168,14 +168,11 @@ impl ToneGenerator {
             pa::Continue
         };
 
-        // TODO should be using output_settings but can't get the types right
-        let mut settings =
-            pa.default_output_stream_settings(2, audio_devices::SAMPLE_RATE, audio_devices::FRAMES_PER_BUFFER)?;
         // we won't output out of range samples so don't bother clipping them.
-        settings.flags = pa::stream_flags::CLIP_OFF;
-        debug!("output settings: {:?}", settings);
+        output_settings.flags = pa::stream_flags::CLIP_OFF;
+        debug!("output settings: {:?}", output_settings);
 
-        let maybe_stream = pa.open_non_blocking_stream(settings, callback);
+        let maybe_stream = pa.open_non_blocking_stream(output_settings, callback);
         match maybe_stream {
             Ok(mut stream) => {
                 info!("Opened tone generator output stream ok");
@@ -187,8 +184,6 @@ impl ToneGenerator {
                 warn!("Error opening tone generator output stream: {}", e);
             }
         }
-        // TODO this needs storing, but the types, the types!
-        // self.stream = Some(_stream);
         info!("Got to the end of tone generator callback setup");
         Ok(())
         // Now it's playing...
