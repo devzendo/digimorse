@@ -20,10 +20,11 @@ use std::f64::consts::PI;
 use std::thread::JoinHandle;
 use std::thread;
 use std::sync::{Arc, RwLock};
+use bus::BusReader;
 
 
 const TABLE_SIZE: usize = 200;
-const AMPLITUDE_DELTA: f32 = 0.01;
+const AMPLITUDE_DELTA: f32 = 0.005;
 
 #[derive(Clone)]
 enum AmplitudeRamping {
@@ -58,7 +59,7 @@ pub struct CallbackData {
     ramping: AmplitudeRamping,
 }
 impl ToneGenerator {
-    pub fn new(audio_frequency: u16, keying_events: crossbeam_channel::Receiver<KeyingEvent>) -> Self {
+    pub fn new(audio_frequency: u16, mut keying_events: BusReader<KeyingEvent>) -> Self {
         info!("Initialising Tone generator");
         let callback_data = CallbackData {
             ramping: AmplitudeRamping::Stable,
@@ -133,9 +134,12 @@ impl ToneGenerator {
                 let mut locked_callback_data = move_clone_callback_data.write().unwrap();
                 match locked_callback_data.ramping {
                     AmplitudeRamping::RampingUp => {
+                        if amplitude == 0.0 {
+                            phase = 0;
+                        }
                         amplitude += AMPLITUDE_DELTA;
-                        if amplitude >= 1.0 {
-                            amplitude = 1.0;
+                        if amplitude >= 0.95 {
+                            amplitude = 0.95;
                             locked_callback_data.ramping = AmplitudeRamping::Stable;
                         }
                     }
@@ -144,6 +148,7 @@ impl ToneGenerator {
                         if amplitude <= 0.0 {
                             amplitude = 0.0;
                             locked_callback_data.ramping = AmplitudeRamping::Stable;
+                            phase = 0
                         }
                     }
                     AmplitudeRamping::Stable => {

@@ -6,7 +6,6 @@ use clap::{App, Arg, ArgMatches};
 use fltk::app;
 use log::{debug, error, info, warn};
 use portaudio as pa;
-use crossbeam_channel::bounded;
 
 use std::env;
 use std::error::Error;
@@ -16,10 +15,10 @@ use digimorse::libs::keyer_io::arduino_keyer_io::ArduinoKeyer;
 use digimorse::libs::keyer_io::keyer_io::{Keyer, KeyingEvent};
 use digimorse::libs::keyer_io::keyer_io::KeyerSpeed;
 use digimorse::libs::serial_io::serial_io::{DefaultSerialIO, SerialIO};
-// use digimorse::libs::source_encoder::source_encoder::DefaultSourceEncoder;
 use digimorse::libs::util::util::printable;
 
 use std::time::Duration;
+use bus::{Bus, BusReader};
 use portaudio::PortAudio;
 use digimorse::libs::config_file::config_file::ConfigurationStore;
 use digimorse::libs::audio::audio_devices::{list_audio_devices, output_audio_device_exists, input_audio_device_exists, open_output_audio_device};
@@ -133,7 +132,14 @@ fn run(arguments: ArgMatches, mode: Mode) -> Result<i32, Box<dyn Error>> {
     }
 
     info!("Initialising keyer...");
-    let (keying_event_tx, keying_event_rx): (crossbeam_channel::Sender<KeyingEvent>, crossbeam_channel::Receiver<KeyingEvent>) = bounded(16);
+    let mut keying_event_tx = Bus::new(16);
+    let tone_generator_keying_event_rx = keying_event_tx.add_rx();
+    let keyer_diag_keying_event_rx: Option<BusReader<KeyingEvent>> = if mode == Mode::KeyerDiag {
+        Some(keying_event_tx.add_rx())
+    } else {
+        None
+    };
+    //let source_encoder_keying_event_rx= keying_event_tx.add_rx();
     let mut keyer = ArduinoKeyer::new(Box::new(serial_io), keying_event_tx);
     let keyer_speed: KeyerSpeed = config.get_wpm() as KeyerSpeed;
     keyer.set_speed(keyer_speed)?;
@@ -142,14 +148,12 @@ fn run(arguments: ArgMatches, mode: Mode) -> Result<i32, Box<dyn Error>> {
     let dev_string = config.get_audio_out_device();
     let dev = dev_string.as_str();
     let output_settings = open_output_audio_device(&pa, dev)?;
-    let tone_generator_keying_event_rx = keying_event_rx.clone();
     let mut tone_generator = ToneGenerator::new(config.get_sidetone_frequency(), tone_generator_keying_event_rx);
     tone_generator.start_callback(&pa, output_settings)?;
 
     if mode == Mode::KeyerDiag {
         info!("Initialising keyer_diag");
-        let keyer_diag_keying_event_rx= keying_event_rx.clone();
-        keyer_diag(keyer_diag_keying_event_rx)?;
+        keyer_diag(keyer_diag_keying_event_rx.unwrap())?;
     }
 
     info!("Initialising source encoder...");
@@ -159,8 +163,7 @@ fn run(arguments: ArgMatches, mode: Mode) -> Result<i32, Box<dyn Error>> {
 
     // TODO change to single producer/multiple consumer channels from tokio instead of the std mpsc
     // channel.
-    let source_encoder_keying_event_rx = keying_event_rx.clone();
-    let _source_encoder = DefaultSourceEncoder::new(source_encoder_keying_event_rx);
+    //let _source_encoder = DefaultSourceEncoder::new(source_encoder_keying_event_rx);
 
     if mode == Mode::SourceEncoderDiag {
 
@@ -328,12 +331,12 @@ fn serial_diag(serial_io: &mut DefaultSerialIO) -> Result<(), Box<dyn Error>> {
     }
 }
 
-fn keyer_diag(keying_event_rx: crossbeam_channel::Receiver<KeyingEvent>) -> Result<(), Box<dyn Error>> {
+fn keyer_diag(mut keying_event_rx: BusReader<KeyingEvent>) -> Result<(), Box<dyn Error>> {
     loop {
         let result = keying_event_rx.recv_timeout(Duration::from_millis(250));
         match result {
             Ok(keying_event) => {
-                info!("Keying Event {}", keying_event);
+                info!("KeyerDiag: Keying Event {}", keying_event);
             }
             Err(_) => {
                 // be quiet, it's ok..

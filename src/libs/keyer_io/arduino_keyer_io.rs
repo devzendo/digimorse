@@ -10,6 +10,7 @@ use std::thread::JoinHandle;
 use std::sync::mpsc::{Sender, Receiver};
 use std::sync::{mpsc, Mutex};
 use std::time::Duration;
+use bus::Bus;
 use crate::libs::keyer_io::keyer_io::KeyingEvent::{Timed, Start, End};
 
 pub struct ArduinoKeyer {
@@ -22,7 +23,7 @@ pub struct ArduinoKeyer {
 }
 
 impl ArduinoKeyer {
-    pub fn new(serial_io: Box<dyn SerialIO>, keying_event_tx: crossbeam_channel::Sender<KeyingEvent>) -> Self {
+    pub fn new(serial_io: Box<dyn SerialIO>, keying_event_tx: Bus<KeyingEvent>) -> Self {
         // Channels have two endpoints: the `Sender<T>` and the `Receiver<T>`,
         // where `T` is the type of the message to be transferred
         // (type annotation is superfluous)
@@ -115,7 +116,7 @@ struct ArduinoKeyerThread {
     command_response_tx: Sender<Result<String, String>>,
 
     // Keying channel
-    keying_event_tx: crossbeam_channel::Sender<KeyingEvent>,
+    keying_event_tx: Bus<KeyingEvent>,
 
     // State machine data
     state: KeyerState,
@@ -129,7 +130,7 @@ impl ArduinoKeyerThread {
     fn new(serial_io: Box<dyn SerialIO>,
         command_request_rx: Receiver<String>,
            command_response_tx: Sender<Result<String, String>>,
-        keying_event_tx: crossbeam_channel::Sender<KeyingEvent>
+        keying_event_tx: Bus<KeyingEvent>
     ) -> Self {
         debug!("Constructing ArduinoKeyerThread");
         Self {
@@ -249,12 +250,12 @@ impl ArduinoKeyerThread {
             b'S' => {
                 let event = Start();
                 debug!("Keying: {}", event);
-                self.keying_event_tx.send(event).unwrap();
+                self.keying_event_tx.broadcast(event);
             }
             b'E' => {
                 let event = End();
                 debug!("Keying: {}", event);
-                self.keying_event_tx.send(event).unwrap();
+                self.keying_event_tx.broadcast(event);
             }
             b'+' => {
                 self.up = false;
@@ -277,7 +278,7 @@ impl ArduinoKeyerThread {
         self.duration |= (ch as KeyerEdgeDurationMs) & 0x00FF;
         let event = Timed(KeyingTimedEvent { up: self.up, duration: self.duration });
         debug!("Keying: {}", event);
-        self.keying_event_tx.send(event).unwrap();
+        self.keying_event_tx.broadcast(event);
         self.set_state(Initial);
         None
     }

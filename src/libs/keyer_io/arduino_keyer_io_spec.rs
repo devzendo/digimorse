@@ -66,6 +66,7 @@ mod arduino_keyer_io_spec {
     use std::time::Duration;
     use std::{env, thread};
     use std::thread::JoinHandle;
+    use bus::{Bus, BusReader};
 
     #[ctor::ctor]
     fn before_each() {
@@ -84,7 +85,7 @@ mod arduino_keyer_io_spec {
     }
 
     impl CapturingKeyingEventReceiver {
-        fn new(receiver: crossbeam_channel::Receiver<KeyingEvent>) -> Self {
+        fn new(mut receiver: BusReader<KeyingEvent>) -> Self {
             let vec: Vec<KeyingEvent> = vec![];
             let a_vec = Arc::new(RwLock::new(vec));
             let thread_a_vec = a_vec.clone();
@@ -152,8 +153,8 @@ mod arduino_keyer_io_spec {
             let keyer_will_receive = "> v1.0.0\n\n"; // sent back from the 'arduino' ie FakeSerialIO
 
             let (recording_tx, recording_rx): (Sender<u8>, Receiver<u8>) = mpsc::channel();
-            let (keying_event_tx, keying_event_rx): (crossbeam_channel::Sender<KeyingEvent>, crossbeam_channel::Receiver<KeyingEvent>) = crossbeam_channel::bounded(0);
-
+            let mut keying_event_tx: Bus<KeyingEvent> = Bus::new(10);
+            let keying_event_rx = keying_event_tx.add_rx();
             let capture = CapturingKeyingEventReceiver::new(keying_event_rx);
 
             let serial_io = FakeSerialIO::new(keyer_will_receive.as_bytes().to_vec(), recording_tx);
@@ -233,7 +234,8 @@ mod arduino_keyer_io_spec {
             let expected_keying_event_count = 29;
 
             let (recording_tx, _recording_rx): (Sender<u8>, Receiver<u8>) = mpsc::channel();
-            let (keying_event_tx, keying_event_rx): (crossbeam_channel::Sender<KeyingEvent>, crossbeam_channel::Receiver<KeyingEvent>) = crossbeam_channel::bounded(16);
+            let mut keying_event_tx: Bus<KeyingEvent> = Bus::new(10);
+            let keying_event_rx = keying_event_tx.add_rx();
 
             let capture = CapturingKeyingEventReceiver::new(keying_event_rx);
 
@@ -303,7 +305,8 @@ mod arduino_keyer_io_spec {
             let expected_keying_event_count = 1;
 
             let (recording_tx, _recording_rx): (Sender<u8>, Receiver<u8>) = mpsc::channel();
-            let (keying_event_tx, keying_event_rx): (crossbeam_channel::Sender<KeyingEvent>, crossbeam_channel::Receiver<KeyingEvent>) = crossbeam_channel::bounded(16);
+            let mut keying_event_tx: Bus<KeyingEvent> = Bus::new(10);
+            let keying_event_rx = keying_event_tx.add_rx();
 
             let capture = CapturingKeyingEventReceiver::new(keying_event_rx);
 

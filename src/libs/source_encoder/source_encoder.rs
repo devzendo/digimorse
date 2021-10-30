@@ -1,3 +1,4 @@
+use bus::BusReader;
 use crate::libs::keyer_io::keyer_io::{KeyingEvent, KeyerSpeed};
 
 /*
@@ -30,12 +31,12 @@ pub trait SourceEncoder {
 #[readonly::make]
 pub struct DefaultSourceEncoder {
     keyer_speed: KeyerSpeed,
-    keying_event_rx: crossbeam_channel::Receiver<KeyingEvent>,
+    keying_event_rx: BusReader<KeyingEvent>,
 
 }
 
 impl DefaultSourceEncoder {
-    pub fn new(keying_event_rx: crossbeam_channel::Receiver<KeyingEvent>) -> Self {
+    pub fn new(keying_event_rx: BusReader<KeyingEvent>) -> Self {
         Self {
             keyer_speed: 12,
             keying_event_rx
