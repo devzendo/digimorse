@@ -76,7 +76,7 @@ impl ToneGenerator {
                 loop {
                     match keying_events.try_recv() { // should this be a timeout?
                         Ok(keying_event) => {
-                            info!("Tone generator got {}", keying_event);
+                            // info!("Tone generator got {}", keying_event);
                             let mut locked_callback_data = move_clone_callback_data.write().unwrap();
                             locked_callback_data.ramping = match keying_event {
                                 KeyingEvent::Timed(event) => {
@@ -93,7 +93,7 @@ impl ToneGenerator {
                                     AmplitudeRamping::RampingDown
                                 }
                             };
-                            info!("Set ramping to {}", locked_callback_data.ramping);
+                            // info!("Set ramping to {}", locked_callback_data.ramping);
                         }
                         Err(_) => {
                             // could timeout, or be disconnected?
@@ -126,13 +126,19 @@ impl ToneGenerator {
             // One frame is a pair of left/right channel samples.
             // 48000/64=750 so in one second there are 48000 samples (frames), and 750 calls to this callback.
             // 1000/750=1.33333 so each buffer has a duration of 1.33333ms.
+            // The fastest dit we want to encode (at 60WPM) is 20ms long.
 
             let mut idx = 0;
 
             for _ in 0..frames {
-                // Would it be precise enough to adjust the direction of ramping every frame?
+                // The processing of amplitude/phase/ramping needs to be done every frame.
+                let mut ramping: AmplitudeRamping;
                 let mut locked_callback_data = move_clone_callback_data.write().unwrap();
-                match locked_callback_data.ramping {
+                ramping = locked_callback_data.ramping.clone();
+                std::mem::drop(locked_callback_data);
+                let mut update = false;
+
+                match ramping {
                     AmplitudeRamping::RampingUp => {
                         if amplitude == 0.0 {
                             phase = 0;
@@ -140,22 +146,29 @@ impl ToneGenerator {
                         amplitude += AMPLITUDE_DELTA;
                         if amplitude >= 0.95 {
                             amplitude = 0.95;
-                            locked_callback_data.ramping = AmplitudeRamping::Stable;
+                            ramping = AmplitudeRamping::Stable;
+                            update = true;
                         }
                     }
                     AmplitudeRamping::RampingDown => {
                         amplitude -= AMPLITUDE_DELTA;
                         if amplitude <= 0.0 {
                             amplitude = 0.0;
-                            locked_callback_data.ramping = AmplitudeRamping::Stable;
-                            phase = 0
+                            ramping = AmplitudeRamping::Stable;
+                            phase = 0;
+                            update = true;
                         }
                     }
                     AmplitudeRamping::Stable => {
                         // noop
                     }
                 }
-                std::mem::drop(locked_callback_data);
+
+                if update {
+                    let mut locked_callback_data = move_clone_callback_data.write().unwrap();
+                    locked_callback_data.ramping = ramping;
+                    std::mem::drop(locked_callback_data);
+                }
 
                 let sine_val = sine[phase] * amplitude;
                 // TODO MONO - if opening the stream with a single channel causes the same values to
@@ -174,21 +187,17 @@ impl ToneGenerator {
 
         // we won't output out of range samples so don't bother clipping them.
         output_settings.flags = pa::stream_flags::CLIP_OFF;
-        debug!("output settings: {:?}", output_settings);
 
         let maybe_stream = pa.open_non_blocking_stream(output_settings, callback);
         match maybe_stream {
             Ok(mut stream) => {
-                info!("Opened tone generator output stream ok");
                 stream.start()?;
                 self.stream = Some(stream);
-                info!("Started tone generator output stream ok");
             }
             Err(e) => {
                 warn!("Error opening tone generator output stream: {}", e);
             }
         }
-        info!("Got to the end of tone generator callback setup");
         Ok(())
         // Now it's playing...
     }
