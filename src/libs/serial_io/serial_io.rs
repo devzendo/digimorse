@@ -27,7 +27,7 @@ impl DefaultSerialIO {
             flow_control: FlowControl::None,
             parity: Parity::None,
             stop_bits: StopBits::One,
-            timeout: Duration::from_millis(20)
+            timeout: Duration::from_millis(250)
         };
         return match serialport::open_with_settings(&port_name, &settings) {
             Ok(port) => {
