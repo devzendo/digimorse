@@ -188,6 +188,19 @@ You need Rust 1.47.0 or greater.
 * cargo build --release
 
 
+Documentation
+-------------
+Please see the 'docs' directory. The main document is 'The digimorse Communications Protocol'.
+
+There are various other rough notes in ASCII, RTF and OmmWriter format.
+
+The documentation is built using LaTeX. I use MacPorts, with the `texlive` and
+`texlive-latex-extra` packages. The main styles used are from the Tufte-LaTeX package, which may be found at
+https://github.com/Tufte-LaTeX/tufte-latex. I use the `tufte-handout` class.
+
+To build the documentation, a simple 'make' should suffice - this produces the relevant PDFs.
+
+
 License
 -------
 This code is released under the Apache 2.0 License: http://www.apache.org/licenses/LICENSE-2.0.html.
@@ -199,6 +212,12 @@ Acknowledgements
 Bart Massey's PortAudio examples at https://github.com/BartMassey/portaudio-rs-demos
 
 Shepmaster's panic_after test helper routine at https://github.com/rust-lang/rfcs/issues/2798
+
+The authors of the Tufte-LaTeX package, from https://github.com/Tufte-LaTeX/tufte-latex 
+
+Wim Looman provided the initial LaTeX Makefile, from https://gist.github.com/Nemo157/539229
+
+
 
 Bibliography
 ------------
