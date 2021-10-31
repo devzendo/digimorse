@@ -26,7 +26,7 @@ What digimorse is not:
   key or paddle. Macros will come later perhaps.
 * Quantized. If you have a unique rhythm to your keying, digimorse won't correct
   it. The timing of your keying goes out verbatim. You can use our keyer with a
-  paddle which will give good timing.
+  paddle which will give good timing (later).
 
 What you'll find different to usual CW:
 * No noise! QRN, QRM, QSB, gone!
@@ -38,7 +38,7 @@ What you'll find different to usual CW:
   transmitting. The screen will show you how much longer your transmission will
   actually take.
 * So there's not a rapid-fire switching of conversation.
-
+ 
 What do I need to try it?
 * A fairly modern computer running Windows 10, macOS 10.15ish (Catalina,
   possibly Big Sur), or Ubuntu 16.xx LTS, 18.xx LTS, 20.xx LTS.
@@ -62,13 +62,30 @@ Status
 Project started September 2020. Status: initial investigations, feasiblilty,
 thoughts.
 
+What can it do at the moment?
+
+You can connect a straight Morse key to an Arduino running the digimorse-arduino-keyer,
+and key a message. This emits keying timing information via a compact binary protocol
+on a USB-Serial link. This is received and decoded by digimorse, and will generate a
+sidetone as you operate the key. That's all for now. It's all text-mode running in
+a console, no GUI yet. You can query the audio devices, and set them in configuration.
+Configuration is stored in a TOML file that you have to hand-edit.
+Next: Design the source encoder.
+
 In active development:
-* Building the keyer.
+* Building the keyer - straight key is done; paddles are out of scope for now.
 * Reading the keyer output via the USB Serial link, and determining duration of
-  on-off key timing from the USB stream. Feasibility investigation.
+  on-off key timing from the USB stream. Done.
+* Sidetone generation. Done; frequency not yet configurable.
 * All development is in Rust, which is a new, difficult, but interesting
   language. It would be easier in C++, and quicker - but probably less provably
   correct, and portability would be painful.
+
+
+Downloads
+---------
+There aren't any yet. There will be for the first release, but that won't be any
+time soon. You'd have to install build tools and build it yourself...
 
 
 Roadmap
@@ -144,6 +161,11 @@ Currently there's no easy way to show which device this is. Basically, plug it i
 
 
 
+Configuration File
+------------------
+* macOS: /Users/<your username>/Library/Application Support/digimorse/digimorse.toml
+* Linux: /home/<your username>/.digimorse/digimorse.toml
+* Windows: C:\Users\<your username>\AppData\Roaming\digimorse.toml
 
 
 
@@ -169,7 +191,7 @@ You need Rust 1.47.0 or greater.
 License
 -------
 This code is released under the Apache 2.0 License: http://www.apache.org/licenses/LICENSE-2.0.html.
-(C) 2020 Matt Gumbley, DevZendo.org
+(C) 2020-2021 Matt Gumbley, DevZendo.org
 
 
 Acknowledgements
