@@ -5,7 +5,8 @@
 .idea
 *.iml
 *.bak
-/docs/make
+docs/make
+docs/out
 *.aux
 *.log
 *.out
