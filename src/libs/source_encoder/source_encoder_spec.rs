@@ -4,10 +4,9 @@ extern crate hamcrest2;
 mod source_encoder_spec {
     use crate::libs::keyer_io::keyer_io::{KeyingEvent, KeyerSpeed, KeyingTimedEvent};
     use crate::libs::source_encoder::source_encoder::{DefaultSourceEncoder, SourceEncoder};
-    use std::sync::mpsc::{Sender, Receiver};
-    use std::sync::mpsc;
     use log::info;
     use std::env;
+    use bus::Bus;
 
     #[ctor::ctor]
     fn before_each() {
@@ -20,7 +19,8 @@ mod source_encoder_spec {
 
     #[test]
     fn default_keying_speed() {
-        let (_keying_event_tx, keying_event_rx): (crossbeam_channel::Sender<KeyingEvent>, crossbeam_channel::Receiver<KeyingEvent>) = crossbeam_channel::bounded(16);
+        let mut keying_event_tx = Bus::new(16);
+        let keying_event_rx = keying_event_tx.add_rx();
         let source_encoder = DefaultSourceEncoder::new(keying_event_rx);
 
         assert_eq!(source_encoder.get_keyer_speed(), 12 as KeyerSpeed);
@@ -28,7 +28,8 @@ mod source_encoder_spec {
 
     #[test]
     fn can_change_keying_speed() {
-        let (_keying_event_tx, keying_event_rx): (crossbeam_channel::Sender<KeyingEvent>, crossbeam_channel::Receiver<KeyingEvent>) = crossbeam_channel::bounded(16);
+        let mut keying_event_tx = Bus::new(16);
+        let keying_event_rx = keying_event_tx.add_rx();
         let mut source_encoder = DefaultSourceEncoder::new(keying_event_rx);
         let new_keyer_speed: KeyerSpeed = 20;
         source_encoder.set_keyer_speed(new_keyer_speed);
@@ -39,7 +40,8 @@ mod source_encoder_spec {
 
     #[test]
     fn encode_keying() {
-        let (_keying_event_tx, keying_event_rx): (crossbeam_channel::Sender<KeyingEvent>, crossbeam_channel::Receiver<KeyingEvent>) = crossbeam_channel::bounded(16);
+        let mut keying_event_tx = Bus::new(16);
+        let keying_event_rx = keying_event_tx.add_rx();
         // define new encoding event, a type alias of vec u8?
         // create a encoding_tx, encoding_rx mpsc::channel and pass the encoding_tx to the encoder.
         // the loop below reads encodings and puts them in a vec for testing.
