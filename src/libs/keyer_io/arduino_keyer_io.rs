@@ -1,5 +1,5 @@
 use std::io::ErrorKind;
-use log::{debug, warn};
+use log::{debug, info, warn};
 
 use crate::libs::keyer_io::arduino_keyer_io::KeyerState::{Initial, ResponseGotGt, ResponseGotSpc, ResponseFinish, KeyingDurationGetLSB, KeyingDurationGetMSB, WaitForEndOfComment};
 use crate::libs::keyer_io::keyer_io::{Keyer, KeyerPolarity, KeyerMode, KeyingEvent, KeyerEdgeDurationMs, KeyingTimedEvent};
@@ -19,7 +19,7 @@ pub struct ArduinoKeyer {
     command_request_tx: Mutex<Sender<String>>,
     command_response_rx: Receiver<Result<String, String>>,
 
-    thread_handle: Option<JoinHandle<()>>,
+    thread_handle: Mutex<Option<JoinHandle<()>>>,
 }
 
 impl ArduinoKeyer {
@@ -38,7 +38,22 @@ impl ArduinoKeyer {
         Self {
             command_request_tx: mutex_command_request_tx,
             command_response_rx,
-            thread_handle: Some(thread_handle),
+            thread_handle: Mutex::new(Some(thread_handle)),
+        }
+    }
+
+    pub fn terminate(&mut self) -> Result<String, String> {
+        debug!("Terminating keyer");
+        let mut thread_handle = self.thread_handle.lock().unwrap();
+        if thread_handle.is_none() {
+            Err("Already terminated".to_owned())
+        } else {
+            debug!("ArduinoKeyer requesting terminate...");
+            let result = self.transact_channels("terminate");
+            debug!("ArduinoKeyer joining thread handle on terminate...");
+            thread_handle.take().map(JoinHandle::join);
+            debug!("ArduinoKeyer ...joined thread handle on terminate");
+            result
         }
     }
 
@@ -61,9 +76,10 @@ impl ArduinoKeyer {
 
 impl Drop for ArduinoKeyer {
     fn drop(&mut self) {
-        debug!("ArduinoKeyer joining thread handle...");
-        self.thread_handle.take().map(JoinHandle::join);
-        debug!("ArduinoKeyer ...joined thread handle");
+        debug!("ArduinoKeyer joining thread handle on drop...");
+        let mut thread_handle = self.thread_handle.lock().unwrap();
+        thread_handle.take().map(JoinHandle::join);
+        debug!("ArduinoKeyer ...joined thread handle on drop");
     }
 }
 
@@ -150,13 +166,21 @@ impl ArduinoKeyerThread {
     // Notifications.
     fn thread_runner(&mut self) -> () {
         debug!("Keyer I/O thread started");
-        // TODO until poisoned?
         loop {
             // Any incoming commands?
             match self.command_request_rx.try_recv() {
                 Ok(command) => {
-                    self.send_command(command.as_str());
-                    // state machine will send to command_response_tx when done
+                    if command == "terminate" {
+                        info!("Terminating keyer I/O thread");
+                        match self.command_response_tx.send(Ok("Terminated".to_string())) {
+                            Ok(_) => {}
+                            Err(_) => {}
+                        }
+                        break;
+                    } else {
+                        self.send_command(command.as_str());
+                        // state machine will send to command_response_tx when done
+                    }
                 }
                 Err(_) => {
                     // could timeout, or be disconnected?
@@ -266,6 +290,10 @@ impl ArduinoKeyerThread {
                 self.up = true;
                 self.duration = 0;
                 self.set_state(KeyingDurationGetMSB);
+            }
+            // For tests, to get other threads active without this spinning, just delay a bit..
+            b'_' => {
+                thread::sleep(Duration::from_millis(2));
             }
             _ => {
                 warn!("Unexpected out-of-state data {}", printable(ch));

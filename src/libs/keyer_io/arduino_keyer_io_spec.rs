@@ -323,4 +323,47 @@ mod arduino_keyer_io_spec {
             assert_eq!(received_keying_events[0], KeyingEvent::Start());
         });
     }
+
+    #[test]
+    fn terminate() {
+        panic_after(Duration::from_secs(4), || {
+            let keyer_will_receive = "_________"; // cause the keyer to delay its thread a bit
+
+            let (recording_tx, _recording_rx): (Sender<u8>, Receiver<u8>) = mpsc::channel();
+            let mut keying_event_tx: Bus<KeyingEvent> = Bus::new(10);
+            let keying_event_rx = keying_event_tx.add_rx();
+            let capture = CapturingKeyingEventReceiver::new(keying_event_rx);
+
+            let serial_io = FakeSerialIO::new(keyer_will_receive.as_bytes().to_vec(), recording_tx);
+            let mut keyer = ArduinoKeyer::new(Box::new(serial_io), keying_event_tx);
+            info!("Test sleeping");
+            thread::sleep(Duration::from_millis(1)); // give things time to start
+            info!("Terminating keyer");
+            match keyer.terminate() {
+                Ok(terminate_msg) => {
+                    // Keyer replied with....
+                    debug!("Out of terminate() - Keyer replied with '{}'", terminate_msg);
+                    assert_eq!(terminate_msg, "Terminated");
+                }
+                Err(e) => {
+                    panic!("Did not get an Ok: {}", e);
+                }
+            }
+
+            let events = capture.get();
+            assert_eq!(events.is_empty(), true);
+
+            info!("Try to terminate a second time");
+            // Terminating a terminated keyer is an error
+            match keyer.terminate() {
+                Ok(terminate_msg) => {
+                    panic!("Did not get an Err: {}", terminate_msg);
+                }
+                Err(e) => {
+                    debug!("Keyer replied with '{}'", e);
+                    assert_eq!(e, "Already terminated");
+                }
+            }
+        });
+    }
 }
