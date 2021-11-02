@@ -1,7 +1,5 @@
 # Current Development Activities
 
-* Convert documentation to LaTeX.
-
 * Generate the proper configured sidetone sine wave; will have to have a lock around 
 it so do a double buffered swap of the generated wave on frequency change.
 
