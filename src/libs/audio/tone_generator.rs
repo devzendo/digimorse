@@ -133,7 +133,7 @@ impl ToneGenerator {
             for _ in 0..frames {
                 // The processing of amplitude/phase/ramping needs to be done every frame.
                 let mut ramping: AmplitudeRamping;
-                let mut locked_callback_data = move_clone_callback_data.write().unwrap();
+                let locked_callback_data = move_clone_callback_data.write().unwrap();
                 ramping = locked_callback_data.ramping.clone();
                 std::mem::drop(locked_callback_data);
                 let mut update = false;
