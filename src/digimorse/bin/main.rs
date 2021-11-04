@@ -7,8 +7,10 @@ use fltk::app;
 use log::{debug, error, info, warn};
 use portaudio as pa;
 
-use std::env;
+use std::{env, thread};
 use std::error::Error;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use digimorse::libs::config_dir::config_dir;
 use digimorse::libs::keyer_io::arduino_keyer_io::ArduinoKeyer;
@@ -19,11 +21,12 @@ use digimorse::libs::util::util::printable;
 
 use std::time::Duration;
 use bus::{Bus, BusReader};
+use csv::Writer;
 use portaudio::PortAudio;
 use digimorse::libs::config_file::config_file::ConfigurationStore;
 use digimorse::libs::audio::audio_devices::{list_audio_devices, output_audio_device_exists, input_audio_device_exists, open_output_audio_device};
 use digimorse::libs::audio::tone_generator::ToneGenerator;
-use digimorse::libs::source_encoder::source_encoder::DefaultSourceEncoder;
+//use digimorse::libs::source_encoder::source_encoder::DefaultSourceEncoder;
 
 const VERSION: &'static str = env!("CARGO_PKG_VERSION");
 
@@ -140,9 +143,17 @@ fn run(arguments: ArgMatches, mode: Mode) -> Result<i32, Box<dyn Error>> {
         None
     };
     //let source_encoder_keying_event_rx= keying_event_tx.add_rx();
-    let mut keyer = ArduinoKeyer::new(Box::new(serial_io), keying_event_tx);
+    let terminate = Arc::new(AtomicBool::new(false));
+    let mut keyer = ArduinoKeyer::new(Box::new(serial_io), keying_event_tx, terminate.clone());
     let keyer_speed: KeyerSpeed = config.get_wpm() as KeyerSpeed;
     keyer.set_speed(keyer_speed)?;
+
+    let ctrlc_arc_terminate = terminate.clone();
+    ctrlc::set_handler(move || {
+        info!("Setting terminate flag...");
+        ctrlc_arc_terminate.store(true, Ordering::SeqCst);
+        info!("... terminate flag set");
+    }).expect("Error setting Ctrl-C handler");
 
     info!("Initialising audio callback...");
     let dev_string = config.get_audio_out_device();
@@ -153,7 +164,9 @@ fn run(arguments: ArgMatches, mode: Mode) -> Result<i32, Box<dyn Error>> {
 
     if mode == Mode::KeyerDiag {
         info!("Initialising keyer_diag");
-        keyer_diag(keyer_diag_keying_event_rx.unwrap())?;
+        keyer_diag(keyer_diag_keying_event_rx.unwrap(), terminate.clone())?;
+        thread::sleep(Duration::from_secs(2));
+        return Ok(0);
     }
 
     info!("Initialising source encoder...");
@@ -331,19 +344,32 @@ fn serial_diag(serial_io: &mut DefaultSerialIO) -> Result<(), Box<dyn Error>> {
     }
 }
 
-fn keyer_diag(mut keying_event_rx: BusReader<KeyingEvent>) -> Result<(), Box<dyn Error>> {
+fn keyer_diag(mut keying_event_rx: BusReader<KeyingEvent>, terminate: Arc<AtomicBool>) -> Result<(), Box<dyn Error>> {
+    let mut wtr = Writer::from_path("keying.csv")?;
     loop {
+        if terminate.load(Ordering::SeqCst) {
+            break;
+        }
         let result = keying_event_rx.recv_timeout(Duration::from_millis(250));
         match result {
             Ok(keying_event) => {
                 info!("KeyerDiag: Keying Event {}", keying_event);
+                match keying_event {
+                    KeyingEvent::Timed(timed) => {
+                        wtr.write_record(&[if timed.up { "UP" } else { "DOWN" }, format!("{}", timed.duration).as_str()])?;
+                        wtr.flush()?;
+                    }
+                    KeyingEvent::Start() => {}
+                    KeyingEvent::End() => {}
+                }
             }
             Err(_) => {
                 // be quiet, it's ok..
             }
         }
     }
-
+    info!("KeyerDiag: terminating");
+    return Ok(());
 }
 
 fn main() {

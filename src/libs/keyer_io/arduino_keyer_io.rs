@@ -8,7 +8,8 @@ use crate::libs::util::util::printable;
 use std::thread;
 use std::thread::JoinHandle;
 use std::sync::mpsc::{Sender, Receiver};
-use std::sync::{mpsc, Mutex};
+use std::sync::{Arc, mpsc, Mutex};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 use bus::Bus;
 use crate::libs::keyer_io::keyer_io::KeyingEvent::{Timed, Start, End};
@@ -19,11 +20,12 @@ pub struct ArduinoKeyer {
     command_request_tx: Mutex<Sender<String>>,
     command_response_rx: Receiver<Result<String, String>>,
 
+    terminate: Arc<AtomicBool>,
     thread_handle: Mutex<Option<JoinHandle<()>>>,
 }
 
 impl ArduinoKeyer {
-    pub fn new(serial_io: Box<dyn SerialIO>, keying_event_tx: Bus<KeyingEvent>) -> Self {
+    pub fn new(serial_io: Box<dyn SerialIO>, keying_event_tx: Bus<KeyingEvent>, terminate: Arc<AtomicBool>) -> Self {
         // Channels have two endpoints: the `Sender<T>` and the `Receiver<T>`,
         // where `T` is the type of the message to be transferred
         // (type annotation is superfluous)
@@ -31,30 +33,37 @@ impl ArduinoKeyer {
         let (command_response_tx, command_response_rx): (Sender<Result<String, String>>, Receiver<Result<String, String>>) = mpsc::channel();
         let mutex_command_request_tx = Mutex::new(command_request_tx);
 
+        let arc_terminate = terminate.clone();
         let thread_handle = thread::spawn(move || {
-            let mut arduino_keyer_thread = ArduinoKeyerThread::new(serial_io, command_request_rx, command_response_tx, keying_event_tx);
+            let mut arduino_keyer_thread = ArduinoKeyerThread::new(serial_io, command_request_rx, command_response_tx, keying_event_tx, arc_terminate);
             arduino_keyer_thread.thread_runner();
         });
         Self {
             command_request_tx: mutex_command_request_tx,
             command_response_rx,
+            terminate,
             thread_handle: Mutex::new(Some(thread_handle)),
         }
     }
 
-    pub fn terminate(&mut self) -> Result<String, String> {
+    // Signals the thread to terminate, blocks on joining the handle. Used by drop().
+    // Setting the terminate AtomicBool will allow the thread to stop on its own, but there's no
+    // method other than this for blocking until it has actually stopped.
+    pub fn terminate(&mut self) {
         debug!("Terminating keyer");
+        self.terminate.store(true, Ordering::SeqCst);
+        debug!("ArduinoKeyer joining thread handle...");
         let mut thread_handle = self.thread_handle.lock().unwrap();
-        if thread_handle.is_none() {
-            Err("Already terminated".to_owned())
-        } else {
-            debug!("ArduinoKeyer requesting terminate...");
-            let result = self.transact_channels("terminate");
-            debug!("ArduinoKeyer joining thread handle on terminate...");
-            thread_handle.take().map(JoinHandle::join);
-            debug!("ArduinoKeyer ...joined thread handle on terminate");
-            result
-        }
+        thread_handle.take().map(JoinHandle::join);
+        debug!("ArduinoKeyer ...joined thread handle");
+    }
+
+    // Has the thread finished (ie has it been joined)?
+    pub fn terminated(&mut self) -> bool {
+        debug!("Is keyer terminated?");
+        let ret = self.thread_handle.lock().unwrap().is_none();
+        debug!("Termination state is {}", ret);
+        ret
     }
 
     fn transact_channels(&self, command: &str) -> Result<String, String> {
@@ -76,10 +85,8 @@ impl ArduinoKeyer {
 
 impl Drop for ArduinoKeyer {
     fn drop(&mut self) {
-        debug!("ArduinoKeyer joining thread handle on drop...");
-        let mut thread_handle = self.thread_handle.lock().unwrap();
-        thread_handle.take().map(JoinHandle::join);
-        debug!("ArduinoKeyer ...joined thread handle on drop");
+        debug!("ArduinoKeyer signalling termination to thread on drop");
+        self.terminate();
     }
 }
 
@@ -127,6 +134,9 @@ struct ArduinoKeyerThread {
     // Low-level serial access
     serial_io: Box<dyn SerialIO>,
 
+    // Terminate flag
+    terminate: Arc<AtomicBool>,
+
     // Command channels
     command_request_rx: Receiver<String>,
     command_response_tx: Sender<Result<String, String>>,
@@ -146,11 +156,13 @@ impl ArduinoKeyerThread {
     fn new(serial_io: Box<dyn SerialIO>,
         command_request_rx: Receiver<String>,
            command_response_tx: Sender<Result<String, String>>,
-        keying_event_tx: Bus<KeyingEvent>
+        keying_event_tx: Bus<KeyingEvent>,
+        terminate: Arc<AtomicBool>
     ) -> Self {
         debug!("Constructing ArduinoKeyerThread");
         Self {
             serial_io,
+            terminate,
             command_request_rx,
             command_response_tx,
             keying_event_tx,
@@ -167,20 +179,15 @@ impl ArduinoKeyerThread {
     fn thread_runner(&mut self) -> () {
         debug!("Keyer I/O thread started");
         loop {
+            if self.terminate.load(Ordering::SeqCst) {
+                info!("Terminating keyer I/O thread");
+                break;
+            }
             // Any incoming commands?
             match self.command_request_rx.try_recv() {
                 Ok(command) => {
-                    if command == "terminate" {
-                        info!("Terminating keyer I/O thread");
-                        match self.command_response_tx.send(Ok("Terminated".to_string())) {
-                            Ok(_) => {}
-                            Err(_) => {}
-                        }
-                        break;
-                    } else {
-                        self.send_command(command.as_str());
-                        // state machine will send to command_response_tx when done
-                    }
+                    self.send_command(command.as_str());
+                    // state machine will send to command_response_tx when done
                 }
                 Err(_) => {
                     // could timeout, or be disconnected?

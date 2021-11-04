@@ -65,6 +65,7 @@ mod arduino_keyer_io_spec {
     use log::{debug, info};
     use std::time::Duration;
     use std::{env, thread};
+    use std::sync::atomic::AtomicBool;
     use std::thread::JoinHandle;
     use bus::{Bus, BusReader};
 
@@ -158,7 +159,8 @@ mod arduino_keyer_io_spec {
             let capture = CapturingKeyingEventReceiver::new(keying_event_rx);
 
             let serial_io = FakeSerialIO::new(keyer_will_receive.as_bytes().to_vec(), recording_tx);
-            let mut keyer = ArduinoKeyer::new(Box::new(serial_io), keying_event_tx);
+            let terminate = Arc::new(AtomicBool::new(false));
+            let mut keyer = ArduinoKeyer::new(Box::new(serial_io), keying_event_tx, terminate);
             match keyer.get_version() {
                 Ok(v) => {
                     // Keyer replied with....
@@ -240,7 +242,8 @@ mod arduino_keyer_io_spec {
             let capture = CapturingKeyingEventReceiver::new(keying_event_rx);
 
             let serial_io = FakeSerialIO::new(keyer_will_receive, recording_tx);
-            let _keyer = ArduinoKeyer::new(Box::new(serial_io), keying_event_tx);
+            let terminate = Arc::new(AtomicBool::new(false));
+            let _keyer = ArduinoKeyer::new(Box::new(serial_io), keying_event_tx, terminate);
 
             info!("Waiting for for keying...");
             thread::sleep(Duration::from_secs(3));
@@ -311,7 +314,8 @@ mod arduino_keyer_io_spec {
             let capture = CapturingKeyingEventReceiver::new(keying_event_rx);
 
             let serial_io = FakeSerialIO::new(keyer_will_receive, recording_tx);
-            let _keyer = ArduinoKeyer::new(Box::new(serial_io), keying_event_tx);
+            let terminate = Arc::new(AtomicBool::new(false));
+            let _keyer = ArduinoKeyer::new(Box::new(serial_io), keying_event_tx, terminate);
 
             info!("Waiting for keying...");
             thread::sleep(Duration::from_secs(2));
@@ -335,35 +339,18 @@ mod arduino_keyer_io_spec {
             let capture = CapturingKeyingEventReceiver::new(keying_event_rx);
 
             let serial_io = FakeSerialIO::new(keyer_will_receive.as_bytes().to_vec(), recording_tx);
-            let mut keyer = ArduinoKeyer::new(Box::new(serial_io), keying_event_tx);
+            let terminate = Arc::new(AtomicBool::new(false));
+            let mut keyer = ArduinoKeyer::new(Box::new(serial_io), keying_event_tx, terminate);
             info!("Test sleeping");
-            thread::sleep(Duration::from_millis(1)); // give things time to start
-            info!("Terminating keyer");
-            match keyer.terminate() {
-                Ok(terminate_msg) => {
-                    // Keyer replied with....
-                    debug!("Out of terminate() - Keyer replied with '{}'", terminate_msg);
-                    assert_eq!(terminate_msg, "Terminated");
-                }
-                Err(e) => {
-                    panic!("Did not get an Ok: {}", e);
-                }
-            }
+            thread::sleep(Duration::from_millis(5)); // give things time to start
+            assert_eq!(keyer.terminated(), false);
+            info!("Test terminating keyer");
+            keyer.terminate();
+            thread::sleep(Duration::from_millis(5)); // give things time to end
+            assert_eq!(keyer.terminated(), true);
 
             let events = capture.get();
             assert_eq!(events.is_empty(), true);
-
-            info!("Try to terminate a second time");
-            // Terminating a terminated keyer is an error
-            match keyer.terminate() {
-                Ok(terminate_msg) => {
-                    panic!("Did not get an Err: {}", terminate_msg);
-                }
-                Err(e) => {
-                    debug!("Keyer replied with '{}'", e);
-                    assert_eq!(e, "Already terminated");
-                }
-            }
         });
     }
 }
