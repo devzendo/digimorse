@@ -163,7 +163,7 @@ Currently there's no easy way to show which device this is. Basically, plug it i
 
 Configuration File
 ------------------
-* macOS: /Users/<your username>/Library/Application Support/digimorse/digimorse.toml
+* macOS: /Users/<your username>/Library/ApplicationData/digimorse/digimorse.toml
 * Linux: /home/<your username>/.digimorse/digimorse.toml
 * Windows: C:\Users\<your username>\AppData\Roaming\digimorse.toml
 
