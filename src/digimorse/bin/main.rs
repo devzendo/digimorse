@@ -167,10 +167,10 @@ fn run(arguments: ArgMatches, mode: Mode) -> Result<i32, Box<dyn Error>> {
     if mode == Mode::KeyerDiag {
         info!("Initialising KeyerDiag mode");
         keyer_diag(keyer_diag_keying_event_rx.unwrap(), terminate.clone())?;
-        thread::sleep(Duration::from_secs(2));
         keyer.terminate();
         mem::drop(tone_generator);
         pa.terminate()?;
+        thread::sleep(Duration::from_secs(1));
         info!("Finishing KeyerDiag mode");
         return Ok(0);
     }
