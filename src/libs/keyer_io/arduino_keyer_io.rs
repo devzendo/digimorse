@@ -177,7 +177,7 @@ impl ArduinoKeyerThread {
     // Requests/Responses cause the transact state machine to trigger, no support yet for
     // Notifications.
     fn thread_runner(&mut self) -> () {
-        debug!("Keyer I/O thread started");
+        info!("Keyer I/O thread started");
         loop {
             if self.terminate.load(Ordering::SeqCst) {
                 info!("Terminating keyer I/O thread");
@@ -246,7 +246,7 @@ impl ArduinoKeyerThread {
             }
         }
         // TODO when we swallow poison, exit here.
-        debug!("Keyer I/O thread stopped");
+        info!("Keyer I/O thread stopped");
     }
 
     fn send_command(&mut self, command_to_keyer: &str) {

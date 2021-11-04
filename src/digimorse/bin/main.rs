@@ -2,6 +2,7 @@
 extern crate clap;
 extern crate portaudio;
 
+use core::mem;
 use clap::{App, Arg, ArgMatches};
 use fltk::app;
 use log::{debug, error, info, warn};
@@ -159,13 +160,18 @@ fn run(arguments: ArgMatches, mode: Mode) -> Result<i32, Box<dyn Error>> {
     let dev_string = config.get_audio_out_device();
     let dev = dev_string.as_str();
     let output_settings = open_output_audio_device(&pa, dev)?;
-    let mut tone_generator = ToneGenerator::new(config.get_sidetone_frequency(), tone_generator_keying_event_rx);
+    let mut tone_generator = ToneGenerator::new(config.get_sidetone_frequency(),
+                                                tone_generator_keying_event_rx, terminate.clone());
     tone_generator.start_callback(&pa, output_settings)?;
 
     if mode == Mode::KeyerDiag {
-        info!("Initialising keyer_diag");
+        info!("Initialising KeyerDiag mode");
         keyer_diag(keyer_diag_keying_event_rx.unwrap(), terminate.clone())?;
         thread::sleep(Duration::from_secs(2));
+        keyer.terminate();
+        mem::drop(tone_generator);
+        pa.terminate()?;
+        info!("Finishing KeyerDiag mode");
         return Ok(0);
     }
 

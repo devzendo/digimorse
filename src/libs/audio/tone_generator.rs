@@ -20,6 +20,7 @@ use std::f64::consts::PI;
 use std::thread::JoinHandle;
 use std::thread;
 use std::sync::{Arc, RwLock};
+use std::sync::atomic::{AtomicBool, Ordering};
 use bus::BusReader;
 
 
@@ -59,7 +60,8 @@ pub struct CallbackData {
     ramping: AmplitudeRamping,
 }
 impl ToneGenerator {
-    pub fn new(audio_frequency: u16, mut keying_events: BusReader<KeyingEvent>) -> Self {
+    pub fn new(audio_frequency: u16, mut keying_events: BusReader<KeyingEvent>, terminate:
+    Arc<AtomicBool>) -> Self {
         info!("Initialising Tone generator");
         let callback_data = CallbackData {
             ramping: AmplitudeRamping::Stable,
@@ -74,6 +76,11 @@ impl ToneGenerator {
                 info!("Tone generator thread started");
                 // TODO until poisoned?
                 loop {
+                    if terminate.load(Ordering::SeqCst) {
+                        info!("Terminating tone generator thread");
+                        break;
+                    }
+
                     match keying_events.try_recv() { // should this be a timeout?
                         Ok(keying_event) => {
                             // info!("Tone generator got {}", keying_event);
@@ -213,6 +220,8 @@ impl ToneGenerator {
 
 impl Drop for ToneGenerator {
     fn drop(&mut self) {
+        debug!("ToneGenerator stopping stream...");
+        self.stream.take().map(|mut r| r.stop());
         debug!("ToneGenerator joining thread handle...");
         self.thread_handle.take().map(JoinHandle::join);
         debug!("ToneGenerator ...joined thread handle");
