@@ -18,7 +18,7 @@ pub struct ConcreteObserverList<O: Observable> {
 }
 
 impl<O: Observable> ConcreteObserverList<O> {
-    pub(crate) fn new() -> ConcreteObserverList<O> {
+    pub fn new() -> ConcreteObserverList<O> {
         ConcreteObserverList {
             observers: RwLock::new(Vec::new()),
         }
