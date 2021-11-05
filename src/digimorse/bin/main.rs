@@ -361,8 +361,16 @@ fn keyer_diag(mut keying_event_rx: BusReader<KeyingEvent>, terminate: Arc<Atomic
             Ok(keying_event) => {
                 info!("KeyerDiag: Keying Event {}", keying_event);
                 match keying_event {
+                    // KeyingTimedEvents give the duration at the END of a (mark|space). If the
+                    // key is now up, then we've just heard a mark (key down), and if it's now down,
+                    // we've just heard a space (key up).
+                    // If we see a start, that's just the starting key down edge of a mark; an
+                    // end is actually meaningless in terms of keying - it's just a timeout after
+                    // the user has ended keying. In terms of generating a scatter plot of
+                    // keying, the stream should be a single long over - ie no END/STARTs in the
+                    // middle - otherwise you'll see two consecutive MARKs, which makes no sense.
                     KeyingEvent::Timed(timed) => {
-                        wtr.write_record(&[if timed.up { "UP" } else { "DOWN" }, format!("{}", timed.duration).as_str()])?;
+                        wtr.write_record(&[if timed.up { "MARK" } else { "SPACE" }, format!("{}", timed.duration).as_str()])?;
                         wtr.flush()?;
                     }
                     KeyingEvent::Start() => {}
