@@ -115,15 +115,30 @@
     receiver, with high levels of noise present, some or all of the data your system sends should be decodable,
     giving a considerable coding gain over CW~\cite{Punch2013}.
 
+\pagebreak
+\section{General Communications Systems}
+\newthought{Claude Shannon introduced the following diagram} in his seminal paper "A Mathematical Theory of
+    Communication"\cite{Shannon1948}. It illustrates the path taken by some information (a \emph{message}) from its
+    source, to its eventual destination. The message is transmitted across some medium (the \emph{channel}),
+    which inevitably introduces some noise, which means that the received signal is not exactly the same as
+    the transmitted signal. It is the task of the transmitter and receiver designer to mitigate the effects of noise
+    such that the received message can be delivered to its destination - with any corruption due to its journey
+    through the channel removed.
+
+    \begin{figure*}[h]
+        \includegraphics[width=\linewidth]{general-communication-system}
+        \caption{Schematic diagram of a general communications system}
+        \label{fig:gencomms}
+    \end{figure*}
+
+    In the case of digimorse, the information is a message in Morse code, the transmitter and receiver are a typical
+    amateur radio transceiver and antenna system. The channel is therefore any of the amateur bands, typically using
+    single-sideband (SSB) modulation. As will be seen in subsequent sections, digimorse is a \emph{narrow bandwidth}
+    signal.
 
 
 
-
-
-
-
-
-\section{Project Website}
+    \section{Project Website}
 
 The website for the digimorse protocol and transceiver software is located at
 \url{https://devzendo.github.io/digimorse}. On the website, you'll find

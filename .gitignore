@@ -13,3 +13,4 @@ docs/out
 *.out
 *.rtf#
 keying.csv
+*-eps-converted-to.pdf
