@@ -119,11 +119,11 @@
 \section{General Communications Systems}
 \newthought{Claude Shannon introduced the following diagram} in his seminal paper "A Mathematical Theory of
     Communication"\cite{Shannon1948}. It illustrates the path taken by some information (a \emph{message}) from its
-    source, to its eventual destination. The message is transmitted across some medium (the \emph{channel}),
-    which inevitably introduces some noise, which means that the received signal is not exactly the same as
-    the transmitted signal. It is the task of the transmitter and receiver designer to mitigate the effects of noise
-    such that the received message can be delivered to its destination - with any corruption due to its journey
-    through the channel removed.
+    source, to its eventual destination. The message is converted by the transmitter into a signal, which is
+    transmitted across some medium (the \emph{channel}), which inevitably introduces some noise, which means that the
+    received signal is not exactly the same as the transmitted signal. It is the task of the transmitter and receiver
+    designer to mitigate the effects of noise such that the received message can be delivered to its destination -
+    with any corruption due to its journey through the channel removed.
 
     \begin{figure*}[h]
         \includegraphics[width=\linewidth]{general-communication-system}
@@ -136,6 +136,32 @@
     single-sideband (SSB) modulation. As will be seen in subsequent sections, digimorse is a \emph{narrow bandwidth}
     signal.
 
+    In amateur radio, Morse code is traditionally transmitted using a single continuous radio wave, oscillating at a
+    fixed frequency. This gives rise to the name and acronym it is more commonly known as: Continuous Wave, or CW.
+    This method of transmitting Morse originated around 1913, with the invention of the vacuum tube electronic
+    oscillator by Edwin Armstrong and Alexander Meissner\footnote{See Wikipedia, 'Continuous wave'}. Prior to this,
+    Morse was transmitted using primitive \emph{spark gap} transmitters, which created much electromagnetic
+    interference, and had wide bandwidth. They were outlawed in 1934. CW, as a method of transmitting Morse code
+    using radio, has not changed since then. The bandwidth of a CW signal is very low\cite{Amos}. In the intervening
+    years, great improvements to receiver technology have been made: receiver sensitivity and selectivity have
+    improved; filtering and digital signal processing techniques have been applied to try to reduce or remove the
+    noise that plagues reception\footnote{Just in time to counteract the effects of the multitude of digital devices
+    we have brought into our homes, creating an electromagnetic smog that most people are completely unaware of!}.
+
+    However, despite these advances, noise and fading effects introduced by ionospheric reflection still impact our
+    ability to receive and decode Morse.
+
+\section{Digital Communications Systems}
+    \newthought{digimorse attempts to be an upgrade to CW}.
+
+    In a little more detail, the path through a digital communications system such as digimorse (or any modern
+    digital radio mode for that matter) comprises several main elements.
+
+    \begin{figure*}[h]
+        \includegraphics[width=\linewidth]{digital-communication-system}
+        \caption{Basic elements of a digital communications system}
+        \label{fig:digcomms}
+    \end{figure*}
 
 
     \section{Project Website}
