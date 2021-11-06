@@ -36,8 +36,9 @@
 
     \begin{abstract}
         \noindent
-        This document describes the rationale for, and the design of the digimorse communications protocol.
-        It describes choices made at all stages of its implementation in the transceiver software.
+        This document introduces an experimental alternative to amateur radio's traditional way of transmitting Morse
+        Code. It describes the rationale for, and the design of the digimorse communications protocol. It describes
+        choices made at all stages of its implementation in the transceiver software.
     \end{abstract}
 
 %\printclassoptions
@@ -46,11 +47,12 @@
     particularly
     enjoy, to see if the benefits of one aspect might improve my enjoyment of the other.
     Namely, to see if digital encoding and error correction\footnote{Such as found in the WSJT-X weak-signal mode
-    software by Joe Taylor K1JT et al.} might be used to provide a significant coding gain, and a removal of noise
+    software by Joe Taylor K1JT et al.} might be used to provide a significant coding gain and a removal of noise
     from Morse Code - our historic mode of communication.
 
     Other features of modern digital operation that I aim to bring to Morse operation with digimorse include:
     \begin{itemize}
+        \setlength\itemsep{-0.5em}
         \item a waterfall display
         \item active station information
         \item meaningful signal reports
@@ -58,28 +60,50 @@
 
     Waterfall displays are now standard features on modern SDR\footnote{Software Defined Radio} transceivers such as
     the Yaesu FTDX10, and in software such as WSJT-X\cite{FT4FT8}.
-    They show the presence of any signals across the receiver's audio bandwidth.
+    They graphically show the presence of any signals - and information about their senders - across the receiver's
+    audio bandwidth.
     The decode window of WSJT-X shows the content of the decoded messages that have been received in recent
     receive cycles.
     With this display it is easy to see who is currently active on the band, how strong their signals are, and their
     country/locator square.
-    This gives an excellent overview of propagation conditions.
+    This gives an excellent overview of propagation conditions and band activity.
     Signal reports are automatically derived from the incoming signal strength, and are therefore meaningful – rather
     than the typical ‘you are 5 by 9… what was your name and callsign again?’.
 
-    Since the Morse code you send is encoded and decoded digitally, the receiving station plays it exactly as it was
-    sent, with no noise.
+    With digimorse, since the Morse code you send is encoded and decoded digitally, if the receiving station
+    achieves a successful decode, the code will be played back exactly as it was sent, with no noise.
 
-    As an analogy, digimorse intends to do to Morse code what compact discs did for vinyl recordings.
+    In amateur radio, Morse code is traditionally transmitted using a pure sinusoidal radio wave, oscillating at a
+    fixed frequency. This gives rise to the name and acronym it is more commonly known as: Continuous Wave, or CW.
+    This method of transmitting Morse originated around 1913, with the invention of the \emph{vacuum tube electronic
+    oscillator} by Edwin Armstrong and Alexander Meissner\footnote{See Wikipedia, 'Continuous wave'}. Prior to this,
+    Morse was transmitted using primitive \emph{spark gap} transmitters, which created much electromagnetic
+    interference, and had wide bandwidth. They were outlawed in 1934. The bandwidth of a CW signal is very low,
+    compared to the systems it replaced\cite{Amos}.
+
+    Perhaps surprisingly, CW, as a method of transmitting Morse code
+    using radio, has not changed significantly since then. In the intervening years, great improvements to receiver
+    technology have been made: receiver sensitivity and selectivity have improved; filtering and digital signal
+    processing techniques have been applied to try to reduce or remove the noise that plagues reception.
+
+    However, despite these advances, noise and fading effects introduced by ionospheric reflection still impact our
+    ability to receive and decode Morse, as received using CW signals.
+
+    As an analogy, digimorse intends to do to Morse code what compact discs did for vinyl recordings. It's an upgrade
+    for CW.
+
+    This paper introduces digimorse in the context of modern digital communications protocols for the radio amateur.
 
     \pagebreak
     \tableofcontents
     \pagebreak
 
 \section{Overview of the digimorse transceiver}
+    \newthought{A view of the functions of the digimorse transceiver}, to be explored more fully in later sections.
+
 \subsection{Transmission}
 
-    The digimorse software takes real, hand-sent Morse Code - not typed, computer-generated 'perfect' Morse - but keyed
+    The digimorse software uses real, hand-sent Morse Code - not typed, computer-generated 'perfect' Morse - but keyed
     on a straight key, or paddle\footnote{Only straight keys are currently supported.}.
     The key or paddle is attached to the computer via an Arduino-based USB interface which samples your keying,
     sending a stream of millisecond-precise key up/down durations to the computer.
@@ -92,19 +116,17 @@
     of the software to correctly decode extremely weak signals.
     These blocks of data are then prefixed with a Costas array\cite{Hasselbeck2019}, to allow the receiver to 
     precisely filter the frame stream from the rest of the received audio.
-    The complete stream is then modulated into a narrow bandwidth of tones.
+    The complete stream is then modulated into a narrow bandwidth of tones, taking care to minimise splatter.
     Many such transmissions can occur simultaneously within a transceiver’s 3kHz SSB bandwidth.
-    A suitable modulation scheme will be chosen to constrain the tone sequence within this bandwidth.
     The resultant audio is then transmitted.
 
 \subsection{Reception}
 
-    The receiver detects all narrow bandwidth signals across its 3kHz incoming audio, by searching for their
-    initial Costas arrays.
-    After demodulation, error detection and correction is applied, and if the stream is valid, the metadata
-    frames found in the stream are displayed.
-    Decoded metadata is displayed above each stream of keying information so that you can easily see who is
-    transmitting, from where, with what level of power and speed of keying.
+    The receiver detects all narrow-bandwidth digimorse signals across its 3kHz incoming audio bandwidth by searching
+    for their initial Costas arrays.
+    After demodulation, error detection and correction is applied, and if the stream is valid, the detected metadata
+    frames are displayed above each stream of keying information so that you can easily see who is
+    transmitting, from where, how strong their signals are, and how fast they are keying.
     Given this scrolling display of decoded streams, you may select individual signals, or apply a bandpass filter
     across part of the receive bandwidth.
     The result is that the single selected signal - or multiple filtered signals - are then decoded, and
@@ -112,45 +134,58 @@
     Each stream is located at some audio offset from the start of the 3kHz receiver bandwidth, and this offset is used
     as the tone for each signal.
     The inclusion of LDPC error correction information means that even if your RF signal is very weak at the
-    receiver, with high levels of noise present, some or all of the data your system sends should be decodable,
-    giving a considerable coding gain over CW~\cite{Punch2013}.
+    receiver, with high levels of noise present, then some or all of your transmission should be decodable, giving a
+    considerable coding gain over CW~\cite{Punch2013}.
 
 \pagebreak
-\section{General Communications Systems}
-\newthought{Claude Shannon introduced the following diagram} in his seminal paper "A Mathematical Theory of
-    Communication"\cite{Shannon1948}. It illustrates the path taken by some information (a \emph{message}) from its
-    source, to its eventual destination. The message is converted by the transmitter into a signal, which is
-    transmitted across some medium (the \emph{channel}), which inevitably introduces some noise, which means that the
-    received signal is not exactly the same as the transmitted signal. It is the task of the transmitter and receiver
-    designer to mitigate the effects of noise such that the received message can be delivered to its destination -
-    with any corruption due to its journey through the channel removed.
+\section{Digital Communications Systems}
+\newthought{The overview presented above will now be expanded upon} by reviewing a generic
+    digital communications system, and then explaining how each of its building
+    blocks is implemented in digimorse.
+
+\subsection{Generic Digital Communication Systems}
+    Claude Shannon presented a high-level variant of the following diagram in his seminal paper "A Mathematical
+    Theory of Communication"\cite{Shannon1948}. The diagram shown below is a modern enhancement for digital
+    communication systems.
+
+    All of the modern digital communication systems you might use adhere to this same basic structure.
 
     \begin{figure*}[h]
-        \includegraphics[width=\linewidth]{general-communication-system}
-        \caption{Schematic diagram of a general communications system}
-        \label{fig:gencomms}
+        \includegraphics[width=\linewidth]{digital-communication-system}
+        \caption{Basic elements of a digital communications system}
+        \label{fig:digcomms}
     \end{figure*}
 
-    In the case of digimorse, the information is a message in Morse code, the transmitter and receiver are a typical
-    amateur radio transceiver and antenna system. The channel is therefore any of the amateur bands, typically using
-    single-sideband (SSB) modulation. As will be seen in subsequent sections, digimorse is a \emph{narrow bandwidth}
-    signal.
+    % EXPLAIN WHAT'S GOING ON HERE AT THE HIGH LEVEL
 
-    In amateur radio, Morse code is traditionally transmitted using a single continuous radio wave, oscillating at a
-    fixed frequency. This gives rise to the name and acronym it is more commonly known as: Continuous Wave, or CW.
-    This method of transmitting Morse originated around 1913, with the invention of the vacuum tube electronic
-    oscillator by Edwin Armstrong and Alexander Meissner\footnote{See Wikipedia, 'Continuous wave'}. Prior to this,
-    Morse was transmitted using primitive \emph{spark gap} transmitters, which created much electromagnetic
-    interference, and had wide bandwidth. They were outlawed in 1934. The bandwidth of a CW signal is very low,
-    compared to the systems it replaced\cite{Amos}. Perhaps surprisingly, CW, as a method of transmitting Morse code
-    using radio, has not changed significantly since then. In the intervening years, great improvements to receiver
-    technology have been made: receiver sensitivity and selectivity have improved; filtering and digital signal
-    processing techniques have been applied to try to reduce or remove the noise that plagues reception\footnote{Just
-    in time to counteract the effects of the multitude of digital devices we have brought into our homes, creating an
-    electromagnetic smog that most people are completely unaware of!}.
+    The diagram starts at the top-left, and illustrates the path taken by some information (a \emph{message}) from
+    its source, to its eventual destination.
+    The source could be analogue or digital, and is encoded into some digital form, such that it can be expressed in
+    as few binary digits as possible.
+    The output of the source encoder should exhibit as little \emph{redundancy} as possible; it should be as
+    \emph{compressed} as possible.
 
-    However, despite these advances, noise and fading effects introduced by ionospheric reflection still impact our
-    ability to receive and decode Morse, as received using CW signals.
+    The resulting \emph{information sequence} is then fed to the channel encoder, which is tasked with preparing it
+    for its journey through the channel.
+    This is achieved by adding some redundancy back into the information, but in a structured manner, such that it
+    can be used by the receiver to overcome the effects of noise and interference presented by the transmission over
+    the channel.
+    The reliability of decoding during reception is increased by this added redundancy.
+
+    The binary output of the channel encoder must be converted into a form suitable for transmission over the
+    channel: this is the function of the digital modulator, which typically maps binary data into electrical signal
+    waveforms.
+
+    The channel is the physical medium through which the signal is sent from transmitter to receiver. In amateur
+    radio, this is the atmosphere, either a transmission via ground wave or sky wave. In either case, the signal is
+    subject to interference, and is corrupted randomly by noise generated by other electronic devices, atmospheric
+    noise (e.g. lightning discharges), human-generated noise such as car ignition noise or other switching. It can
+    also be subject to various types of fading, multipath reflection, doppler effects, etc.
+
+
+
+    This paper will now discuss each of these building blocks in turn, and their design and implementation in digimorse.
+
 
 \section{Digital Communications Systems}
     \newthought{digimorse attempts to be an upgrade to CW}.
@@ -158,11 +193,15 @@
     In a little more detail, the path through a digital communications system such as digimorse (or any modern
     digital radio mode for that matter) comprises several main elements.
 
-    \begin{figure*}[h]
-        \includegraphics[width=\linewidth]{digital-communication-system}
-        \caption{Basic elements of a digital communications system}
-        \label{fig:digcomms}
-    \end{figure*}
+    % FRAME THE PROBLEM AND PROVIDE MOTIVATION AND BACKGROUND. SAY WHAT THE PROBLEM IS, STATE THE OUTPUT AND KEY IDEA
+    % BEFORE DISCUSSING STEPS.
+
+
+
+    In the case of digimorse, the information is a message in Morse code, the transmitter and receiver are a typical
+    amateur radio transceiver and antenna system. The channel is therefore any of the amateur bands, typically using
+    single-sideband (SSB) modulation. As will be seen in subsequent sections, digimorse is a \emph{narrow bandwidth}
+    signal.
 
 
     \section{Project Website}
