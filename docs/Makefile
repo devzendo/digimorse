@@ -22,9 +22,8 @@ TEMP2 := $(shell mkdir make 2>/dev/null)
 .PHONY: all
 all: $(MAINFILE).pdf
 
-$(MAINFILE).pdf: $(EXTRA_FILES)
-	pdflatex $(MAINFILE)
-	pdflatex $(MAINFILE)
+$(MAINFILE).pdf: $(MAINFILE).tex $(EXTRA_FILES)
+	latexmk
 
 make/%.t: %.tex
 	touch $@
@@ -45,6 +44,7 @@ clean:
 	-rm -f *.bbl
 	-rm -f *.blg
 	-rm -f *.out
+	-rm -f *.fdb_latexmk
 	-rm -f make/bib
 
 .PHONY: cleanall
