@@ -1,17 +1,19 @@
 \documentclass[a4paper]{tufte-handout}
 
 \title{The digimorse Communications Protocol}
-
-\author{Matt Gumbley, M{\O}CUV}
+\author{ Matt Gumbley, M{\O}CUV}
 
 %\date % without \date command, current date is supplied
 
 %\geometry{showframe} % display margins for debugging page layout
 
 
+% The tufte-latex package is great for pdflatex, but TeXPad uses xelatex, which fouls up the header, and doesn't build unless the following section is added. The header doesn't use a smallcaps font, and I had to change the main text and math font to make it look a bit better...
+
 % Thanks to https://tex.stackexchange.com/questions/200722/xetex-seems-to-break-headers-in-tufte-handout
 \usepackage{fontspec}
 \usepackage{ifxetex}
+
 
 \ifxetex
   \newcommand{\textls}[2][5]{%
@@ -24,18 +26,18 @@
   \renewcommand{\textsc}[1]{\smallcapsspacing{\textsmallcaps{#1}}}
 \fi
 
+\setmainfont[Renderer=Basic, Numbers=OldStyle, Scale = 1.0]{Palatino}
 
-% Palatino for main text and math
-\usepackage[osf,sc]{mathpazo}
+% Get the small caps right. Too much fiddling going on when using xelatex and tufte-latex.
+% The title and author aren't as nice as with pdflatex, but at least it builds.
+\setmainfont{texgyrepagella}[
+ Path = /opt/local/share/texmf-texlive/fonts/opentype/public/tex-gyre/ ,
+ UprightFont = *-regular ,
+ BoldFont = *-bold ,
+ SmallCapsFeatures={Letters=SmallCaps},
+]
 
-% Helvetica for sans serif
-% (scaled to match size of Palatino)
-\usepackage[scaled=0.90]{helvet}
-
-% Bera Mono for monospaced
-% (scaled to match size of Palatino)
-% \usepackage[scaled=0.85]{beramono}
-
+\setsansfont[Renderer=Basic, Scale=0.90]{Helvetica}
 
 \usepackage{graphicx} % allow embedded images
 \setkeys{Gin}{width=\linewidth,totalheight=\textheight,keepaspectratio}
@@ -61,15 +63,18 @@
 \newcommand{\docclsopt}[1]{\texttt{#1}}% document class option name
 \newenvironment{docspec}{\begin{quote}\noindent}{\end{quote}}% command specification environment
 
+
+
 \begin{document}
 
     \maketitle % this prints the handout title, author, and date
 
     \begin{abstract}
         \noindent
-        This document introduces an experimental alternative to amateur radio's traditional way of transmitting Morse
-        Code. It describes the rationale for, and the design of the digimorse communications protocol. It describes
-        choices made at all stages of its implementation in the transceiver software.
+        This document introduces an experimental alternative to amateur radio's traditional way of transmitting Morse code.
+        It describes the rationale for, and the design of the digimorse communications protocol.
+        The design is explained in the context of general digital communications systems, with
+        discussions of the choices made at all stages of its implementation in the transceiver software.
     \end{abstract}
 
     \newthought{The digimorse communications protocol exists} to bring together two aspects of amateur radio that I
@@ -79,7 +84,7 @@
     software by Joe Taylor K1JT et al.} might be used to provide a significant coding gain and a removal of noise
     from Morse Code - our historic mode of communication.
 
-    Other features of modern digital operation that I aim to bring to Morse operation with digimorse include:
+    Other features of modern digital amateur radio that I aim to bring to Morse operation with digimorse include:
     \begin{itemize}
         \setlength\itemsep{-0.5em}
         \item a waterfall display
@@ -110,6 +115,7 @@
     interference, and had wide bandwidth. They were outlawed in 1934. The bandwidth of a CW signal is very low,
     compared to the systems it replaced\cite{Amos}.
 
+	\pagebreak
     Perhaps surprisingly, CW, as a method of transmitting Morse code
     using radio, has not changed significantly since then. In the intervening years, great improvements to receiver
     technology have been made: receiver sensitivity and selectivity have improved; filtering and digital signal
@@ -212,9 +218,13 @@
 
 
 	% TODO discuss digital demodulator
+	\hl{discuss digital demodulator}
 	% TODO discuss channel decoder
+	\hl{discuss channel decoder}
 	% TODO discuss source decoder
+	\hl{discuss source decoder}
 	% TODO discuss output transducer
+	\hl{discuss output transducer}
 	
 
     Starting with Morse code, I will now discuss each of these building blocks in turn, and their design and implementation in digimorse.
@@ -225,7 +235,7 @@
 
 
 %TODO include full block diagram
-
+	\hl{full block diagram goes here}
 	    
     % FRAME THE PROBLEM AND PROVIDE MOTIVATION AND BACKGROUND. SAY WHAT THE PROBLEM IS, STATE THE OUTPUT AND KEY IDEA
     % BEFORE DISCUSSING STEPS.
