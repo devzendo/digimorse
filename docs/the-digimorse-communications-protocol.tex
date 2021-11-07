@@ -8,6 +8,26 @@
 
 %\geometry{showframe} % display margins for debugging page layout
 
+
+% Thanks to https://tex.stackexchange.com/questions/200722/xetex-seems-to-break-headers-in-tufte-handout
+\usepackage{fontspec}
+\usepackage{ifxetex}
+
+\ifxetex
+  \newcommand{\textls}[2][5]{%
+    \begingroup\addfontfeatures{LetterSpace=#1}#2\endgroup
+  }
+  \renewcommand{\allcapsspacing}[1]{\textls[15]{#1}}
+  \renewcommand{\smallcapsspacing}[1]{\textls[10]{#1}}
+  \renewcommand{\allcaps}[1]{\textls[15]{\MakeTextUppercase{#1}}}
+  \renewcommand{\smallcaps}[1]{\smallcapsspacing{\scshape\MakeTextLowercase{#1}}}
+  \renewcommand{\textsc}[1]{\smallcapsspacing{\textsmallcaps{#1}}}
+\fi
+
+
+
+
+
 \usepackage{graphicx} % allow embedded images
 \setkeys{Gin}{width=\linewidth,totalheight=\textheight,keepaspectratio}
 \graphicspath{{graphics/}} % set of paths to search for images
@@ -18,6 +38,8 @@
 \usepackage{lipsum}   % filler text
 \usepackage{fancyvrb} % extended verbatim environments
 \usepackage{hyperref} % URLs
+\usepackage{xcolor}   % For coloured text
+\usepackage{soul}     % For highlighted text
 \fvset{fontsize=\normalsize}% default font size for fancy-verbatim environments
 
 % Standardize command font styles and environments
@@ -32,7 +54,7 @@
 
 \begin{document}
 
-    \maketitle% this prints the handout title, author, and date
+    \maketitle % this prints the handout title, author, and date
 
     \begin{abstract}
         \noindent
@@ -40,8 +62,6 @@
         Code. It describes the rationale for, and the design of the digimorse communications protocol. It describes
         choices made at all stages of its implementation in the transceiver software.
     \end{abstract}
-
-%\printclassoptions
 
     \newthought{The digimorse communications protocol exists} to bring together two aspects of amateur radio that I
     particularly
@@ -143,7 +163,6 @@
     digital communications system, and then explaining how each of its building
     blocks is implemented in digimorse.
 
-\subsection{Generic Digital Communication Systems}
     Claude Shannon presented a high-level variant of the following diagram in his seminal paper "A Mathematical
     Theory of Communication"\cite{Shannon1948}. The diagram shown below is a modern enhancement for digital
     communication systems.
@@ -183,28 +202,78 @@
     also be subject to various types of fading, multipath reflection, doppler effects, etc.
 
 
+	% TODO discuss digital demodulator
+	% TODO discuss channel decoder
+	% TODO discuss source decoder
+	% TODO discuss output transducer
+	
 
-    This paper will now discuss each of these building blocks in turn, and their design and implementation in digimorse.
+    Starting with Morse code, I will now discuss each of these building blocks in turn, and their design and implementation in digimorse.
 
 
-\section{Digital Communications Systems}
-    \newthought{digimorse attempts to be an upgrade to CW}.
+\section{digimorse as a Digital Communications System}
+    \newthought{Before taking several deep dives} into the building blocks, let's zoom out a little further, and look at the whole of digimorse - as there are additional parts that don't appear in the previous description of generic digital communications systems. 
 
-    In a little more detail, the path through a digital communications system such as digimorse (or any modern
-    digital radio mode for that matter) comprises several main elements.
 
+%TODO include full block diagram
+
+	    
     % FRAME THE PROBLEM AND PROVIDE MOTIVATION AND BACKGROUND. SAY WHAT THE PROBLEM IS, STATE THE OUTPUT AND KEY IDEA
     % BEFORE DISCUSSING STEPS.
 
+\section{Information Source and Input Transducer}
+
+Morse key and Arduino, keying protocol, USB Serial, protocol decoder, keying event stream.
+how the protocol decoder is wired to other block diagram elements.
+
+\section{Source Encoder}
+Given a stream of keying information from the input layer, this must be encoded into a compressed form to remove redundancy, ensuring that the minimum number of bits are used (since the transmission of bits takes time; fewer bits are better).
 
 
-    In the case of digimorse, the information is a message in Morse code, the transmitter and receiver are a typical
-    amateur radio transceiver and antenna system. The channel is therefore any of the amateur bands, typically using
-    single-sideband (SSB) modulation. As will be seen in subsequent sections, digimorse is a \emph{narrow bandwidth}
-    signal.
+The\marginnote{They're not 'dot' and 'dash' although those terms are in common use. Morse in  amateur radio is an \emph{audible} language, and the \emph{sounds} are \emph{di} and \emph{dah} with \emph{dit} used if it is the final element of a letter. 'S' is \emph{di-di-dit} not \emph{dot-dot-dash}.} digimorse transceiver accommodates keying speeds of 5 to 60 words per minute. There are three major \emph{timing elements} in Morse: the \emph{dit}, the \emph{dah}   and the \emph{wordgap}.\marginnote{A clear description of the elements and how they are used to form words is given by Michael Maynard K4ICY, illustrating the 'standard word' \textsc{PARIS}, used for calculating keying speed in words-per-minute.}\cite{Maynard}
+
+A table showing the durations in milliseconds for these three elements, for all speeds in this range is given in the appendix on page~\pageref{tab:morsetab}. The longest element that could be transmitted 
+
+\hl{The CQ detector goes here?} As this block knows the keying stream, and the chosen WPM. It can also measure the variance of the three elements, and show the actual WPM. Decoding Morse from an audio signal is hard due to noise (TODO \hl{Is there a link to Mauri's work I can find, illustrating this?})
 
 
-    \section{Project Website}
+\subsection{Naïve encoding}
+
+%TODO naive encoding would work but would waste bits
+
+
+\subsection{Delta encoding based on code speed}
+
+%TODO encode the distance from the dit/dah/wordgap based on the selected speed	
+
+
+\section{Channel Encoder}
+Adding LDPC and CRC \& Costas Array. End of transmission marker (another Costas array?).
+
+\section{Digital Modulator}
+8-GFSK modulation? Bandwidth vs transmission speed.
+
+\section{Channel}
+Typically HF or VHF, SSB 3kHz.
+
+\section{Digital Demodulator}
+Detecting Costas array, training narrow bandwidth filter on incoming signals. 
+
+\section{Channel Decoder}
+Apply LDPC and CRC to recover frame. Output is a binary frame.
+Second pass to recover signals on top of each other?
+
+\section{Source Decoder}
+Given a binary frame that's correct, process its metadata.
+
+\section{Output transducer}
+If the decoded frame is within the current audio filter bandwidth, enqueue the Morse keying at the appropriate frequency.
+
+\section{Miscellaneous topics}
+The CQ detector. Transmit/receive switching.
+
+\pagebreak
+\section{Project Website}
 
 The website for the digimorse protocol and transceiver software is located at
 \url{https://devzendo.github.io/digimorse}. On the website, you'll find
@@ -285,8 +354,12 @@ links to our \smallcaps{git} repository, mailing lists, bug tracker, and documen
             \bottomrule
         \end{tabular}
         \caption{Morse code speed in words per minute and the timing of the elements in milliseconds.}
-        \label{tab:normaltab}
+        \label{tab:morsetab}
     \end{table}
+
+\subsection{Overview of the digimorse protocol and characteristics}
+
+TODO summarise all the key points of the protocol, framing, modulation, etc.
 
 \pagebreak
 \bibliography{the-digimorse-communications-protocol}
