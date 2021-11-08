@@ -1,5 +1,6 @@
 library(ggplot2)
 library(hrbrthemes)
+hrbrthemes::import_roboto_condensed()
 qso <- read.csv(file = "sample-qso-m0cuv.csv", header = FALSE)
 qso_main <- subset(qso, V2 < 1100)
 ggplot(qso_main, aes(x=V2)) + geom_histogram(binwidth = 2) + theme_ipsum_ps() +
@@ -15,3 +16,15 @@ ggplot(qso_main, aes(x=V2)) + geom_histogram(binwidth = 2) + theme_ipsum_ps() +
 # 525.
 
 # lack of a large spike for dah, and nothing at all for wordgap is very odd.
+
+ggsave(
+  "sample-qso-m0cuv.eps",
+  plot = last_plot(),
+  device = "eps",
+  path = ".",
+  scale = 1,
+  units = c("in", "cm", "mm", "px"),
+  dpi = 600,
+  limitsize = TRUE,
+  bg = NULL,
+)
