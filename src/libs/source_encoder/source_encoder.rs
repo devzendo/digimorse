@@ -1,4 +1,5 @@
-use bus::BusReader;
+use bus::{Bus, BusReader};
+use bytes::BufMut;
 use crate::libs::keyer_io::keyer_io::{KeyingEvent, KeyerSpeed};
 
 /*
@@ -15,31 +16,43 @@ use crate::libs::keyer_io::keyer_io::{KeyingEvent, KeyerSpeed};
  * So a range of __ms to __ms.
  * WHAT DOES THE LDPC (CHANNEL ENCODER) REQUIRE AS ITS INPUT?
  */
+
+// Size of all source encoder frames; could change as the design of later stages evolves.
+const SOURCE_ENCODER_FRAME_SIZE: u16 = 64;
+
 #[derive(Clone, PartialEq)]
-pub enum SourceEncoding {
-    // Timed(KeyingTimedEvent),
-    // Start(),
-    // End(),
+pub struct SourceEncoding {
+    // bytes of a frame
+    pub frame: Vec<u8>,
+    // Is this encoding frame the last in the sequence?
+    pub isEnd: bool,
     // just don't know yet what this will include.
 }
 
 pub trait SourceEncoder {
+    // The SourceEncoder needs to know the keyer speed to build keying frames into their most
+    // compact form; a minimal delta from the three timing elements.
     fn set_keyer_speed(&mut self, speed: KeyerSpeed);
     fn get_keyer_speed(&self) -> KeyerSpeed;
+
+    // Irrespective of how full the current frame is, pad it to SOURCE_ENCODER_FRAME_SIZE and emit
+    // it.
+    fn emit(&mut self);
 }
 
 #[readonly::make]
 pub struct DefaultSourceEncoder {
     keyer_speed: KeyerSpeed,
     keying_event_rx: BusReader<KeyingEvent>,
-
+    source_encoder_tx: Bus<SourceEncoding>,
 }
 
 impl DefaultSourceEncoder {
-    pub fn new(keying_event_rx: BusReader<KeyingEvent>) -> Self {
+    pub fn new(keying_event_rx: BusReader<KeyingEvent>, source_encoder_tx: Bus<SourceEncoding>) -> Self {
         Self {
             keyer_speed: 12,
-            keying_event_rx
+            keying_event_rx,
+            source_encoder_tx
         }
     }
 }
@@ -51,6 +64,10 @@ impl SourceEncoder for DefaultSourceEncoder {
 
     fn get_keyer_speed(&self) -> KeyerSpeed {
         self.keyer_speed
+    }
+
+    fn emit(&mut self) {
+        todo!()
     }
 }
 

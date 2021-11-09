@@ -7,6 +7,7 @@ use clap::{App, Arg, ArgMatches};
 use fltk::app;
 use log::{debug, error, info, warn};
 use portaudio as pa;
+use pretty_hex::*;
 
 use std::{env, thread};
 use std::error::Error;
@@ -27,7 +28,7 @@ use portaudio::PortAudio;
 use digimorse::libs::config_file::config_file::ConfigurationStore;
 use digimorse::libs::audio::audio_devices::{list_audio_devices, output_audio_device_exists, input_audio_device_exists, open_output_audio_device};
 use digimorse::libs::audio::tone_generator::ToneGenerator;
-//use digimorse::libs::source_encoder::source_encoder::DefaultSourceEncoder;
+use digimorse::libs::source_encoder::source_encoder::{DefaultSourceEncoder, SourceEncoding};
 
 const VERSION: &'static str = env!("CARGO_PKG_VERSION");
 
@@ -143,7 +144,12 @@ fn run(arguments: ArgMatches, mode: Mode) -> Result<i32, Box<dyn Error>> {
     } else {
         None
     };
-    //let source_encoder_keying_event_rx= keying_event_tx.add_rx();
+    let source_encoder_keying_event_rx: Option<BusReader<KeyingEvent>> = if mode == Mode::KeyerDiag {
+        None
+    } else {
+        Some(keying_event_tx.add_rx())
+    };
+
     let terminate = Arc::new(AtomicBool::new(false));
     let mut keyer = ArduinoKeyer::new(Box::new(serial_io), keying_event_tx, terminate.clone());
     let keyer_speed: KeyerSpeed = config.get_wpm() as KeyerSpeed;
@@ -180,12 +186,20 @@ fn run(arguments: ArgMatches, mode: Mode) -> Result<i32, Box<dyn Error>> {
     // implementations with modified configuration are attached dynamically at runtime (and can be
     // changed by the preferences dialog, etc.)
 
-    // TODO change to single producer/multiple consumer channels from tokio instead of the std mpsc
-    // channel.
-    //let _source_encoder = DefaultSourceEncoder::new(source_encoder_keying_event_rx);
+
+    let mut source_encooder_tx = Bus::new(16);
+    let source_encoder_rx = source_encooder_tx.add_rx();
+    let source_encoder = DefaultSourceEncoder::new(source_encoder_keying_event_rx.unwrap(), source_encooder_tx);
 
     if mode == Mode::SourceEncoderDiag {
-
+        info!("Initialising SourceEncooderDiag mode");
+        source_encoder_diag(source_encoder_rx, terminate.clone())?;
+        keyer.terminate();
+        mem::drop(tone_generator);
+        pa.terminate()?;
+        thread::sleep(Duration::from_secs(1));
+        info!("Finishing KeyerDiag mode");
+        return Ok(0);
     }
 
     Ok(0)
@@ -383,6 +397,30 @@ fn keyer_diag(mut keying_event_rx: BusReader<KeyingEvent>, terminate: Arc<Atomic
         }
     }
     info!("KeyerDiag: terminating");
+    return Ok(());
+}
+
+fn source_encoder_diag(mut source_encoder_rx: BusReader<SourceEncoding>, terminate: Arc<AtomicBool>) -> Result<(), Box<dyn Error>> {
+    loop {
+        if terminate.load(Ordering::SeqCst) {
+            break;
+        }
+        let result = source_encoder_rx.recv_timeout(Duration::from_millis(250));
+        match result {
+            Ok(source_encoding) => {
+                info!("SourceEncodingDiag: isEnd {}", source_encoding.isEnd);
+                let hexdump = pretty_hex(&source_encoding.frame);
+                let hexdump_lines = hexdump.split("\n");
+                for line in hexdump_lines {
+                    info!("SourceEncodingDiag: Encoding {}", line);
+                }
+            }
+            Err(_) => {
+                // be quiet, it's ok..
+            }
+        }
+    }
+    info!("SourceEncodingDiag: terminating");
     return Ok(());
 }
 

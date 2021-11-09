@@ -21,7 +21,9 @@ mod source_encoder_spec {
     fn default_keying_speed() {
         let mut keying_event_tx = Bus::new(16);
         let keying_event_rx = keying_event_tx.add_rx();
-        let source_encoder = DefaultSourceEncoder::new(keying_event_rx);
+        let mut source_encooder_tx = Bus::new(16);
+        // let source_encoder_rx = source_encooder_tx.add_rx();
+        let source_encoder = DefaultSourceEncoder::new(keying_event_rx, source_encooder_tx);
 
         assert_eq!(source_encoder.get_keyer_speed(), 12 as KeyerSpeed);
     }
@@ -30,7 +32,9 @@ mod source_encoder_spec {
     fn can_change_keying_speed() {
         let mut keying_event_tx = Bus::new(16);
         let keying_event_rx = keying_event_tx.add_rx();
-        let mut source_encoder = DefaultSourceEncoder::new(keying_event_rx);
+        let mut source_encooder_tx = Bus::new(16);
+        // let source_encoder_rx = source_encooder_tx.add_rx();
+        let mut source_encoder = DefaultSourceEncoder::new(keying_event_rx, source_encooder_tx);
         let new_keyer_speed: KeyerSpeed = 20;
         source_encoder.set_keyer_speed(new_keyer_speed);
 
@@ -47,7 +51,9 @@ mod source_encoder_spec {
         // the loop below reads encodings and puts them in a vec for testing.
         // then inject some keyings
         let keyer_speed: KeyerSpeed = 20;
-        let mut source_encoder = DefaultSourceEncoder::new(keying_event_rx);
+        let mut source_encooder_tx = Bus::new(16);
+        // let source_encoder_rx = source_encooder_tx.add_rx();
+        let mut source_encoder = DefaultSourceEncoder::new(keying_event_rx, source_encooder_tx);
         source_encoder.set_keyer_speed(keyer_speed);
 
         // inject these keyings...
