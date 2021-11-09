@@ -6,6 +6,8 @@ mod source_encoder_spec {
     use crate::libs::source_encoder::source_encoder::{DefaultSourceEncoder, SourceEncoder};
     use log::info;
     use std::env;
+    use std::sync::Arc;
+    use std::sync::atomic::AtomicBool;
     use bus::Bus;
 
     #[ctor::ctor]
@@ -19,22 +21,24 @@ mod source_encoder_spec {
 
     #[test]
     fn default_keying_speed() {
+        let terminate = Arc::new(AtomicBool::new(false));
         let mut keying_event_tx = Bus::new(16);
         let keying_event_rx = keying_event_tx.add_rx();
         let mut source_encooder_tx = Bus::new(16);
         // let source_encoder_rx = source_encooder_tx.add_rx();
-        let source_encoder = DefaultSourceEncoder::new(keying_event_rx, source_encooder_tx);
+        let source_encoder = DefaultSourceEncoder::new(keying_event_rx, source_encooder_tx, terminate.clone());
 
         assert_eq!(source_encoder.get_keyer_speed(), 12 as KeyerSpeed);
     }
 
     #[test]
     fn can_change_keying_speed() {
+        let terminate = Arc::new(AtomicBool::new(false));
         let mut keying_event_tx = Bus::new(16);
         let keying_event_rx = keying_event_tx.add_rx();
         let mut source_encooder_tx = Bus::new(16);
         // let source_encoder_rx = source_encooder_tx.add_rx();
-        let mut source_encoder = DefaultSourceEncoder::new(keying_event_rx, source_encooder_tx);
+        let mut source_encoder = DefaultSourceEncoder::new(keying_event_rx, source_encooder_tx, terminate.clone());
         let new_keyer_speed: KeyerSpeed = 20;
         source_encoder.set_keyer_speed(new_keyer_speed);
 
@@ -44,6 +48,7 @@ mod source_encoder_spec {
 
     #[test]
     fn encode_keying() {
+        let terminate = Arc::new(AtomicBool::new(false));
         let mut keying_event_tx = Bus::new(16);
         let keying_event_rx = keying_event_tx.add_rx();
         // define new encoding event, a type alias of vec u8?
@@ -53,7 +58,7 @@ mod source_encoder_spec {
         let keyer_speed: KeyerSpeed = 20;
         let mut source_encooder_tx = Bus::new(16);
         // let source_encoder_rx = source_encooder_tx.add_rx();
-        let mut source_encoder = DefaultSourceEncoder::new(keying_event_rx, source_encooder_tx);
+        let mut source_encoder = DefaultSourceEncoder::new(keying_event_rx, source_encooder_tx, terminate.clone());
         source_encoder.set_keyer_speed(keyer_speed);
 
         // inject these keyings...

@@ -187,9 +187,9 @@ fn run(arguments: ArgMatches, mode: Mode) -> Result<i32, Box<dyn Error>> {
     // changed by the preferences dialog, etc.)
 
 
-    let mut source_encooder_tx = Bus::new(16);
-    let source_encoder_rx = source_encooder_tx.add_rx();
-    let source_encoder = DefaultSourceEncoder::new(source_encoder_keying_event_rx.unwrap(), source_encooder_tx);
+    let mut source_encoder_tx = Bus::new(16);
+    let source_encoder_rx = source_encoder_tx.add_rx();
+    let source_encoder = DefaultSourceEncoder::new(source_encoder_keying_event_rx.unwrap(), source_encoder_tx, terminate.clone());
 
     if mode == Mode::SourceEncoderDiag {
         info!("Initialising SourceEncooderDiag mode");

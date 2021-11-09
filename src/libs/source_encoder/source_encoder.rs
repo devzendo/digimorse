@@ -1,3 +1,5 @@
+use std::sync::Arc;
+use std::sync::atomic::AtomicBool;
 use bus::{Bus, BusReader};
 use bytes::BufMut;
 use crate::libs::keyer_io::keyer_io::{KeyingEvent, KeyerSpeed};
@@ -45,14 +47,16 @@ pub struct DefaultSourceEncoder {
     keyer_speed: KeyerSpeed,
     keying_event_rx: BusReader<KeyingEvent>,
     source_encoder_tx: Bus<SourceEncoding>,
+    terminate: Arc<AtomicBool>
 }
 
 impl DefaultSourceEncoder {
-    pub fn new(keying_event_rx: BusReader<KeyingEvent>, source_encoder_tx: Bus<SourceEncoding>) -> Self {
+    pub fn new(keying_event_rx: BusReader<KeyingEvent>, source_encoder_tx: Bus<SourceEncoding>, terminate: Arc<AtomicBool>) -> Self {
         Self {
             keyer_speed: 12,
             keying_event_rx,
-            source_encoder_tx
+            source_encoder_tx,
+            terminate
         }
     }
 }
