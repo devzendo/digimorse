@@ -131,6 +131,17 @@ transmissions. Mapping incoming data onto a Channel Detector merely by audio off
 There may be a hash algorithm used in recent WSJT-X for similar purposes - packing identity information into a frame
 where the callsign is special or cannot be compressed using the usual algorithms.
 
+CQ Detection
+------------
+Could be given the incoming KeyEvents (by the Source Decoder). It has a list of the dit/dah/mark/space sequence for CQ,
+and:
+* resets on START
+* is given the WPM (by the Source Decoder, when it is given it), so it calculates what ideal dit/dah/wordgap are for
+this speed.
+* can be given a KeyingEvent, and returns true/false if it has seen the CQ sequence (with dits/dahs being within a small
+percentage of ideal).
+
+
 Additional metadata frames
 --------------------------
 Every block contains a WPM and start-of-keying polarity frame, emitted prior to the first keying event.
