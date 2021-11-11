@@ -244,9 +244,52 @@
 
 Morse key and Arduino, keying protocol, USB Serial, protocol decoder, keying event stream.
 how the protocol decoder is wired to other block diagram elements.
+\hl{more, obvs}
 
 \section{Source Encoder}
 Given a stream of keying information from the input layer, this must be encoded into a compressed form to remove redundancy, ensuring that the minimum number of bits are used (since the transmission of bits takes time; fewer bits are better).
+
+The output of the source encoder is a fixed-length binary block of \hl{UNDECIDED} bits. Keying and other metadata frames are appended to this block until:
+\begin{itemize}
+    \setlength\itemsep{-0.5em}
+	\item it is full
+	\item until a frame will not fit at the end, causing the block to be filled with a padding frame
+\end{itemize}
+The block is then sent on to the next major component in the transceiver, the channel encoder.
+The need for a fixed-length block is imposed on the source encoder by the channel encoder, whose error-correction algorithm requires it.
+
+In addition to the keying duration information, the source encoder must also encode the current speed in WPM, and the polarity of the key at the start of the frame. This ensures that in the event of a receiver being unable to correctly decode a frame, it will be able to 'pick up' when it next has a successful decode. The WPM of the frame is sent in each frame\footnote{In each frame that contains keying information. Most would.} to ensure that the compressed keying duration data is correctly interpreted: it is expressed as a delta against the ideal timings - see page \pageref{section:delta-encoding}.
+
+The full set of frames that may be incorporated in the block are:
+
+    \marginnote{The XXX|N notation means that the XXX value is encoded as an N-bit unsigned binary number.}
+    \begin{table}[!h]
+
+        \fontfamily{ppl}\selectfont
+        \begin{tabular}{lll}
+            \toprule
+            4-Bit Frame Id & Description & Encoding \\
+            \midrule
+            0000 & Padding to end of block &  \\
+            0001 & WPM/Polarity & WPM|6; Polarity|1 \\ 
+            0010 & Callsign & Callsign|28 \\
+            0011 & Callsign hash & Hash|22 \\
+            0100 & 4-Character Locator & C15 \\
+            0101 & Power & xxx \\
+            0110 & Keying (Perfect dit) & \\
+            0111 & Keying (Perfect dah) & \\
+            1000 & Keying (Perfect wordgap) & \\
+            1001 & Keying (End) & \\
+            1010 & Keying (Delta) & See page \pageref{section:delta-encoding} \\
+            1011 & \emph{unused} & \\
+            1100 & \emph{unused} & \\
+            1101 & \emph{unused} & \\
+            1110 & \emph{unused} & \\
+            1111 & Extension & To be considered later... \\
+		\end{tabular}
+	\end{table}
+
+Callsign and locator encoding are performed using the same mechanism as in JT65.\cite{ClarkKarn1996}
 
 
 The\marginnote{They're not 'dot' and 'dash' although those terms are in common use. Morse in  amateur radio is an \emph{audible} language, and the \emph{sounds} are \emph{di} and \emph{dah} with \emph{dit} used if it is the final element of a letter. 'S' is \emph{di-di-dit} not \emph{dot-dot-dash}.} digimorse transceiver accommodates keying speeds of 5 to 60 words per minute. There are three major \emph{timing elements} in Morse: the \emph{dit}, the \emph{dah}   and the \emph{wordgap}.\marginnote{A clear description of the elements and how they are used to form words is given by Michael Maynard K4ICY, illustrating the 'standard word' \textsc{PARIS}, used for calculating keying speed in words-per-minute.}\cite{Maynard}
@@ -262,6 +305,7 @@ A table showing the durations in milliseconds for these three elements, for all 
 
 
 \subsection{Delta encoding based on code speed}
+\label{section:delta-encoding}
 
 %TODO encode the distance from the dit/dah/wordgap based on the selected speed	
 
