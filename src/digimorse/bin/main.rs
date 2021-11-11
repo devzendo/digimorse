@@ -380,7 +380,7 @@ fn keyer_diag(mut keying_event_rx: BusReader<KeyingEvent>, terminate: Arc<Atomic
                     // we've just heard a space (key up).
                     // If we see a start, that's just the starting key down edge of a mark; an
                     // end is actually meaningless in terms of keying - it's just a timeout after
-                    // the user has ended keying. In terms of generating a scatter plot of
+                    // the user has ended keying. In terms of generating a histogram of
                     // keying, the stream should be a single long over - ie no END/STARTs in the
                     // middle - otherwise you'll see two consecutive MARKs, which makes no sense.
                     KeyingEvent::Timed(timed) => {
