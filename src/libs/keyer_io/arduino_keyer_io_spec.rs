@@ -5,7 +5,7 @@ use crate::libs::serial_io::serial_io::SerialIO;
 use crate::libs::util::util::*;
 use std::io;
 use std::io::{Error, ErrorKind};
-use std::sync::mpsc::{Sender};
+use std::sync::mpsc::Sender;
 use std::time::Duration;
 
 struct FakeSerialIO {
@@ -60,7 +60,7 @@ mod arduino_keyer_io_spec {
     use crate::libs::keyer_io::arduino_keyer_io::arduino_keyer_io_spec::FakeSerialIO;
     use crate::libs::keyer_io::arduino_keyer_io::ArduinoKeyer;
     use crate::libs::keyer_io::keyer_io::{Keyer, KeyingEvent, KeyingTimedEvent};
-    use std::sync::mpsc::{Sender, Receiver};
+    use std::sync::mpsc::{Receiver, Sender};
     use std::sync::{Arc, mpsc, RwLock};
     use log::{debug, info};
     use std::time::Duration;
@@ -68,6 +68,7 @@ mod arduino_keyer_io_spec {
     use std::sync::atomic::AtomicBool;
     use std::thread::JoinHandle;
     use bus::{Bus, BusReader};
+    use crate::libs::util::test_util;
 
     #[ctor::ctor]
     fn before_each() {
@@ -127,29 +128,9 @@ mod arduino_keyer_io_spec {
         }
     }
 
-    // Thanks to Shepmaster, https://github.com/rust-lang/rfcs/issues/2798
-    fn panic_after<T, F>(d: Duration, f: F) -> T
-        where
-            T: Send + 'static,
-            F: FnOnce() -> T,
-            F: Send + 'static,
-    {
-        let (done_tx, done_rx) = mpsc::channel();
-        let handle = thread::spawn(move || {
-            let val = f();
-            done_tx.send(()).expect("Unable to send completion signal");
-            val
-        });
-
-        match done_rx.recv_timeout(d) {
-            Ok(_) => handle.join().expect("Thread panicked"),
-            Err(_) => panic!("Thread took too long"),
-        }
-    }
-
     #[test]
     fn get_version() {
-        panic_after(Duration::from_secs(2), || {
+        test_util::panic_after(Duration::from_secs(2), || {
             let keyer_will_send = "v\n"; // sent to the 'arduino' ie FakeSerialIO
             let keyer_will_receive = "> v1.0.0\n\n"; // sent back from the 'arduino' ie FakeSerialIO
 
@@ -185,7 +166,7 @@ mod arduino_keyer_io_spec {
 
     #[test]
     fn receive_keying() {
-        panic_after(Duration::from_secs(5), || {
+        test_util::panic_after(Duration::from_secs(5), || {
             // at 12 wpm, a dit is 10ms, a dah is 30ms, pause between elements 10ms, between letters
             // 30ms, between words 70ms.
             const START: u8 = 0x53;
@@ -296,7 +277,7 @@ mod arduino_keyer_io_spec {
 
     #[test]
     fn ignore_comment() {
-        panic_after(Duration::from_secs(4), || {
+        test_util::panic_after(Duration::from_secs(4), || {
             const START: u8 = 0x53;
             let keyer_will_receive = vec![
                 0x23,     // #
@@ -330,7 +311,7 @@ mod arduino_keyer_io_spec {
 
     #[test]
     fn terminate() {
-        panic_after(Duration::from_secs(4), || {
+        test_util::panic_after(Duration::from_secs(4), || {
             let keyer_will_receive = "_________"; // cause the keyer to delay its thread a bit
 
             let (recording_tx, _recording_rx): (Sender<u8>, Receiver<u8>) = mpsc::channel();
