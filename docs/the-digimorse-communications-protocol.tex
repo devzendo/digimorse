@@ -256,12 +256,12 @@ The output of the source encoder is a fixed-length binary block of \hl{UNDECIDED
 	\item Until the frame being appended will not fit at the end, causing the block to be filled with a padding frame. The frame will then be stored at the start of the next block.
 \end{itemize}
 The block is then sent on to the next major component in the transceiver, the channel encoder.
-The need for a fixed-length block is imposed on the source encoder by the channel encoder, whose error-correction algorithm requires it.
+The need for a fixed-length block is due to the channel encoder, whose error-correction algorithm requires it.
 
-The full set of frames that may be incorporated in the block are:
+The full set of frame types that may be incorporated in the block is given in the following table on page \pageref{table:frame-types}.
 
     \marginnote{The XXX|N notation means that the XXX value is encoded as an N-bit unsigned binary number.}
-    \begin{table}[!h]
+    \begin{table}[h]
 
         \fontfamily{ppl}\selectfont
         \begin{tabular}{lll}
@@ -285,11 +285,13 @@ The full set of frames that may be incorporated in the block are:
             1110 & \emph{unused} & \\
             1111 & Extension & To be considered later... \\
 		\end{tabular}
+		\caption{Frame types and their data, encoded into blocks by the source encoder.}
+		\label{table:frame-types}
 	\end{table}
 
-When a frame has been added to a block, if there are fewer than four bits remaining, they are assumed to be padding, the frame is emitted, and a new frame started.
+When a frame has been added to a block, if there are fewer than four bits remaining, they are assumed to be padding, so the frame is emitted, and a new frame started.
 
-In addition to the keying duration information, the source encoder must also encode the current speed in WPM, and the polarity of the key at the start of the frame. This ensures that in the event of a receiver being unable to correctly decode a frame, it will be able to 'pick up' when it next has a successful decode. The WPM of the frame is sent in each frame\footnote{In each frame that contains keying information. Most would.} to ensure that the compressed keying duration data is correctly interpreted: it is expressed as a delta against the ideal timings - see page \pageref{section:delta-encoding}.
+In addition to the keying duration information, the source encoder must also encode the current speed in WPM, and the polarity of the key at the start of the frame. This ensures that in the event of a receiver being unable to correctly decode a frame, it will be able to 'pick up' the stream when it next has a successful decode. The WPM of the frame is sent in each frame\footnote{In each frame that contains keying information. Most would.} to ensure that the compressed keying duration data is correctly interpreted: it is expressed as a delta against the ideal timings - see page \pageref{section:delta-encoding}.
 
 Callsign and locator encoding are performed using the same mechanism as in JT65.\cite{ClarkKarn1996}
 
@@ -312,16 +314,29 @@ For the rest of us mortal operators with our shaky fists and dodgy timing, digim
 
 The digimorse transceiver accommodates keying speeds of 5 to 60 words per minute. There are three major \emph{timing elements} in Morse: the \emph{dit}, the \emph{dah}   and the \emph{wordgap}.\marginnote{A clear description of the elements and how they are used to form words is given by Michael Maynard K4ICY, illustrating the 'standard word' \textsc{PARIS}, used for calculating keying speed in words-per-minute.\cite{Maynard}}
 
-A table showing the durations in milliseconds for these three elements, for all speeds in this range is given in the appendix on page~\pageref{tab:morsetab}. The longest element that could be transmitted 
+A table showing the durations in milliseconds for these three elements, for all speeds in this range is given in the appendix on page~\pageref{tab:morsetab}. The longest element that could be transmitted is the 5WPM wordgap at 1680ms; the shortest is the 60WPM dit at 20ms. An operator could pause for longer than 1680ms of course, until the keyer times out and sends an End signal which terminates transmission.\marginnote{This timeout can be configured in the keyer up to 3000ms i.e. three seconds.}
+
+How should this range of timings be encoded in the most compact form?
 
 
 \subsection{Naïve encoding}
 
-%TODO naive encoding would work but would waste bits
+The longest duration of 1680ms could be encoded by $\log_2\left(1680\right) = 10.714$, and so could be expressed as a binary field of 11 bits, as could any value up to 2047. This \emph{naïve} approach to encoding could work\marginnote{Do The Simplest Thing That Could Possibly Work}, but would be inefficient, as will be shown next.
 
 
 \subsection{Delta encoding based on code speed}
 \label{section:delta-encoding}
+
+I took an example of a typical Morse QSO\cite{Summers} and keyed it into digimorse using the \textsc{KeyerDiag} option, which records your keying into a .CSV file containing MARK/SPACE duration data, and plays a sidetone as you operate.
+The resulting data is shown as a histogram in Figure \ref{fig:sampleqso} on page \pageref{fig:sampleqso}. Several aspects of this are worth pointing out:
+\begin{itemize}
+    \setlength\itemsep{-0.5em}
+    \item The most common value in the data is 72, so taking this as the duration of a dit, this suggests (from Appendix A) a speed between 16 and 17 WPM - say 16. This gives a dah of 225ms and a wordgap of 525ms. These are shown with the two red and single green vertical bar.
+
+	\item dit is far more common than dah or wordgap.
+	\item There is no large spike for dah - the peak nearby is at a longer duration than the ideal, so my dah is slow. There is no spike at all for wordgap - just a smattering of points - indicative of the relative frequency of word gaps in the text. The points around these ideal timings are not as pronounced as they are for dit - suggesting I have a wide variance in my keying of these elements, but I'm pretty good at dit.
+
+\end{itemize}  
 
 %TODO encode the distance from the dit/dah/wordgap based on the selected speed	
 
