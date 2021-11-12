@@ -252,13 +252,11 @@ Given a stream of keying information from the input layer, this must be encoded 
 The output of the source encoder is a fixed-length binary block of \hl{UNDECIDED} bits. Keying and other metadata frames are appended to this block until:
 \begin{itemize}
     \setlength\itemsep{-0.5em}
-	\item it is full
-	\item until a frame will not fit at the end, causing the block to be filled with a padding frame
+	\item It is full.
+	\item Until the frame being appended will not fit at the end, causing the block to be filled with a padding frame. The frame will then be stored at the start of the next block.
 \end{itemize}
 The block is then sent on to the next major component in the transceiver, the channel encoder.
 The need for a fixed-length block is imposed on the source encoder by the channel encoder, whose error-correction algorithm requires it.
-
-In addition to the keying duration information, the source encoder must also encode the current speed in WPM, and the polarity of the key at the start of the frame. This ensures that in the event of a receiver being unable to correctly decode a frame, it will be able to 'pick up' when it next has a successful decode. The WPM of the frame is sent in each frame\footnote{In each frame that contains keying information. Most would.} to ensure that the compressed keying duration data is correctly interpreted: it is expressed as a delta against the ideal timings - see page \pageref{section:delta-encoding}.
 
 The full set of frames that may be incorporated in the block are:
 
@@ -272,10 +270,10 @@ The full set of frames that may be incorporated in the block are:
             \midrule
             0000 & Padding to end of block &  \\
             0001 & WPM/Polarity & WPM|6; Polarity|1 \\ 
-            0010 & Callsign & Callsign|28 \\
-            0011 & Callsign hash & Hash|22 \\
-            0100 & 4-Character Locator & C15 \\
-            0101 & Power & xxx \\
+            0010 & MD Callsign & Callsign|28 \\
+            0011 & MD Callsign hash & Hash|22 \\
+            0100 & MD 4-Character Locator & C15 \\
+            0101 & MD Power & xxx \\
             0110 & Keying (Perfect dit) & \\
             0111 & Keying (Perfect dah) & \\
             1000 & Keying (Perfect wordgap) & \\
@@ -289,14 +287,32 @@ The full set of frames that may be incorporated in the block are:
 		\end{tabular}
 	\end{table}
 
+When a frame has been added to a block, if there are fewer than four bits remaining, they are assumed to be padding, the frame is emitted, and a new frame started.
+
+In addition to the keying duration information, the source encoder must also encode the current speed in WPM, and the polarity of the key at the start of the frame. This ensures that in the event of a receiver being unable to correctly decode a frame, it will be able to 'pick up' when it next has a successful decode. The WPM of the frame is sent in each frame\footnote{In each frame that contains keying information. Most would.} to ensure that the compressed keying duration data is correctly interpreted: it is expressed as a delta against the ideal timings - see page \pageref{section:delta-encoding}.
+
 Callsign and locator encoding are performed using the same mechanism as in JT65.\cite{ClarkKarn1996}
 
+The source encoder contains a rudimentary 'CQ detector' that detects when CQ has been sent at the start of a transmission. When this finds a CQ, it forces the source encoder to start embedding metadata frames. The current block will contain the Callsign frame; the next block will contain the 4-Character Locator frame; the next block will contain the Power frame.
 
-The\marginnote{They're not 'dot' and 'dash' although those terms are in common use. Morse in  amateur radio is an \emph{audible} language, and the \emph{sounds} are \emph{di} and \emph{dah} with \emph{dit} used if it is the final element of a letter. 'S' is \emph{di-di-dit} not \emph{dot-dot-dash}.} digimorse transceiver accommodates keying speeds of 5 to 60 words per minute. There are three major \emph{timing elements} in Morse: the \emph{dit}, the \emph{dah}   and the \emph{wordgap}.\marginnote{A clear description of the elements and how they are used to form words is given by Michael Maynard K4ICY, illustrating the 'standard word' \textsc{PARIS}, used for calculating keying speed in words-per-minute.}\cite{Maynard}
+Also if a Callsign frame has not been embedded in a block for 15 minutes, one will be included in the current block.\footnote{This timed callsign does not cause the next block to contain the 4-Character Locator as described in the previous paragraph.}
+
+This mechanism ensures that all metadata is sent close to the start of a CQ, spread across subsequent blocks\footnote{So as to prevent 'starvation' of keying information in a single block.} so that receiving users decode the metadata of all stations calling CQ. It also ensures compliance with regulations that require a station identify itself frequently. 
+
+If a block does not contain a Callsign, then it will contain a Callsign Hash, which is a much smaller length frame than a Callsign. Either of these can be used in the receiver to enable the decoding and playback of a single station's transmission. By selecting the station's metadata, it is possible to filter out all other keying streams. This could be done by choosing a narrow bandwidth filtering range, but that would not reject another station whose offset is very close to the DX station. By including the Callsign or Callsign Hash in each block, the stream can be identified precisely.\footnote{Hash collisions notwithstanding!}
+
+A block will only contain one metadata frame (as indicated by MD in the table above). 
+
+
+If the operator has perfect rhythm and timing, and their dits, dahs and wordgaps are precisely the correct duration for the current WPM setting, then the 'Perfect dit/dah/wordgap' frames will be used, as these require no further data than their 4-bit frame id.
+
+This would be the case if digimorse eventually accommodates a machine-generated stream of Morse, perhaps by entering text on-screen, or by the use of macro buttons. This could also happen when the USB interface is enhanced to incorporate a keyer.\marginnote{I'm not in favour of making digimorse highly automated - the rationale of the project is to enhance the human enjoyment of Morse, not replace human operation by computer operation. You could use PSK31, RTTY, FT8 etc. for that.}
+
+For the rest of us mortal operators with our shaky fists and dodgy timing, digimorse will try to record and reproduce our variations as precisely as it can, given its millisecond resolution.
+
+The digimorse transceiver accommodates keying speeds of 5 to 60 words per minute. There are three major \emph{timing elements} in Morse: the \emph{dit}, the \emph{dah}   and the \emph{wordgap}.\marginnote{A clear description of the elements and how they are used to form words is given by Michael Maynard K4ICY, illustrating the 'standard word' \textsc{PARIS}, used for calculating keying speed in words-per-minute.\cite{Maynard}}
 
 A table showing the durations in milliseconds for these three elements, for all speeds in this range is given in the appendix on page~\pageref{tab:morsetab}. The longest element that could be transmitted 
-
-\hl{The CQ detector goes here?} As this block knows the keying stream, and the chosen WPM. It can also measure the variance of the three elements, and show the actual WPM. Decoding Morse from an audio signal is hard due to noise (TODO \hl{Is there a link to Mauri's work I can find, illustrating this?})
 
 
 \subsection{Naïve encoding}
