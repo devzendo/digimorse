@@ -278,9 +278,9 @@ The full set of frame types that may be incorporated in the block is given in th
             0111 & Keying (Perfect dah) & \\
             1000 & Keying (Perfect wordgap) & \\
             1001 & Keying (End) & \\
-            1010 & Keying (Delta) & See page \pageref{section:delta-encoding} \\
-            1011 & \emph{unused} & \\
-            1100 & \emph{unused} & \\
+            1010 & Keying (Delta dit) & See page \pageref{section:delta-encoding} \\
+            1011 & Keying (Delta dah) & \\
+            1100 & Keying (Delta wordgap) & \\
             1101 & \emph{unused} & \\
             1110 & \emph{unused} & \\
             1111 & Extension & To be considered later... \\
@@ -331,12 +331,15 @@ I took an example of a typical Morse QSO\cite{Summers} and keyed it into digimor
 The resulting data is shown as a histogram in Figure \ref{fig:sampleqso} on page \pageref{fig:sampleqso}. Several aspects of this are worth pointing out:
 \begin{itemize}
     \setlength\itemsep{-0.5em}
-    \item The most common value in the data is 72, so taking this as the duration of a dit, this suggests (from Appendix A) a speed between 16 and 17 WPM - say 16. This gives a dah of 225ms and a wordgap of 525ms. These are shown with the two red and single green vertical bar.
+    \item The modal value in the data is 72ms, so taking this as the duration of a dit, this suggests (from Appendix A) a speed between 16 and 17 WPM - say 16. This gives a dah of 225ms and a wordgap of 525ms. These ideal durations are shown with the three vertical bars.
 
 	\item dit is far more common than dah or wordgap.
-	\item There is no large spike for dah - the peak nearby is at a longer duration than the ideal, so my dah is slow. There is no spike at all for wordgap - just a smattering of points - indicative of the relative frequency of word gaps in the text. The points around these ideal timings are not as pronounced as they are for dit - suggesting I have a wide variance in my keying of these elements, but I'm pretty good at dit.
+	\item There is no large spike for dah - the peak nearby is at a longer duration than the ideal, so my dah is slow. There is no spike at all for wordgap - just a smattering of points - indicative of the relative frequency of word gaps in the text.
+	\item The points around these ideal timings are not as pronounced as they are for dit - suggesting I have a wide variance in my keying of the longer elements, but I'm more accurate with dit.
 
 \end{itemize}  
+
+To reduce the number of bits required to encode keying, determine whether the duration is closest to dit, dah or wordgap for the current WPM setting, then take the difference between this ideal duration and the value under consideration.
 
 %TODO encode the distance from the dit/dah/wordgap based on the selected speed	
 
