@@ -353,14 +353,14 @@ As an example, the first durations in the sample QSO (the 'C' of the CQ) are:
             \toprule
             Mark/Space & Duration & Characterised as & Delta \\
             \midrule
-            MARK   & 210 & dah   & x \\
-            SPACE  & 72  & (dit) & x \\
-            MARK   & 73  & dit   & x \\
-            SPACE  & 64  & (dit) & x \\
-            MARK   & 250 & dah   & x \\
-            SPACE  & 65  & (dit) & x \\
-            MARK   & 61  & dit   & x \\
-            SPACE  & 298 & (dah) & x \\
+            MARK   & 210 & dah   & 225 - 210 = 15 \\
+            SPACE  & 72  & (dit) & 72 - 72 = 0 (Perfect) \\
+            MARK   & 73  & dit   & 72 - 73 = -1 \\
+            SPACE  & 64  & (dit) & 72 - 64 = 8 \\
+            MARK   & 250 & dah   & 225 - 250 = -25 \\
+            SPACE  & 65  & (dit) & 72 - 65 = 7 \\
+            MARK   & 61  & dit   & 72 - 61 = 11 \\
+            SPACE  & 298 & (dah) & 225 - 298 = -73 \\
 		\end{tabular}
 		\caption{Delta encoding of Morse elements.}
 		\label{table:delta-encoding}
