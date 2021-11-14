@@ -64,6 +64,8 @@
 \newenvironment{docspec}{\begin{quote}\noindent}{\end{quote}}% command specification environment
 
 
+\newcommand{\floor}[1]{\left\lfloor #1 \right\rfloor}
+\newcommand{\ceil}[1]{\left\lceil #1 \right\rceil}
 
 \begin{document}
 
@@ -321,8 +323,7 @@ How should this range of timings be encoded in the most compact form?
 
 \subsection{Naïve encoding}
 
-A number in the range 0 to \emph{n} can be represented in $1+floor\left(\log_2\left(n\right)\right)$ bits. The longest duration of 1680ms could be expressed as a binary field of 11 bits, as could any value up to 2047. This \emph{naïve} approach to encoding could work\marginnote{Do The Simplest Thing That Could Possibly Work}, but would be inefficient, as will be shown next.
-
+A number in the range 0 to \emph{n} can be represented in $1+\floor{\log_2\left(n\right)}$ bits. The longest duration of 1680ms could be expressed as a binary field of 11 bits, as could any value up to 2047. This \emph{naïve} approach to encoding could work\marginnote{Do The Simplest Thing That Could Possibly Work}, but would be inefficient, as will be shown next.
 
 \subsection{Delta encoding based on code speed}
 \label{section:delta-encoding}
