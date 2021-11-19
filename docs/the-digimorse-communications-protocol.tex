@@ -283,7 +283,7 @@ The full set of frame types that may be incorporated in the block is given in th
             1010 & Keying (Delta dit) & See page \pageref{section:delta-encoding} \\
             1011 & Keying (Delta dah) & \\
             1100 & Keying (Delta wordgap) & \\
-            1101 & \emph{unused} & \\
+            1101 & Keying (Naïve) & See page \pageref{section:naive-encoding} \\
             1110 & \emph{unused} & \\
             1111 & Extension & To be considered later... \\
 		\end{tabular}
@@ -322,6 +322,8 @@ How should this range of timings be encoded in the most compact form?
 
 
 \subsection{Naïve encoding}
+\label{section:naive-encoding}
+
 
 A number in the range 0 to \emph{n} can be represented in $1+\floor{\log_2\left(n\right)}$ bits. The longest duration of 1680ms could be expressed as a binary field of 11 bits, as could any value up to 2047. This \emph{naïve} approach to encoding could work\marginnote{Do The Simplest Thing That Could Possibly Work}, but would be inefficient, as will be shown next.
 
@@ -367,7 +369,39 @@ As an example, the first durations in the sample QSO (the 'C' of the CQ) are:
 		\label{table:delta-encoding}
 	\end{table}
 
--73 could be encoded in 6 bits plus one sign bit. However a mechanism is required to indicate how many bits are used to encode the value. There are many such \emph{variable length encodings}, and there is no ideal encoding.
+-73 could be encoded in 6 bits plus one sign bit. However a mechanism is required to indicate how many bits are used to encode the value. There are many such \emph{variable length encodings}, and none are ideal for this task - they rely on embedding a lookup table of durations $\rightarrow$ code-words in each frame, then denoting the durations by their code words. Durations that occur with greater probability are allocated a shorter code word.\marginnote{Echoing the design of Morse code itself, where more frequent letters have shorter Morse representations: consider E T A O I N S R H D L U etc.}
+
+To determine how many bits might be required to send the delta values, consider the ideal durations of dit, dah and wordgap at the slowest speed supported, 5 WPM. A dit is 240ms, with a delta of $\pm$240. A dah is 720ms with a delta of $[-240  ~.. +480]$.\marginnote{The range of dah is [midpoint between dit and dah .. midpoint between dah and wordgap].}  A wordgap is 1680ms with a delta of $[-480  ~..  +367]$.\marginnote{The upper bound of wordgap's delta is actually +480, but wordgap+367 = 2047 which fits in 11 bits, as noted earlier. } 
+
+$\log_2\left(240\right) = 7.9$ and $\log_2\left(480\right) = 8.9$ suggesting that the dit range could be held in 8 bits, and the dah and wordgap ranges could be held in 9 bits - with the addition of a sign bit.
+
+This is at the slowest speed supported. At higher speeds, the delta ranges are different. 
+
+At 35 WPM, the dit range is $\pm$120, and $\log_2\left(120\right) = 6.9$ which would require 7 + 1 sign bit. The dah range is $[-120 ~.. +240]$ requiring 8 + 1 sign bits. The wordgap range is also $\pm$240.
+
+The highest speed of 60 WPM has a dit range of $\pm$20, a dah and wordgap range of $\pm$40. $\log_2\left(20\right) = 4.3$ (requiring 5 + 1 bits) and $\log_2\left(40\right) = 5.3$ (requiring 6 + 1 bits).
+
+So a delta could be encoded as a variable-length field between 5 and 9 bits plus 1 sign bit.\marginnote{A little better than the 11 bits of the naïve encoding.}
+
+There would need to be a mechanism to indicate how many bits are used to encode the delta - although since every block contains a WPM/Polarity frame, the speed could be used to derive the expected number of bits for each encoded duration's delta: 
+    \begin{table}[h]
+        \fontfamily{ppl}\selectfont
+        \begin{tabular}{llll}
+            \toprule
+            WPM range & dit range bits & dah range bits & wordgap range bits \\
+            \midrule
+            5 .. 9    & 8              & 8 .. 9         & 9 \\
+            10 .. 18  & 7              & 7 .. 8         & 8 \\
+            19 .. 37  & 6              & 6 .. 7         & 7 \\
+            38 .. 60  & 5              & 5 .. 6         & 6 \\
+		\end{tabular}
+		\caption{Delta encoding bit ranges for various speed ranges. These ranges do not include the sign bit.}
+		\label{table:delta-encoding-bit-ranges}
+	\end{table}
+
+
+Of course it's possible to send elements whose durations are well outside this range
+
 
 
 \section{Channel Encoder}
