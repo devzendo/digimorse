@@ -399,10 +399,18 @@ There would need to be a mechanism to indicate how many bits are used to encode 
 		\label{table:delta-encoding-bit-ranges}
 	\end{table}
 
+\hl{the graph of ideal durations, and the triangluar delta ranges for each element should go here to help explain the table above.}
 
-Of course it's possible to send elements whose durations are well outside this range
+The \emph{Keying (Delta)} frames would be used to encode durations that fit within these ranges. 
+Of course it's possible to send elements whose durations are well outside these ranges, and for these, the \emph{Keying (Naïve)} frame would be used.
 
-
+The approach is therefore:
+\begin{itemize}
+    \setlength\itemsep{-0.5em}
+    \item If the duration is perfect (possibly $\pm$ a small number of milliseconds), use the \emph{Keying (Perfect)} frames.
+    \item If it is within the ranges given in the discussion above, use the \emph{Keying (Delta)} frames.
+    \item Otherwise use the \emph{Keying (Naïve)} frame - which does not distinguish between dit, dah and wordgap: it's not relative to any of them.
+\end{itemize}
 
 \section{Channel Encoder}
 Adding LDPC and CRC \& Costas Array. End of transmission marker (another Costas array?).
