@@ -132,7 +132,7 @@ mod arduino_keyer_io_spec {
     fn get_version() {
         test_util::panic_after(Duration::from_secs(2), || {
             let keyer_will_send = "v\n"; // sent to the 'arduino' ie FakeSerialIO
-            let keyer_will_receive = "> v1.0.0\n\n"; // sent back from the 'arduino' ie FakeSerialIO
+            let keyer_will_receive = "> v1.0.0\n\n_________"; // sent back from the 'arduino' ie FakeSerialIO
 
             let (recording_tx, recording_rx): (Sender<u8>, Receiver<u8>) = mpsc::channel();
             let mut keying_event_tx: Bus<KeyingEvent> = Bus::new(10);
