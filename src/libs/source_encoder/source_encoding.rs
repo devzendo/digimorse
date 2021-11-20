@@ -17,6 +17,9 @@ pub trait SourceEncodingBuilder {
     /// Call size() before adding, if there's not enough space to store the data, call build() to
     /// get the SourceEncoding, and the storage will be reset for another block.
     fn size(&self) -> usize;
+    /// As an alternative to size(), remaining() tells you how many more bits you could fit into
+    /// this block.
+    fn remaining(&self) -> usize;
     /// Add a number of bits from the right-hand side (least significant bits) of a u8.
     fn add_8_bits(&mut self, data: u8, num_bits: usize);
     /// Add a number of bits from the right-hand side (least significant bits) of a u16.

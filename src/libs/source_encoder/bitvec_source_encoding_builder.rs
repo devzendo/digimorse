@@ -4,6 +4,7 @@ use crate::libs::source_encoder::source_encoding::{SourceEncodingBuilder, Source
 /// A SourceEncodingBuilder using the bitvec crate.
 pub struct BitvecSourceEncodingBuilder {
     bits: BitVec::<Msb0, u8>,
+    end: bool,
 }
 
 impl BitvecSourceEncodingBuilder {
@@ -12,17 +13,24 @@ impl BitvecSourceEncodingBuilder {
         bit_vec.set_uninitialized(false);
         Self {
             bits: bit_vec,
+            end: false,
         }
     }
 
-    fn panic_if_full(&self, _num_bits_being_added: usize) {
-        // TODO with a test
+    fn panic_if_full(&self, num_bits_being_added: usize) {
+        if self.size() + num_bits_being_added > SOURCE_ENCODER_BLOCK_SIZE_IN_BITS {
+            panic!("Adding {} bit(s) would exhaust storage", num_bits_being_added);
+        }
     }
 }
 
 impl SourceEncodingBuilder for BitvecSourceEncodingBuilder {
     fn size(&self) -> usize {
         self.bits.len()
+    }
+
+    fn remaining(&self) -> usize {
+        SOURCE_ENCODER_BLOCK_SIZE_IN_BITS - self.bits.len()
     }
 
     fn add_8_bits(&mut self, _data: u8, _num_bits: usize) {
@@ -43,7 +51,7 @@ impl SourceEncodingBuilder for BitvecSourceEncodingBuilder {
     }
 
     fn set_end(&mut self) {
-        todo!()
+        self.end = true;
     }
 
     fn build(&mut self) -> SourceEncoding {
@@ -53,9 +61,10 @@ impl SourceEncodingBuilder for BitvecSourceEncodingBuilder {
         }
         let out = SourceEncoding {
             block: self.bits.as_raw_slice().to_vec(),
-            is_end: false // TODO
+            is_end: self.end,
         };
-
+        self.bits.clear();
+        self.bits.set_uninitialized(false);
         out
     }
 }
