@@ -33,8 +33,21 @@ impl SourceEncodingBuilder for BitvecSourceEncodingBuilder {
         SOURCE_ENCODER_BLOCK_SIZE_IN_BITS - self.bits.len()
     }
 
-    fn add_8_bits(&mut self, _data: u8, _num_bits: usize) {
-        todo!()
+    fn add_8_bits(&mut self, mut data: u8, num_bits: usize) {
+        // The code works without this optimisation.
+        if num_bits == 0 {
+            return;
+        }
+        if num_bits > 8 {
+            panic!("Cannot add more than 8 bits with add_8_bits, was trying to add {}", num_bits);
+        }
+        self.panic_if_full(num_bits);
+        let data_slice = BitSlice::<Msb0, _>::from_element_mut(&mut data);
+        unsafe {
+            let data_sub_slice = data_slice.get_unchecked_mut((8 - num_bits)..8);
+            let mut data_sub_bit_vec = data_sub_slice.to_bitvec();
+            self.bits.append(&mut data_sub_bit_vec);
+        }
     }
 
     fn add_16_bits(&mut self, _data: u16, _num_bits: usize) {

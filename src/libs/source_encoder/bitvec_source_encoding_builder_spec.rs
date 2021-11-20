@@ -144,16 +144,87 @@ mod bitvec_source_encoding_builder_spec {
     // add more than the block size of data - what should happen? it's up to the caller to check the
     // current size before adding data, so it's probably best to panic.
     // build up some data, build() it, build up some more, build() it and check it's the 2nd data.
-    pub fn panics_after_full(mut fixture: BitvecSourceEncodingBuilderFixture) {
+    pub fn panics_after_full_adding_bools(mut fixture: BitvecSourceEncodingBuilderFixture) {
         for n in 0..=SOURCE_ENCODER_BLOCK_SIZE_IN_BITS {
             fixture.storage.add_bool(true);
         }
     }
 
     #[rstest]
-    pub fn does_not_panic_at_full(mut fixture: BitvecSourceEncodingBuilderFixture) {
+    pub fn does_not_panic_at_full_adding_bools(mut fixture: BitvecSourceEncodingBuilderFixture) {
         for n in 0..SOURCE_ENCODER_BLOCK_SIZE_IN_BITS {
             fixture.storage.add_bool(true);
         }
     }
+
+    #[rstest]
+    #[should_panic]
+    pub fn panics_after_full_adding_u8(mut fixture: BitvecSourceEncodingBuilderFixture) {
+        for n in 0..=(SOURCE_ENCODER_BLOCK_SIZE_IN_BITS/8) {
+            fixture.storage.add_8_bits(0, 8);
+        }
+    }
+
+    #[rstest]
+    pub fn does_not_panic_at_full_adding_u8(mut fixture: BitvecSourceEncodingBuilderFixture) {
+        for n in 0..(SOURCE_ENCODER_BLOCK_SIZE_IN_BITS/8) {
+            fixture.storage.add_8_bits(0, 8);
+        }
+    }
+
+    #[rstest]
+    pub fn add_a_full_byte(mut fixture: BitvecSourceEncodingBuilderFixture) {
+        fixture.storage.add_8_bits(0b10000011, 8);
+        assert_eq!(fixture.storage.size(), 8);
+        assert_eq!(fixture.storage.remaining(), SOURCE_ENCODER_BLOCK_SIZE_IN_BITS - 8);
+        let encoding = fixture.storage.build();
+        let vec = encoding.block;
+        assert_that!(&vec, len(SOURCE_ENCODER_BLOCK_SIZE_IN_BITS / 8));
+        assert_eq!(vec, vec![0b10000011, 0, 0, 0, 0, 0, 0, 0]);
+    }
+
+    #[rstest]
+    pub fn add_a_partial_byte(mut fixture: BitvecSourceEncodingBuilderFixture) {
+        fixture.storage.add_8_bits(0b00001101, 4);
+        assert_eq!(fixture.storage.size(), 4);
+        assert_eq!(fixture.storage.remaining(), SOURCE_ENCODER_BLOCK_SIZE_IN_BITS - 4);
+        let encoding = fixture.storage.build();
+        let vec = encoding.block;
+        assert_that!(&vec, len(SOURCE_ENCODER_BLOCK_SIZE_IN_BITS / 8));
+        assert_eq!(vec, vec![0b11010000, 0, 0, 0, 0, 0, 0, 0]);
+    }
+
+    #[rstest]
+    pub fn add_no_bits_from_a_byte(mut fixture: BitvecSourceEncodingBuilderFixture) {
+        fixture.storage.add_8_bits(0b11111111, 0); // pointless, but why not?
+        assert_eq!(fixture.storage.size(), 0);
+        assert_eq!(fixture.storage.remaining(), SOURCE_ENCODER_BLOCK_SIZE_IN_BITS);
+        let encoding = fixture.storage.build();
+        let vec = encoding.block;
+        assert_that!(&vec, len(SOURCE_ENCODER_BLOCK_SIZE_IN_BITS / 8));
+        assert_eq!(vec, vec![0, 0, 0, 0, 0, 0, 0, 0]);
+    }
+
+    #[rstest]
+    #[should_panic]
+    pub fn add_more_than_8_bits_from_a_byte_panics(mut fixture: BitvecSourceEncodingBuilderFixture) {
+        fixture.storage.add_8_bits(0b11111111, 9);
+    }
+
+    #[rstest]
+    pub fn add_a_mix_of_bool_and_partial_byte(mut fixture: BitvecSourceEncodingBuilderFixture) {
+        fixture.storage.add_bool(false);
+        fixture.storage.add_8_bits(0b00000101, 3);
+        fixture.storage.add_bool(false);
+        fixture.storage.add_8_bits(0b00000111, 3);
+        fixture.storage.add_bool(false);
+        fixture.storage.add_bool(true);
+        assert_eq!(fixture.storage.size(), 10);
+        assert_eq!(fixture.storage.remaining(), SOURCE_ENCODER_BLOCK_SIZE_IN_BITS - 10);
+        let encoding = fixture.storage.build();
+        let vec = encoding.block;
+        assert_that!(&vec, len(SOURCE_ENCODER_BLOCK_SIZE_IN_BITS / 8));
+        assert_eq!(vec, vec![0b01010111, 0b01000000, 0, 0, 0, 0, 0, 0]);
+    }
+
 }
