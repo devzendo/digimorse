@@ -28,7 +28,8 @@ use portaudio::PortAudio;
 use digimorse::libs::config_file::config_file::ConfigurationStore;
 use digimorse::libs::audio::audio_devices::{list_audio_devices, output_audio_device_exists, input_audio_device_exists, open_output_audio_device};
 use digimorse::libs::audio::tone_generator::ToneGenerator;
-use digimorse::libs::source_encoder::source_encoder::{DefaultSourceEncoder, SourceEncoding};
+use digimorse::libs::source_encoder::source_encoder::DefaultSourceEncoder;
+use digimorse::libs::source_encoder::source_encoding::SourceEncoding;
 
 const VERSION: &'static str = env!("CARGO_PKG_VERSION");
 
@@ -408,8 +409,8 @@ fn source_encoder_diag(mut source_encoder_rx: BusReader<SourceEncoding>, termina
         let result = source_encoder_rx.recv_timeout(Duration::from_millis(250));
         match result {
             Ok(source_encoding) => {
-                info!("SourceEncodingDiag: isEnd {}", source_encoding.isEnd);
-                let hexdump = pretty_hex(&source_encoding.frame);
+                info!("SourceEncodingDiag: isEnd {}", source_encoding.is_end);
+                let hexdump = pretty_hex(&source_encoding.block);
                 let hexdump_lines = hexdump.split("\n");
                 for line in hexdump_lines {
                     info!("SourceEncodingDiag: Encoding {}", line);

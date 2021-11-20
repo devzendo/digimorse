@@ -60,19 +60,20 @@ mod source_encoder_spec {
     }
 
     #[rstest]
-    fn emit_with_no_keying_data_emits_nothing(fixture: SourceEncoderFixture) {}
+    fn emit_with_no_keying_data_emits_nothing(_fixture: SourceEncoderFixture) {}
 
     #[rstest]
-    fn emit_with_just_start_keying_data_emits_nothing(fixture: SourceEncoderFixture) {}
+    fn emit_with_just_start_keying_data_emits_nothing(_fixture: SourceEncoderFixture) {}
 
     #[rstest]
-    fn emit_with_some_keying_data_emits_with_padding(fixture: SourceEncoderFixture) {}
+    fn emit_with_some_keying_data_emits_with_padding(_fixture: SourceEncoderFixture) {}
 
     #[rstest]
-    fn emit_with_some_keying_data_emits_with_padding_then_next_emit_emits_nothing(fixture: SourceEncoderFixture) {}
+    fn emit_with_some_keying_data_emits_with_padding_then_next_emit_emits_nothing(_fixture:
+                                                                                  SourceEncoderFixture) {}
 
 
-    #[rstest]
+    //#[rstest]
     fn encode_keying(mut fixture: SourceEncoderFixture) {
         test_util::panic_after(Duration::from_secs(2), move|| {
 
@@ -111,8 +112,8 @@ mod source_encoder_spec {
             let result = fixture.source_encoder_rx.recv();
             match result {
                 Ok(source_encoding) => {
-                    info!("encode_keying: isEnd {}", source_encoding.isEnd);
-                    let hexdump = pretty_hex(&source_encoding.frame);
+                    info!("encode_keying: isEnd {}", source_encoding.is_end);
+                    let hexdump = pretty_hex(&source_encoding.block);
                     let hexdump_lines = hexdump.split("\n");
                     for line in hexdump_lines {
                         info!("encode_keying: Encoding {}", line);
