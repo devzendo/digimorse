@@ -1,6 +1,7 @@
 // Size of all source encoder frames; could change as the design of later stages evolves.
 // TODO what is the ideal size of this? * WHAT DOES THE LDPC (CHANNEL ENCODER) REQUIRE AS ITS INPUT?
-pub const SOURCE_ENCODER_BLOCK_SIZE: u16 = 64;
+pub const SOURCE_ENCODER_BLOCK_SIZE_IN_BITS: usize = 64;
+// multiple of 8?
 
 #[derive(Clone, PartialEq)]
 pub struct SourceEncoding {
@@ -24,6 +25,8 @@ pub trait SourceEncodingBuilder {
     fn add_32_bits(&mut self, data: u32, num_bits: usize);
     /// Add a bit from a bool.
     fn add_bool(&mut self, data: bool);
+    /// Set the 'end' state.
+    fn set_end(&mut self);
     /// Build the SourceEncoding by padding it out to the block size, and reset the storage.
     fn build(&mut self) -> SourceEncoding;
 }
