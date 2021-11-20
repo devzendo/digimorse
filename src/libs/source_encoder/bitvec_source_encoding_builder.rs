@@ -50,8 +50,21 @@ impl SourceEncodingBuilder for BitvecSourceEncodingBuilder {
         }
     }
 
-    fn add_16_bits(&mut self, _data: u16, _num_bits: usize) {
-        todo!()
+    fn add_16_bits(&mut self, mut data: u16, num_bits: usize) {
+        // The code works without this optimisation.
+        if num_bits == 0 {
+            return;
+        }
+        if num_bits > 16 {
+            panic!("Cannot add more than 16 bits with add_16_bits, was trying to add {}", num_bits);
+        }
+        self.panic_if_full(num_bits);
+        let data_slice = BitSlice::<Msb0, _>::from_element_mut(&mut data);
+        unsafe {
+            let data_sub_slice = data_slice.get_unchecked_mut((16 - num_bits)..16);
+            let mut data_sub_bit_vec = data_sub_slice.to_bitvec();
+            self.bits.append(&mut data_sub_bit_vec);
+        }
     }
 
     fn add_32_bits(&mut self, _data: u32, _num_bits: usize) {
