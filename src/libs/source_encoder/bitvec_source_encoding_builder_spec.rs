@@ -82,6 +82,14 @@ mod bitvec_source_encoding_builder_spec {
     }
 
     #[rstest]
+    pub fn blocks_end_state_is_reset_on_build(mut fixture: BitvecSourceEncodingBuilderFixture) {
+        fixture.storage.set_end();
+        fixture.storage.build();
+        let encoding = fixture.storage.build();
+        assert_eq!(encoding.is_end, false);
+    }
+
+    #[rstest]
     pub fn build_clears_for_new_block(mut fixture: BitvecSourceEncodingBuilderFixture) {
         fixture.storage.add_bool(true);
         fixture.storage.add_bool(false);

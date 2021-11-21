@@ -88,6 +88,7 @@ impl SourceEncodingBuilder for BitvecSourceEncodingBuilder {
         };
         self.bits.clear();
         self.bits.set_uninitialized(false);
+        self.end = false;
         out
     }
 }
