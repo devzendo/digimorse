@@ -36,7 +36,8 @@ pub trait SourceEncoder {
     fn emit(&mut self);
 }
 
-struct Emitter {
+// An object shared between the main SourceEncoder, and the KeyingEvent handling thread.
+struct SourceEncoderShared {
     storage: Arc<RwLock<Box<dyn SourceEncodingBuilder + Send + Sync>>>, // ?? Is it Send + Sync?
     keying_encoder: Box<dyn KeyingEncoder + Send + Sync>,
     source_encoder_tx: Bus<SourceEncoding>,
@@ -44,7 +45,7 @@ struct Emitter {
     keying_speed: KeyerSpeed,
 }
 
-impl Emitter {
+impl SourceEncoderShared {
     fn emit(&mut self) {
         if self.storage.read().unwrap().size() == 0 {
             debug!("Not emitting a SourceEncoding since there's nothing to send");
@@ -102,43 +103,43 @@ pub struct DefaultSourceEncoder {
     // Send + Sync are here so the DefaultSourceEncoder can be stored in an rstest fixture that
     // is moved into a panic_after test's thread.
     thread_handle: Mutex<Option<JoinHandle<()>>>,
-    emitter: Arc<Mutex<Emitter>>,
+    shared: Arc<Mutex<SourceEncoderShared>>,
 }
 
 impl DefaultSourceEncoder {
     pub fn new(keying_event_rx: BusReader<KeyingEvent>, source_encoder_tx: Bus<SourceEncoding>, terminate: Arc<AtomicBool>) -> Self {
         let builder: Box<dyn SourceEncodingBuilder + Send + Sync> = Box::new
             (BitvecSourceEncodingBuilder::new());
-        let storage = Arc::new(RwLock::new(builder));
-        let arc_storage = storage.clone();
+        let arc_storage = Arc::new(RwLock::new(builder));
+        let arc_storage_cloned = arc_storage.clone();
 
         let arc_terminate = terminate.clone();
 
         let encoder: Box<dyn KeyingEncoder + Send + Sync> = Box::new(DefaultKeyingEncoder::new
-            (storage.clone()));
+            (arc_storage.clone()));
 
-        let emitter = Mutex::new(Emitter {
-            storage: storage.clone(),
+        let shared = Mutex::new(SourceEncoderShared {
+            storage: arc_storage.clone(),
             keying_encoder: encoder,
             source_encoder_tx,
             sent_wpm_polarity: false,
             keying_speed: 0,
         });
-        let arc_emitter = Arc::new(emitter);
-        let arc_emitter_cloned = arc_emitter.clone();
+        let arc_shared = Arc::new(shared);
+        let arc_shared_cloned = arc_shared.clone();
         let thread_handle = thread::spawn(move || {
             let mut keyer_thread = EncoderKeyerThread::new(keying_event_rx,
-                                                            arc_terminate,
-                                                           arc_emitter.clone());
+                                                           arc_terminate,
+                                                           arc_shared.clone());
             keyer_thread.thread_runner();
         });
 
         Self {
             keyer_speed: 12,
             terminate,
-            storage: arc_storage,
+            storage: arc_storage_cloned,
             thread_handle: Mutex::new(Some(thread_handle)),
-            emitter: arc_emitter_cloned,
+            shared: arc_shared_cloned,
         }
     }
 
@@ -175,7 +176,7 @@ impl SourceEncoder for DefaultSourceEncoder {
     fn set_keyer_speed(&mut self, speed: KeyerSpeed) {
         self.keyer_speed = speed;
         // TODO pass on to CQ detector
-        self.emitter.lock().unwrap().set_keyer_speed(speed);
+        self.shared.lock().unwrap().set_keyer_speed(speed);
     }
 
     fn get_keyer_speed(&self) -> KeyerSpeed {
@@ -183,7 +184,7 @@ impl SourceEncoder for DefaultSourceEncoder {
     }
 
     fn emit(&mut self) {
-        self.emitter.lock().unwrap().emit();
+        self.shared.lock().unwrap().emit();
     }
 }
 
@@ -196,19 +197,19 @@ struct EncoderKeyerThread {
     keying_event_tx: BusReader<KeyingEvent>,
 
     // Shared state between thread and main code
-    emitter: Arc<Mutex<Emitter>>,
+    shared: Arc<Mutex<SourceEncoderShared>>,
 }
 
 impl EncoderKeyerThread {
     fn new(keying_event_tx: BusReader<KeyingEvent>,
            terminate: Arc<AtomicBool>,
-           emitter: Arc<Mutex<Emitter>>
+           shared: Arc<Mutex<SourceEncoderShared>>
     ) -> Self {
         debug!("Constructing EncoderKeyerThread");
         Self {
             terminate,
             keying_event_tx,
-            emitter,
+            shared,
         }
     }
 
@@ -223,7 +224,7 @@ impl EncoderKeyerThread {
 
             match self.keying_event_tx.recv_timeout(Duration::from_millis(100)) {
                 Ok(keying_event) => {
-                    self.emitter.lock().unwrap().keying_event(keying_event);
+                    self.shared.lock().unwrap().keying_event(keying_event);
                 }
                 Err(_) => {
                     // Don't log, it's just noise - timeout gives opportunity to go round loop and
