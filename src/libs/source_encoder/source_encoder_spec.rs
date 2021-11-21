@@ -5,12 +5,12 @@ mod source_encoder_spec {
     use crate::libs::keyer_io::keyer_io::{KeyingEvent, KeyerSpeed, KeyingTimedEvent};
     use crate::libs::source_encoder::source_encoder::{DefaultSourceEncoder, SourceEncoder, SourceEncoding};
     use bus::{Bus, BusReader};
-    use log::{error, info};
+    use log::{debug, error, info};
     use pretty_hex::*;
     use rstest::*;
     use std::{env, thread};
     use std::sync::Arc;
-    use std::sync::atomic::AtomicBool;
+    use std::sync::atomic::{AtomicBool, Ordering};
     use std::sync::mpsc::RecvError;
     use std::time::Duration;
     use crate::libs::util::test_util;
@@ -56,6 +56,16 @@ mod source_encoder_spec {
         }
     }
 
+    impl Drop for SourceEncoderFixture {
+        fn drop(&mut self) {
+            debug!("SourceEncoderFixture setting terminate flag...");
+            self.terminate.store(true, Ordering::SeqCst);
+            wait_5_ms();
+            debug!("SourceEncoderFixture ...set terminate flag");
+        }
+    }
+
+
     #[rstest]
     pub fn default_keying_speed(fixture: SourceEncoderFixture) {
         assert_eq!(fixture.source_encoder.get_keyer_speed(), 12 as KeyerSpeed);
@@ -86,8 +96,6 @@ mod source_encoder_spec {
         });
     }
 
-    // TODO there's no thread yet to process keying events, so nothing's listening to add to the
-    // storage, so of course it'll pass!
     #[rstest]
     fn emit_with_just_start_keying_data_emits_nothing(mut fixture: SourceEncoderFixture) {
         test_util::panic_after(Duration::from_secs(2), move || {

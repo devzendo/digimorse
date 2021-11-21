@@ -1,9 +1,11 @@
 use std::sync::{Arc, Mutex};
-use std::sync::atomic::AtomicBool;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::mpsc::TryRecvError;
 use std::thread;
 use std::thread::JoinHandle;
+use std::time::Duration;
 use bus::{Bus, BusReader};
-use log::{debug};
+use log::{debug, info};
 use crate::libs::keyer_io::keyer_io::{KeyingEvent, KeyerSpeed};
 use crate::libs::source_encoder::bitvec_source_encoding_builder::BitvecSourceEncodingBuilder;
 use crate::libs::source_encoder::source_encoding::{SourceEncoding, SourceEncodingBuilder};
@@ -60,15 +62,41 @@ impl DefaultSourceEncoder {
             keyer_thread.thread_runner();
         });
 
-
         Self {
             keyer_speed: 12,
             source_encoder_tx,
             terminate,
             storage,
             thread_handle: Mutex::new(Some(thread_handle)),
-
         }
+    }
+
+    // Signals the thread to terminate, blocks on joining the handle. Used by drop().
+    // Setting the terminate AtomicBool will allow the thread to stop on its own, but there's no
+    // method other than this for blocking until it has actually stopped.
+    pub fn terminate(&mut self) {
+        debug!("Terminating encoder");
+        self.terminate.store(true, Ordering::SeqCst);
+        debug!("DefaultSourceEncoder joining thread handle...");
+        let mut thread_handle = self.thread_handle.lock().unwrap();
+        thread_handle.take().map(JoinHandle::join);
+        debug!("DefaultSourceEncoder ...joined thread handle");
+    }
+
+    // Has the thread finished (ie has it been joined)?
+    pub fn terminated(&mut self) -> bool {
+        debug!("Is encoder terminated?");
+        let ret = self.thread_handle.lock().unwrap().is_none();
+        debug!("Termination state is {}", ret);
+        ret
+    }
+
+}
+
+impl Drop for DefaultSourceEncoder {
+    fn drop(&mut self) {
+        debug!("DefaultSourceEncoder signalling termination to thread on drop");
+        self.terminate();
     }
 }
 
@@ -97,7 +125,33 @@ impl EncoderKeyerThread {
 
     // Thread that handles incoming KeyingEvents and encodes them asynchronously...
     fn thread_runner(&mut self) -> () {
+        info!("Encoding thread started");
+        loop {
+            if self.terminate.load(Ordering::SeqCst) {
+                info!("Terminating encoding thread");
+                break;
+            }
 
+            match self.keying_event_tx.recv_timeout(Duration::from_millis(100)) {
+                Ok(keying_event) => {
+                    match keying_event {
+                        KeyingEvent::Start() => {
+                            // Don't add anything to storage, but should reset the polarity to Mark
+                            // TODO needs test
+                        }
+                        KeyingEvent::Timed(_) => {}
+                        KeyingEvent::End() => {
+                            // Set the end of the storage
+                            // TODO needs test
+                        }
+                    }
+                }
+                Err(e) => {
+                    debug!("Error receiving keying events: {}", e);
+                }
+            }
+        }
+        info!("Encoding thread stopped");
     }
 }
 
