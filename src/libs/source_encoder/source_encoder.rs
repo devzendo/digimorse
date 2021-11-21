@@ -42,6 +42,7 @@ struct SourceEncoderShared {
     keying_encoder: Box<dyn KeyingEncoder + Send + Sync>,
     source_encoder_tx: Bus<SourceEncoding>,
     sent_wpm_polarity: bool,
+    is_mark: bool,
     keying_speed: KeyerSpeed,
 }
 
@@ -59,12 +60,14 @@ impl SourceEncoderShared {
     fn set_keyer_speed(&mut self, speed: KeyerSpeed) {
         self.keying_speed = speed;
         self.keying_encoder.set_keyer_speed(speed);
+        self.sent_wpm_polarity = false;
     }
 
     fn keying_event(&mut self, keying_event: KeyingEvent) {
         match keying_event {
             KeyingEvent::Start() => {
-                // Don't add anything to storage, but should reset the polarity to Mark
+                // Don't add anything to storage, but reset the polarity to Mark
+                //self.is_mark = true;
                 // TODO needs test
             }
             KeyingEvent::Timed(timed) => {
@@ -74,11 +77,12 @@ impl SourceEncoderShared {
                     let mut storage = self.storage.write().unwrap();
                     let frame_type = EncoderFrameType::WPMPolarity;
                     debug!("Adding {:?} {} WPM, polarity {} ", frame_type, self
-                                    .keying_speed, if true { "MARK" } else { "SPACE" }); // TODO
+                                    .keying_speed, if timed.up { "MARK" } else { "SPACE" }); //
+                    // TODO
                     // see below..
                     storage.add_8_bits(frame_type as u8, 4);
                     storage.add_8_bits(self.keying_speed, 6);
-                    storage.add_bool(true); // TODO needs test for first keying event
+                    storage.add_bool(timed.up);
                     // of 2nd block being space.
                     // TODO what if there's no room?
                 }
@@ -122,6 +126,7 @@ impl DefaultSourceEncoder {
             storage: arc_storage.clone(),
             keying_encoder: encoder,
             source_encoder_tx,
+            is_mark: true,
             sent_wpm_polarity: false,
             keying_speed: 0,
         });

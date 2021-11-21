@@ -117,9 +117,37 @@ mod source_encoder_spec {
     }
 
     #[rstest]
-    fn emit_after_some_keying_data_emits_single_polarity_wpm_and_perfect_dits_with_padding(mut
-                                                                                         fixture:
-                                                                 SourceEncoderFixture) {
+    fn first_keying_after_start_generates_wpm_and_mark_polarity(mut fixture: SourceEncoderFixture) {
+        test_util::panic_after(Duration::from_secs(2), move || {
+            fixture.source_encoder.set_keyer_speed(20);
+            wait_5_ms();
+
+            fixture.keying_event_tx.broadcast(KeyingEvent::Start());
+            // A precise dit at 20WPM is 60ms long.
+            fixture.keying_event_tx.broadcast(KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 60 }));
+            wait_5_ms();
+
+            fixture.source_encoder.emit();
+            wait_5_ms();
+
+            match fixture.source_encoder_rx.recv_timeout(Duration::from_secs(1)) {
+                Ok(encoding) => {
+                    info!("Received SourceEncoding of {}", encoding);
+                    let vec = encoding.block;
+
+                    //                                    F:PD
+                    //                     F:WPWPM-    --P
+                    assert_eq!(vec, vec![0b00010101, 0b00101100, 0, 0, 0, 0, 0, 0]);
+                }
+                Err(e) => {
+                    panic!("Should have received a SourceEncoding, not an error of {}", e);
+                }
+            }
+        });
+    }
+
+    #[rstest]
+    fn emit_after_some_keying_data_emits_single_polarity_wpm_and_perfect_dits_with_padding(mut fixture: SourceEncoderFixture) {
         test_util::panic_after(Duration::from_secs(2), move || {
             let keyer_speed: KeyerSpeed = 20;
             fixture.source_encoder.set_keyer_speed(keyer_speed);
@@ -167,8 +195,8 @@ mod source_encoder_spec {
             fixture.keying_event_tx.broadcast(KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 60 }));
             wait_5_ms();
 
-            // Change speed, send another perfect dit at that speed - should get two perfect dits
-            // encoded
+            // Should see a WPM/Polarity and a perfect dit. Change speed, send another perfect dit
+            // at that speed - should get another WPN/Polarity and a second perfect dit.
             fixture.source_encoder.set_keyer_speed(40);
             // inter-element dit
             fixture.keying_event_tx.broadcast(KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 30 }));
@@ -183,11 +211,10 @@ mod source_encoder_spec {
                     let vec = encoding.block;
                     assert_that!(&vec, len(SOURCE_ENCODER_BLOCK_SIZE_IN_BITS / 8));
 
-                    // TODO should get a second WPM/Polarity frame if the speed changes in the
-                    // middle of a block?
-                    //                                    F:PD
-                    //                     F:WPWPM-    --P    F:    PD
-                    assert_eq!(vec, vec![0b00010101, 0b00101100, 0b11000000, 0, 0, 0, 0, 0]);
+                    //                                    F:PD                   F:PD
+                    //                     F:WPWPM-    --P    F    :WPWPM--    -P
+                    assert_eq!(vec, vec![0b00010101, 0b00101100, 0b00110100, 0b00011000, 0, 0, 0,
+                                         0]);
                     assert_eq!(encoding.is_end, false);
                 }
                 Err(e) => {
