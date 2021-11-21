@@ -1,5 +1,7 @@
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::sync::atomic::AtomicBool;
+use std::thread;
+use std::thread::JoinHandle;
 use bus::{Bus, BusReader};
 use log::{debug};
 use crate::libs::keyer_io::keyer_io::{KeyingEvent, KeyerSpeed};
@@ -34,23 +36,68 @@ pub trait SourceEncoder {
 #[readonly::make]
 pub struct DefaultSourceEncoder {
     keyer_speed: KeyerSpeed,
-    keying_event_rx: BusReader<KeyingEvent>,
+    // keying_event_rx: BusReader<KeyingEvent>,
     source_encoder_tx: Bus<SourceEncoding>,
     terminate: Arc<AtomicBool>,
-    storage: Box<dyn SourceEncodingBuilder + Send + Sync>, // ?? Is it Send + Sync?
+    storage: Arc<Box<dyn SourceEncodingBuilder + Send + Sync>>, // ?? Is it Send + Sync?
     // Send + Sync are here so the DefaultSourceEncoder can be stored in an rstest fixture that
     // is moved into a panic_after test's thread.
+    thread_handle: Mutex<Option<JoinHandle<()>>>,
+
 }
 
 impl DefaultSourceEncoder {
     pub fn new(keying_event_rx: BusReader<KeyingEvent>, source_encoder_tx: Bus<SourceEncoding>, terminate: Arc<AtomicBool>) -> Self {
+        let builder: Box<dyn SourceEncodingBuilder + Send + Sync> = Box::new
+            (BitvecSourceEncodingBuilder::new());
+        let storage = Arc::new(builder);
+
+        let arc_terminate = terminate.clone();
+        let arc_storage = storage.clone();
+        let thread_handle = thread::spawn(move || {
+            let mut keyer_thread = EncoderKeyerThread::new(keying_event_rx,
+                                                           arc_storage, arc_terminate);
+            keyer_thread.thread_runner();
+        });
+
+
         Self {
             keyer_speed: 12,
-            keying_event_rx,
             source_encoder_tx,
             terminate,
-            storage: Box::new(BitvecSourceEncodingBuilder::new())
+            storage,
+            thread_handle: Mutex::new(Some(thread_handle)),
+
         }
+    }
+}
+
+struct EncoderKeyerThread {
+    // Terminate flag
+    terminate: Arc<AtomicBool>,
+
+    // Keying channel
+    keying_event_tx: BusReader<KeyingEvent>,
+
+    // Storage
+    storage: Arc<Box<dyn SourceEncodingBuilder + Send + Sync>>,
+}
+
+impl EncoderKeyerThread {
+    fn new(keying_event_tx: BusReader<KeyingEvent>,
+           storage: Arc<Box<dyn SourceEncodingBuilder + Send + Sync>>,
+           terminate: Arc<AtomicBool>
+    ) -> Self {
+        debug!("Constructing EncoderKeyerThread");
+        Self {
+            keying_event_tx,
+            storage,
+            terminate,        }
+    }
+
+    // Thread that handles incoming KeyingEvents and encodes them asynchronously...
+    fn thread_runner(&mut self) -> () {
+
     }
 }
 
