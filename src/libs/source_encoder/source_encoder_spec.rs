@@ -160,9 +160,13 @@ mod source_encoder_spec {
     fn keyer_speed_is_passed_to_the_keying_encoder(mut fixture: SourceEncoderFixture) {
         test_util::panic_after(Duration::from_secs(2), move || {
             fixture.source_encoder.set_keyer_speed(20);
+            wait_5_ms();
+
             fixture.keying_event_tx.broadcast(KeyingEvent::Start());
             // A precise dit at 20WPM is 60ms long.
             fixture.keying_event_tx.broadcast(KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 60 }));
+            wait_5_ms();
+
             // Change speed, send another perfect dit at that speed - should get two perfect dits
             // encoded
             fixture.source_encoder.set_keyer_speed(40);
