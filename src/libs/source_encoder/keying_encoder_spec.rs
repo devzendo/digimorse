@@ -34,7 +34,7 @@ mod keying_encoder_spec {
     }
 
     impl KeyingEncoderFixture {
-        pub fn get_bytes(&mut self) -> Vec<u8> {
+        pub fn bytes(&mut self) -> Vec<u8> {
             self.storage.write().unwrap().build().block
         }
     }
@@ -65,7 +65,7 @@ mod keying_encoder_spec {
     #[rstest]
     pub fn encode_perfect_dit(mut fixture: KeyingEncoderFixture) {
         assert_eq!(fixture.encoder.encode_keying(KeyingTimedEvent { up: true, duration: PERFECT_DIT_DURATION }), true);
-        assert_eq!(fixture.get_bytes(), vec![0b01100000, 0, 0, 0, 0, 0, 0, 0]);
+        assert_eq!(fixture.bytes(), vec![0b01100000, 0, 0, 0, 0, 0, 0, 0]);
     }
 
     // TODO
