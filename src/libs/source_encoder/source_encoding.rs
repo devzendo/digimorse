@@ -1,3 +1,6 @@
+extern crate num;
+// use num::FromPrimitive;
+
 use std::fmt::{Display, Formatter};
 use std::fmt;
 
@@ -47,3 +50,29 @@ pub trait SourceEncodingBuilder {
     /// Build the SourceEncoding by padding it out to the block size, and reset the storage.
     fn build(&mut self) -> SourceEncoding;
 }
+
+enum_from_primitive! {
+#[derive(Debug, PartialOrd, PartialEq, Copy, Clone)]
+pub enum EncoderFrameType {
+    Padding = 0,
+    WPMPolarity,
+    CallsignMetadata,
+    CallsignHashMetadata,
+    LocatorMetadata,
+    PowerMetadata,
+    KeyingPerfectDit,
+    KeyingPerfectDah,
+    KeyingPerfectWordgap,
+    KeyingEnd,
+    KeyingDeltaDit,
+    KeyingDeltaDah,
+    KeyingDeltaWordgap,
+    KeyingNaive,
+    Unused,
+    Extension,
+}
+}
+
+#[cfg(test)]
+#[path = "./source_encoding_spec.rs"]
+mod source_encoding_spec;
