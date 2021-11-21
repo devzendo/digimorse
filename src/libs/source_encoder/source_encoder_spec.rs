@@ -4,14 +4,15 @@ extern crate hamcrest2;
 mod source_encoder_spec {
     use crate::libs::keyer_io::keyer_io::{KeyingEvent, KeyerSpeed, KeyingTimedEvent};
     use crate::libs::source_encoder::source_encoder::{DefaultSourceEncoder, SourceEncoder, SourceEncoding};
+    use crate::libs::source_encoder::source_encoding::{SOURCE_ENCODER_BLOCK_SIZE_IN_BITS};
     use bus::{Bus, BusReader};
-    use log::{debug, error, info};
+    use log::{debug, info};
+    use hamcrest2::prelude::*;
     use pretty_hex::*;
     use rstest::*;
     use std::{env, thread};
     use std::sync::Arc;
     use std::sync::atomic::{AtomicBool, Ordering};
-    use std::sync::mpsc::RecvError;
     use std::time::Duration;
     use crate::libs::util::test_util;
 
@@ -80,16 +81,16 @@ mod source_encoder_spec {
     }
 
     #[rstest]
-    fn emit_with_no_keying_data_emits_nothing(mut fixture: SourceEncoderFixture) {
+    fn emit_after_no_keying_data_emits_nothing(mut fixture: SourceEncoderFixture) {
         test_util::panic_after(Duration::from_secs(2), move || {
             fixture.source_encoder.emit();
             wait_5_ms();
 
             match fixture.source_encoder_rx.recv_timeout(Duration::from_secs(1)) {
                 Ok(e) => {
-                    error!("Should not have received a SourceEncoding of {}", e);
+                    panic!("Should not have received a SourceEncoding of {}", e);
                 }
-                Err(e) => {
+                Err(_) => {
                     info!("Correctly timed out");
                 }
             }
@@ -97,7 +98,7 @@ mod source_encoder_spec {
     }
 
     #[rstest]
-    fn emit_with_just_start_keying_data_emits_nothing(mut fixture: SourceEncoderFixture) {
+    fn emit_after_just_start_keying_data_emits_nothing(mut fixture: SourceEncoderFixture) {
         test_util::panic_after(Duration::from_secs(2), move || {
             fixture.keying_event_tx.broadcast(KeyingEvent::Start());
             wait_5_ms();
@@ -106,9 +107,9 @@ mod source_encoder_spec {
 
             match fixture.source_encoder_rx.recv_timeout(Duration::from_secs(1)) {
                 Ok(e) => {
-                    error!("Should not have received a SourceEncoding of {}", e);
+                    panic!("Should not have received a SourceEncoding of {}", e);
                 }
-                Err(e) => {
+                Err(_) => {
                     info!("Correctly timed out");
                 }
             }
@@ -116,12 +117,93 @@ mod source_encoder_spec {
     }
 
     #[rstest]
-    fn emit_with_some_keying_data_emits_with_padding(_fixture: SourceEncoderFixture) {}
+    fn emit_after_some_keying_data_emits_single_polarity_wpm_and_perfect_dits_with_padding(mut
+                                                                                         fixture:
+                                                                 SourceEncoderFixture) {
+        test_util::panic_after(Duration::from_secs(2), move || {
+            let keyer_speed: KeyerSpeed = 20;
+            fixture.source_encoder.set_keyer_speed(keyer_speed);
+            fixture.keying_event_tx.broadcast(KeyingEvent::Start());
+            // A precise dit at 20WPM is 60ms long.
+            fixture.keying_event_tx.broadcast(KeyingEvent::Timed(KeyingTimedEvent { up: true,
+                duration: 60 }));
+            // inter-element dit
+            fixture.keying_event_tx.broadcast(KeyingEvent::Timed(KeyingTimedEvent { up: false,
+                duration: 60 }));
+            // another dit
+            fixture.keying_event_tx.broadcast(KeyingEvent::Timed(KeyingTimedEvent { up: true,
+                duration: 60 }));
+
+            wait_5_ms();
+            fixture.source_encoder.emit();
+            wait_5_ms();
+
+            match fixture.source_encoder_rx.recv_timeout(Duration::from_secs(1)) {
+                Ok(encoding) => {
+                    info!("Received SourceEncoding of {}", encoding);
+                    let vec = encoding.block;
+                    assert_that!(&vec, len(SOURCE_ENCODER_BLOCK_SIZE_IN_BITS / 8));
+                    //                                    F:PD        F:PD
+                    //                     F:WPWPM-    --P    F:    PD
+                    assert_eq!(vec, vec![0b00010101, 0b00101100, 0b11001100, 0, 0, 0, 0, 0]);
+                    // Got                 1   5       2    C       C   C     00 00 00 00 00
+                    assert_eq!(encoding.is_end, false);
+                }
+                Err(e) => {
+                    panic!("Should have received a SourceEncoding, not an error of {}", e);
+                }
+            }
+        });
+    }
+
+    #[rstest]
+    fn keyer_speed_is_passed_to_the_keying_encoder(mut fixture: SourceEncoderFixture) {
+        test_util::panic_after(Duration::from_secs(2), move || {
+            fixture.source_encoder.set_keyer_speed(20);
+            fixture.keying_event_tx.broadcast(KeyingEvent::Start());
+            // A precise dit at 20WPM is 60ms long.
+            fixture.keying_event_tx.broadcast(KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 60 }));
+            // Change speed, send another perfect dit at that speed - should get two perfect dits
+            // encoded
+            fixture.source_encoder.set_keyer_speed(40);
+            // inter-element dit
+            fixture.keying_event_tx.broadcast(KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 30 }));
+
+            wait_5_ms();
+            fixture.source_encoder.emit();
+            wait_5_ms();
+
+            match fixture.source_encoder_rx.recv_timeout(Duration::from_secs(1)) {
+                Ok(encoding) => {
+                    info!("Received SourceEncoding of {}", encoding);
+                    let vec = encoding.block;
+                    assert_that!(&vec, len(SOURCE_ENCODER_BLOCK_SIZE_IN_BITS / 8));
+
+                    // TODO should get a second WPM/Polarity frame if the speed changes in the
+                    // middle of a block?
+                    //                                    F:PD
+                    //                     F:WPWPM-    --P    F:    PD
+                    assert_eq!(vec, vec![0b00010101, 0b00101100, 0b11000000, 0, 0, 0, 0, 0]);
+                    assert_eq!(encoding.is_end, false);
+                }
+                Err(e) => {
+                    panic!("Should have received a SourceEncoding, not an error of {}", e);
+                }
+            }
+        });
+    }
 
     #[rstest]
     fn emit_with_some_keying_data_emits_with_padding_then_next_emit_emits_nothing(_fixture:
                                                                                   SourceEncoderFixture) {}
 
+
+    // TODO keying with end, emit, sets the end flag in the SourceEncoding
+
+    // TODO keying with end, emit, then more keying and emit has a cleared end flag in
+    // the second SourceEncoding
+
+    // TODO flag indicating wpm|polarity sent gets reset on each new frame's first keying
 
     //#[rstest]
     fn encode_keying(mut fixture: SourceEncoderFixture) {

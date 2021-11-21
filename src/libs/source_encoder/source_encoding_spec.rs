@@ -25,6 +25,8 @@ mod source_encoding_spec {
         assert_eq!(EncoderFrameType::WPMPolarity as u32, 1);
         assert_eq!(EncoderFrameType::CallsignMetadata as u32, 2);
         // ...
+        assert_eq!(EncoderFrameType::KeyingPerfectDit as u32, 6);
+        // ...
         assert_eq!(EncoderFrameType::Unused as u32, 14);
         assert_eq!(EncoderFrameType::Extension as u32, 15);
     }
