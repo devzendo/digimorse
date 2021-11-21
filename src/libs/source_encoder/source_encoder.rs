@@ -192,25 +192,23 @@ struct EncoderKeyerThread {
     // Terminate flag
     terminate: Arc<AtomicBool>,
 
-    // Keying channel
+    // Incoming Keying channel
     keying_event_tx: BusReader<KeyingEvent>,
 
-    is_mark: bool,
+    // Shared state between thread and main code
     emitter: Arc<Mutex<Emitter>>,
-
 }
 
 impl EncoderKeyerThread {
     fn new(keying_event_tx: BusReader<KeyingEvent>,
            terminate: Arc<AtomicBool>,
-           arc_emitter: Arc<Mutex<Emitter>>
+           emitter: Arc<Mutex<Emitter>>
     ) -> Self {
         debug!("Constructing EncoderKeyerThread");
         Self {
             terminate,
             keying_event_tx,
-            is_mark: true,
-            emitter: arc_emitter,
+            emitter,
         }
     }
 
@@ -236,6 +234,7 @@ impl EncoderKeyerThread {
         info!("Encoding thread stopped");
     }
 }
+
 
 #[cfg(test)]
 #[path = "./source_encoder_spec.rs"]
