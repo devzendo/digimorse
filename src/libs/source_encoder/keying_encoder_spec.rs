@@ -8,11 +8,10 @@ const PERFECT_WORDGAP_DURATION: KeyerEdgeDurationMs = 420;
 
 #[cfg(test)]
 mod keying_encoder_spec {
-    use log::{debug, info};
     use hamcrest2::prelude::*;
     use rstest::*;
     use std::env;
-    use std::sync::{Arc, Mutex, RwLock};
+    use std::sync::{Arc, RwLock};
     use crate::libs::keyer_io::keyer_io::KeyingTimedEvent;
     use crate::libs::source_encoder::bitvec_source_encoding_builder::BitvecSourceEncodingBuilder;
     use crate::libs::source_encoder::keying_encoder::{DefaultKeyingEncoder, KeyingEncoder};

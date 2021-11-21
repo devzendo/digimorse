@@ -1,4 +1,4 @@
-use log::{debug, info};
+use log::debug;
 use std::sync::{Arc, RwLock};
 use crate::libs::keyer_io::keyer_io::{KeyerEdgeDurationMs, KeyerSpeed, KeyingTimedEvent};
 use crate::libs::source_encoder::source_encoding::{EncoderFrameType, SourceEncodingBuilder};
