@@ -5,12 +5,13 @@ mod source_encoder_spec {
     use crate::libs::keyer_io::keyer_io::{KeyingEvent, KeyerSpeed, KeyingTimedEvent};
     use crate::libs::source_encoder::source_encoder::{DefaultSourceEncoder, SourceEncoder, SourceEncoding};
     use bus::{Bus, BusReader};
-    use log::info;
+    use log::{error, info};
     use pretty_hex::*;
     use rstest::*;
-    use std::env;
+    use std::{env, thread};
     use std::sync::Arc;
     use std::sync::atomic::AtomicBool;
+    use std::sync::mpsc::RecvError;
     use std::time::Duration;
     use crate::libs::util::test_util;
 
@@ -22,6 +23,10 @@ mod source_encoder_spec {
 
     #[ctor::dtor]
     fn after_each() {}
+
+    fn wait_5_ms() {
+        thread::sleep(Duration::from_millis(5));
+    }
 
     pub struct SourceEncoderFixture {
         terminate: Arc<AtomicBool>,
@@ -38,6 +43,11 @@ mod source_encoder_spec {
         let mut source_encoder_tx = Bus::new(16);
         let source_encoder_rx = source_encoder_tx.add_rx();
         let source_encoder = DefaultSourceEncoder::new(keying_event_rx, source_encoder_tx, terminate.clone());
+
+        info!("Fixture setup sleeping");
+        wait_5_ms(); // give things time to start
+        info!("Fixture setup out of sleep");
+
         SourceEncoderFixture {
             terminate,
             keying_event_tx,
@@ -60,10 +70,42 @@ mod source_encoder_spec {
     }
 
     #[rstest]
-    fn emit_with_no_keying_data_emits_nothing(_fixture: SourceEncoderFixture) {}
+    fn emit_with_no_keying_data_emits_nothing(mut fixture: SourceEncoderFixture) {
+        test_util::panic_after(Duration::from_secs(2), move || {
+            fixture.source_encoder.emit();
+            wait_5_ms();
 
+            match fixture.source_encoder_rx.recv_timeout(Duration::from_secs(1)) {
+                Ok(e) => {
+                    error!("Should not have received a SourceEncoding of {}", e);
+                }
+                Err(e) => {
+                    info!("Correctly timed out");
+                }
+            }
+        });
+    }
+
+    // TODO there's no thread yet to process keying events, so nothing's listening to add to the
+    // storage, so of course it'll pass!
     #[rstest]
-    fn emit_with_just_start_keying_data_emits_nothing(_fixture: SourceEncoderFixture) {}
+    fn emit_with_just_start_keying_data_emits_nothing(mut fixture: SourceEncoderFixture) {
+        test_util::panic_after(Duration::from_secs(2), move || {
+            fixture.keying_event_tx.broadcast(KeyingEvent::Start());
+            wait_5_ms();
+            fixture.source_encoder.emit();
+            wait_5_ms();
+
+            match fixture.source_encoder_rx.recv_timeout(Duration::from_secs(1)) {
+                Ok(e) => {
+                    error!("Should not have received a SourceEncoding of {}", e);
+                }
+                Err(e) => {
+                    info!("Correctly timed out");
+                }
+            }
+        });
+    }
 
     #[rstest]
     fn emit_with_some_keying_data_emits_with_padding(_fixture: SourceEncoderFixture) {}

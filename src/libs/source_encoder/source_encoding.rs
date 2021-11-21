@@ -1,3 +1,6 @@
+use std::fmt::{Display, Formatter};
+use std::fmt;
+
 // Size of all source encoder frames; could change as the design of later stages evolves.
 // TODO what is the ideal size of this? * WHAT DOES THE LDPC (CHANNEL ENCODER) REQUIRE AS ITS INPUT?
 pub const SOURCE_ENCODER_BLOCK_SIZE_IN_BITS: usize = 64;
@@ -9,6 +12,17 @@ pub struct SourceEncoding {
     pub block: Vec<u8>,
     // Is this encoding block the last in the sequence?
     pub is_end: bool,
+}
+
+impl Display for SourceEncoding {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        let c = if self.is_end { 'Y' } else { 'N' };
+        write!(f, "End? {} Data [", c)?;
+        for b in &self.block {
+            write!(f, "{:02X?} ", b)?;
+        }
+        write!(f, "]")
+    }
 }
 
 // Multiple implementations (possibly) to find the fastest low-level bit vector crate, there are

@@ -1,8 +1,10 @@
 use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
 use bus::{Bus, BusReader};
+use log::{debug};
 use crate::libs::keyer_io::keyer_io::{KeyingEvent, KeyerSpeed};
-use crate::libs::source_encoder::source_encoding::SourceEncoding;
+use crate::libs::source_encoder::bitvec_source_encoding_builder::BitvecSourceEncodingBuilder;
+use crate::libs::source_encoder::source_encoding::{SourceEncoding, SourceEncodingBuilder};
 
 /*
  * Ideas...
@@ -34,7 +36,10 @@ pub struct DefaultSourceEncoder {
     keyer_speed: KeyerSpeed,
     keying_event_rx: BusReader<KeyingEvent>,
     source_encoder_tx: Bus<SourceEncoding>,
-    terminate: Arc<AtomicBool>
+    terminate: Arc<AtomicBool>,
+    storage: Box<dyn SourceEncodingBuilder + Send + Sync>, // ?? Is it Send + Sync?
+    // Send + Sync are here so the DefaultSourceEncoder can be stored in an rstest fixture that
+    // is moved into a panic_after test's thread.
 }
 
 impl DefaultSourceEncoder {
@@ -43,7 +48,8 @@ impl DefaultSourceEncoder {
             keyer_speed: 12,
             keying_event_rx,
             source_encoder_tx,
-            terminate
+            terminate,
+            storage: Box::new(BitvecSourceEncodingBuilder::new())
         }
     }
 }
@@ -58,7 +64,10 @@ impl SourceEncoder for DefaultSourceEncoder {
     }
 
     fn emit(&mut self) {
-        todo!()
+        if self.storage.size() == 0 {
+            debug!("Not emitting a SourceEncoding since there's nothing to send");
+            return;
+        }
     }
 }
 
