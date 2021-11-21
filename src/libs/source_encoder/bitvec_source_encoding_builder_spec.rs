@@ -95,7 +95,7 @@ mod bitvec_source_encoding_builder_spec {
         fixture.storage.add_bool(false);
         fixture.storage.add_bool(true);
         fixture.storage.add_bool(true);
-        let first_encoding = fixture.storage.build();
+        fixture.storage.build();
 
         let second_encoding = fixture.storage.build();
         let second_vec = second_encoding.block;
@@ -153,14 +153,14 @@ mod bitvec_source_encoding_builder_spec {
     // current size before adding data, so it's probably best to panic.
     // build up some data, build() it, build up some more, build() it and check it's the 2nd data.
     pub fn panics_after_full_adding_bools(mut fixture: BitvecSourceEncodingBuilderFixture) {
-        for n in 0..=SOURCE_ENCODER_BLOCK_SIZE_IN_BITS {
+        for _n in 0..=SOURCE_ENCODER_BLOCK_SIZE_IN_BITS {
             fixture.storage.add_bool(true);
         }
     }
 
     #[rstest]
     pub fn does_not_panic_at_full_adding_bools(mut fixture: BitvecSourceEncodingBuilderFixture) {
-        for n in 0..SOURCE_ENCODER_BLOCK_SIZE_IN_BITS {
+        for _n in 0..SOURCE_ENCODER_BLOCK_SIZE_IN_BITS {
             fixture.storage.add_bool(true);
         }
     }
@@ -170,14 +170,14 @@ mod bitvec_source_encoding_builder_spec {
     #[rstest]
     #[should_panic]
     pub fn panics_after_full_adding_u8(mut fixture: BitvecSourceEncodingBuilderFixture) {
-        for n in 0..=(SOURCE_ENCODER_BLOCK_SIZE_IN_BITS/8) {
+        for _n in 0..=(SOURCE_ENCODER_BLOCK_SIZE_IN_BITS/8) {
             fixture.storage.add_8_bits(0, 8);
         }
     }
 
     #[rstest]
     pub fn does_not_panic_at_full_adding_u8(mut fixture: BitvecSourceEncodingBuilderFixture) {
-        for n in 0..(SOURCE_ENCODER_BLOCK_SIZE_IN_BITS/8) {
+        for _n in 0..(SOURCE_ENCODER_BLOCK_SIZE_IN_BITS/8) {
             fixture.storage.add_8_bits(0, 8);
         }
     }
@@ -226,14 +226,14 @@ mod bitvec_source_encoding_builder_spec {
     #[rstest]
     #[should_panic]
     pub fn panics_after_full_adding_u16(mut fixture: BitvecSourceEncodingBuilderFixture) {
-        for n in 0..=(SOURCE_ENCODER_BLOCK_SIZE_IN_BITS/16) {
+        for _n in 0..=(SOURCE_ENCODER_BLOCK_SIZE_IN_BITS/16) {
             fixture.storage.add_16_bits(0, 16);
         }
     }
 
     #[rstest]
     pub fn does_not_panic_at_full_adding_u16(mut fixture: BitvecSourceEncodingBuilderFixture) {
-        for n in 0..(SOURCE_ENCODER_BLOCK_SIZE_IN_BITS/16) {
+        for _n in 0..(SOURCE_ENCODER_BLOCK_SIZE_IN_BITS/16) {
             fixture.storage.add_16_bits(0, 16);
         }
     }
@@ -281,14 +281,14 @@ mod bitvec_source_encoding_builder_spec {
     #[rstest]
     #[should_panic]
     pub fn panics_after_full_adding_u32(mut fixture: BitvecSourceEncodingBuilderFixture) {
-        for n in 0..=(SOURCE_ENCODER_BLOCK_SIZE_IN_BITS/32) {
+        for _n in 0..=(SOURCE_ENCODER_BLOCK_SIZE_IN_BITS/32) {
             fixture.storage.add_32_bits(0, 32);
         }
     }
 
     #[rstest]
     pub fn does_not_panic_at_full_adding_u32(mut fixture: BitvecSourceEncodingBuilderFixture) {
-        for n in 0..(SOURCE_ENCODER_BLOCK_SIZE_IN_BITS/32) {
+        for _n in 0..(SOURCE_ENCODER_BLOCK_SIZE_IN_BITS/32) {
             fixture.storage.add_32_bits(0, 32);
         }
     }
