@@ -1,6 +1,5 @@
 use std::sync::{Arc, Mutex};
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::mpsc::TryRecvError;
 use std::thread;
 use std::thread::JoinHandle;
 use std::time::Duration;
@@ -109,6 +108,8 @@ struct EncoderKeyerThread {
 
     // Storage
     storage: Arc<Box<dyn SourceEncodingBuilder + Send + Sync>>,
+
+    sent_wpm_polarity: bool,
 }
 
 impl EncoderKeyerThread {
@@ -120,7 +121,9 @@ impl EncoderKeyerThread {
         Self {
             keying_event_tx,
             storage,
-            terminate,        }
+            terminate,
+            sent_wpm_polarity: false,
+        }
     }
 
     // Thread that handles incoming KeyingEvents and encodes them asynchronously...
@@ -139,15 +142,18 @@ impl EncoderKeyerThread {
                             // Don't add anything to storage, but should reset the polarity to Mark
                             // TODO needs test
                         }
-                        KeyingEvent::Timed(_) => {}
+                        KeyingEvent::Timed(timed) => {
+
+                        }
                         KeyingEvent::End() => {
                             // Set the end of the storage
                             // TODO needs test
                         }
                     }
                 }
-                Err(e) => {
-                    debug!("Error receiving keying events: {}", e);
+                Err(_) => {
+                    // Don't log, it's just noise - timeout gives opportunity to go round loop and
+                    // check for terminate.
                 }
             }
         }
