@@ -1,5 +1,5 @@
 use bitvec::prelude::*;
-use crate::libs::source_encoder::source_encoding::{SourceEncodingBuilder, SourceEncoding, SOURCE_ENCODER_BLOCK_SIZE_IN_BITS};
+use crate::libs::source_codec::source_encoding::{SourceEncodingBuilder, SourceEncoding, SOURCE_ENCODER_BLOCK_SIZE_IN_BITS};
 
 /// A SourceEncodingBuilder using the bitvec crate.
 pub struct BitvecSourceEncodingBuilder {

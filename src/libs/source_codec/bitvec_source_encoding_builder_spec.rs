@@ -5,8 +5,8 @@ mod bitvec_source_encoding_builder_spec {
     use rstest::*;
     use hamcrest2::prelude::*;
     use std::env;
-    use crate::libs::source_encoder::bitvec_source_encoding_builder::BitvecSourceEncodingBuilder;
-    use crate::libs::source_encoder::source_encoding::{SOURCE_ENCODER_BLOCK_SIZE_IN_BITS, SourceEncodingBuilder};
+    use crate::libs::source_codec::bitvec_source_encoding_builder::BitvecSourceEncodingBuilder;
+    use crate::libs::source_codec::source_encoding::{SOURCE_ENCODER_BLOCK_SIZE_IN_BITS, SourceEncodingBuilder};
 
     #[ctor::ctor]
     fn before_each() {

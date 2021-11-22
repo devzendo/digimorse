@@ -28,8 +28,8 @@ use portaudio::PortAudio;
 use digimorse::libs::config_file::config_file::ConfigurationStore;
 use digimorse::libs::audio::audio_devices::{list_audio_devices, output_audio_device_exists, input_audio_device_exists, open_output_audio_device};
 use digimorse::libs::audio::tone_generator::ToneGenerator;
-use digimorse::libs::source_encoder::source_encoder::DefaultSourceEncoder;
-use digimorse::libs::source_encoder::source_encoding::SourceEncoding;
+use digimorse::libs::source_codec::source_encoder::DefaultSourceEncoder;
+use digimorse::libs::source_codec::source_encoding::SourceEncoding;
 
 const VERSION: &'static str = env!("CARGO_PKG_VERSION");
 

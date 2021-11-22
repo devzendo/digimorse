@@ -1,7 +1,7 @@
 use log::debug;
 use std::sync::{Arc, RwLock};
 use crate::libs::keyer_io::keyer_io::{KeyerEdgeDurationMs, KeyerSpeed, KeyingTimedEvent};
-use crate::libs::source_encoder::source_encoding::{EncoderFrameType, SourceEncodingBuilder};
+use crate::libs::source_codec::source_encoding::{EncoderFrameType, SourceEncodingBuilder};
 
 pub trait KeyingEncoder {
     /// Encode a KeyingTimedEvent in the Builder, in the most appropriate encoding (perfect, delta

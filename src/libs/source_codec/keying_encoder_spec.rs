@@ -13,10 +13,10 @@ mod keying_encoder_spec {
     use std::env;
     use std::sync::{Arc, RwLock};
     use crate::libs::keyer_io::keyer_io::KeyingTimedEvent;
-    use crate::libs::source_encoder::bitvec_source_encoding_builder::BitvecSourceEncodingBuilder;
-    use crate::libs::source_encoder::keying_encoder::{DefaultKeyingEncoder, KeyingEncoder};
-    use crate::libs::source_encoder::keying_encoder::keying_encoder_spec::PERFECT_DIT_DURATION;
-    use crate::libs::source_encoder::source_encoding::SourceEncodingBuilder;
+    use crate::libs::source_codec::bitvec_source_encoding_builder::BitvecSourceEncodingBuilder;
+    use crate::libs::source_codec::keying_encoder::{DefaultKeyingEncoder, KeyingEncoder};
+    use crate::libs::source_codec::keying_encoder::keying_encoder_spec::PERFECT_DIT_DURATION;
+    use crate::libs::source_codec::source_encoding::SourceEncodingBuilder;
 
     #[ctor::ctor]
     fn before_each() {

@@ -8,7 +8,7 @@ mod source_encoding_spec {
     use hamcrest2::prelude::*;
     use std::path::Path;
     use crate::libs::keyer_io::keyer_io::KeyerType;
-    use crate::libs::source_encoder::source_encoding::EncoderFrameType;
+    use crate::libs::source_codec::source_encoding::EncoderFrameType;
 
     #[ctor::ctor]
     fn before_each() {
