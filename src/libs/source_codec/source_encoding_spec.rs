@@ -1,13 +1,6 @@
-extern crate hamcrest2;
-
 #[cfg(test)]
 mod source_encoding_spec {
     use std::env;
-    use temp_testdir::TempDir;
-    use crate::libs::config_file::config_file::ConfigurationStore;
-    use hamcrest2::prelude::*;
-    use std::path::Path;
-    use crate::libs::keyer_io::keyer_io::KeyerType;
     use crate::libs::source_codec::source_encoding::EncoderFrameType;
 
     #[ctor::ctor]

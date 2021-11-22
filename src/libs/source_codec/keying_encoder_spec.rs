@@ -1,5 +1,3 @@
-extern crate hamcrest2;
-
 use crate::libs::keyer_io::keyer_io::KeyerEdgeDurationMs;
 
 const PERFECT_DIT_DURATION: KeyerEdgeDurationMs = 60;
@@ -8,7 +6,6 @@ const PERFECT_WORDGAP_DURATION: KeyerEdgeDurationMs = 420;
 
 #[cfg(test)]
 mod keying_encoder_spec {
-    use hamcrest2::prelude::*;
     use rstest::*;
     use std::env;
     use std::sync::{Arc, RwLock};

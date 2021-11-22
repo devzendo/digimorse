@@ -1,12 +1,11 @@
-use std::sync::{Arc, mpsc, Mutex, RwLock};
+use std::sync::{Arc, Mutex, RwLock};
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::mpsc::{Receiver, Sender};
 use std::thread;
 use std::thread::JoinHandle;
 use std::time::Duration;
 use bus::{Bus, BusReader};
 use log::{debug, info};
-use crate::libs::keyer_io::keyer_io::{KeyingEvent, KeyerSpeed, KeyingTimedEvent};
+use crate::libs::keyer_io::keyer_io::{KeyingEvent, KeyerSpeed};
 use crate::libs::source_codec::bitvec_source_encoding_builder::BitvecSourceEncodingBuilder;
 use crate::libs::source_codec::keying_encoder::{DefaultKeyingEncoder, KeyingEncoder};
 use crate::libs::source_codec::source_encoding::{EncoderFrameType, SourceEncoding, SourceEncodingBuilder};
