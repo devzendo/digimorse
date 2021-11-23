@@ -6,7 +6,6 @@ use crate::libs::source_codec::bitvec_source_encoding_builder::BitvecSourceEncod
 use crate::libs::source_codec::keying_encoder::{DefaultKeyingEncoder, KeyingEncoder};
 use crate::libs::source_codec::metadata_codec::{encode_callsign, encode_locator};
 use crate::libs::source_codec::source_encoding::{Callsign, CallsignHash, EncoderFrameType, KeyingDelta, KeyingNaive, Locator, SourceEncodingBuilder};
-use hamcrest2::prelude::*;
 
 #[derive(Clone, PartialEq)]
 pub struct WPMPolarity {
