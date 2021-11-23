@@ -37,14 +37,12 @@ pub enum Frame {
 /// This is just to offer a more comfortable test data creation facility than hand-constructing
 /// arrays of binary bytes.
 pub fn encoded(wpm: KeyerSpeed, frames: &[Frame]) -> Vec<u8> {
-    let bv_builder = BitvecSourceEncodingBuilder::new();
-    let box_builder: Box<dyn SourceEncodingBuilder + Send + Sync> = Box::new(bv_builder);
-    let key_builder = Arc::new(RwLock::new(box_builder));
-    let builder = key_builder.clone();
-    let mut keying_encoder = DefaultKeyingEncoder::new(key_builder);
+    let box_builder: Box<dyn SourceEncodingBuilder + Send + Sync> = Box::new(BitvecSourceEncodingBuilder::new());
+    let arc_locked_builder = Arc::new(RwLock::new(box_builder));
+    let builder = arc_locked_builder.clone();
+    let mut keying_encoder = DefaultKeyingEncoder::new(arc_locked_builder);
     keying_encoder.set_keyer_speed(wpm);
     for frame in frames {
-        let remaining = builder.read().unwrap().remaining();
         match frame {
             Frame::Padding => {
                 // Frame type of Padding is 0000 so this'll look like padding
@@ -117,8 +115,8 @@ pub fn encoded(wpm: KeyerSpeed, frames: &[Frame]) -> Vec<u8> {
             }
         }
     }
-    let b = builder.write().unwrap().build();
-    b.block
+    let source_encoding = builder.write().unwrap().build();
+    source_encoding.block
 }
 
 #[test]
@@ -126,6 +124,7 @@ fn encode_test() {
     let vec = encoded(20, &[
         Frame::WPMPolarity { wpm: 20, polarity: true },
         Frame::KeyingPerfectDit,
+        Frame::Padding,
     ]);
     assert_eq!(vec,
         //                    F:PD
