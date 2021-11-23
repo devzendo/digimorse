@@ -12,6 +12,10 @@ pub trait KeyingEncoder {
     // compact form; a minimal delta from the three timing elements.
     fn set_keyer_speed(&mut self, speed: KeyerSpeed);
     fn get_keyer_speed(&self) -> KeyerSpeed;
+
+    // Routines used internally by the KeyingEncoder, and also reused by tests. All return true if
+    // the encoding will fit, false if it won't.
+    fn encode_perfect_dit(&mut self) -> bool;
 }
 
 pub struct DefaultKeyingEncoder {
@@ -42,15 +46,8 @@ impl KeyingEncoder for DefaultKeyingEncoder {
         debug!("KeyingEncoder encoding {}", keying);
         // Can we use perfect encoding? Is this duration spot on?
         // TODO plus/minus some epsilon to quantise slightly, to pack more encoding in a block.
-        let mut storage = self.storage.write().unwrap();
         if keying.duration == self.perfect_dit_ms {
-            if storage.remaining() < 4 {
-                return false
-            } else {
-                let frame_type = EncoderFrameType::KeyingPerfectDit;
-                debug!("Adding {:?}", frame_type);
-                storage.add_8_bits(frame_type as u8, 4);
-            }
+            return self.encode_perfect_dit();
         } else if keying.duration == self.perfect_dah_ms {
 
         } else if keying.duration == self.perfect_wordgap_ms {
@@ -83,6 +80,59 @@ impl KeyingEncoder for DefaultKeyingEncoder {
     fn get_keyer_speed(&self) -> KeyerSpeed {
         self.keyer_speed
     }
+
+    fn encode_perfect_dit(&mut self) -> bool {
+        let mut storage = self.storage.write().unwrap();
+        if storage.remaining() < 4 {
+            return false
+        } else {
+            let frame_type = EncoderFrameType::KeyingPerfectDit;
+            debug!("Adding {:?}", frame_type);
+            storage.add_8_bits(frame_type as u8, 4);
+            return true
+        }
+    }
+
+}
+
+// From the table of delta encoding bit ranges per keying speed
+pub fn dit_encoding_range(wpm: KeyerSpeed) -> (u8, u8) {
+    if wpm >= 5 && wpm <= 9 {
+        return (8, 8);
+    } else if wpm >= 10 && wpm <= 18 {
+        return (7, 7);
+    } else if wpm >= 19 && wpm <= 37 {
+        return (6, 6);
+    } else if wpm <= 60 {
+        return (5, 5)
+    }
+    panic!("WPM of {} is out of range in dit_encoding_range", wpm);
+}
+
+pub fn dah_encoding_range(wpm: KeyerSpeed) -> (u8, u8) {
+    if wpm >= 5 && wpm <= 9 {
+        return (8, 9);
+    } else if wpm >= 10 && wpm <= 18 {
+        return (7, 8);
+    } else if wpm >= 19 && wpm <= 37 {
+        return (6, 7);
+    } else if wpm <= 60 {
+        return (5, 6)
+    }
+    panic!("WPM of {} is out of range in dah_encoding_range", wpm);
+}
+
+pub fn wordgap_encoding_range(wpm: KeyerSpeed) -> (u8, u8) {
+    if wpm >= 5 && wpm <= 9 {
+        return (9, 9);
+    } else if wpm >= 10 && wpm <= 18 {
+        return (8, 8);
+    } else if wpm >= 19 && wpm <= 37 {
+        return (7, 7);
+    } else if wpm <= 60 {
+        return (6, 6)
+    }
+    panic!("WPM of {} is out of range in wordgap_encoding_range", wpm);
 }
 
 #[cfg(test)]

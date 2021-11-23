@@ -51,6 +51,13 @@ pub trait SourceEncodingBuilder {
     fn build(&mut self) -> SourceEncoding;
 }
 
+pub type Callsign = String;
+pub type CallsignHash = u16; // MAYBE?
+pub type Locator = String;
+pub type Power = u8; // MAYBE?
+pub type KeyingDelta = u16;
+pub type KeyingNaive = u16;
+
 enum_from_primitive! {
 #[derive(Debug, PartialOrd, PartialEq, Copy, Clone)]
 pub enum EncoderFrameType {
