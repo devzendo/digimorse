@@ -86,14 +86,7 @@ mod source_encoder_spec {
             fixture.source_encoder.emit();
             wait_5_ms();
 
-            match fixture.source_encoder_rx.recv_timeout(Duration::from_secs(1)) {
-                Ok(e) => {
-                    panic!("Should not have received a SourceEncoding of {}", e);
-                }
-                Err(_) => {
-                    info!("Correctly timed out");
-                }
-            }
+            should_timeout(fixture)
         });
     }
 
@@ -105,15 +98,19 @@ mod source_encoder_spec {
             fixture.source_encoder.emit();
             wait_5_ms();
 
-            match fixture.source_encoder_rx.recv_timeout(Duration::from_secs(1)) {
-                Ok(e) => {
-                    panic!("Should not have received a SourceEncoding of {}", e);
-                }
-                Err(_) => {
-                    info!("Correctly timed out");
-                }
-            }
+            should_timeout(fixture)
         });
+    }
+
+    fn should_timeout(mut fixture: SourceEncoderFixture) {
+        match fixture.source_encoder_rx.recv_timeout(Duration::from_secs(1)) {
+            Ok(e) => {
+                panic!("Should not have received a SourceEncoding of {}", e);
+            }
+            Err(_) => {
+                info!("Correctly timed out");
+            }
+        }
     }
 
     #[rstest]
