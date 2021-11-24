@@ -31,71 +31,6 @@ use crate::libs::source_codec::source_encoding::{EncoderFrameType, SourceEncodin
  * Also inject metadata frames as needed - after a given time, and if <START>CQ is detected.
  */
 
-// An object shared between the main SourceEncoder, and the SourceEncoderKeyerThread -
-// the KeyingEvent handling thread.
-struct SourceEncoderShared {
-    storage: Arc<RwLock<Box<dyn SourceEncodingBuilder + Send + Sync>>>, // ?? Is it Send + Sync?
-    keying_encoder: Box<dyn KeyingEncoder + Send + Sync>,
-    source_encoder_tx: Bus<SourceEncoding>,
-    sent_wpm_polarity: bool,
-    is_mark: bool,
-    keying_speed: KeyerSpeed,
-}
-
-impl SourceEncoderShared {
-    fn emit(&mut self) {
-        if self.storage.read().unwrap().size() == 0 {
-            debug!("Not emitting a SourceEncoding since there's nothing to send");
-            return;
-        }
-        let encoding = self.storage.write().unwrap().build();
-        debug!("Emitting {}", encoding);
-        self.source_encoder_tx.broadcast(encoding);
-    }
-
-    fn set_keyer_speed(&mut self, speed: KeyerSpeed) {
-        self.keying_speed = speed;
-        self.keying_encoder.set_keyer_speed(speed);
-        // Ensure WPM|Polarity is sent before the next Keying.
-        self.sent_wpm_polarity = false;
-    }
-
-    fn keying_event(&mut self, keying_event: KeyingEvent) {
-        match keying_event {
-            KeyingEvent::Start() => {
-                // Don't add anything to storage, but reset the polarity to Mark
-                //self.is_mark = true;
-                // TODO needs test
-            }
-            KeyingEvent::Timed(timed) => {
-                if !self.sent_wpm_polarity {
-                    self.sent_wpm_polarity = true;
-                    // TODO need to encode the WPM/Polarity
-                    let mut storage = self.storage.write().unwrap();
-                    let frame_type = EncoderFrameType::WPMPolarity;
-                    debug!("Adding {:?} {} WPM, polarity {} ", frame_type, self
-                                    .keying_speed, if timed.up { "MARK" } else { "SPACE" }); //
-                    // TODO
-                    // see below..
-                    storage.add_8_bits(frame_type as u8, 4);
-                    storage.add_8_bits(self.keying_speed, 6);
-                    storage.add_bool(timed.up);
-                    // of 2nd block being space.
-                    // TODO what if there's no room?
-                }
-                // TODO pass on to CQ detector
-                self.keying_encoder.encode_keying(timed);
-                // TODO what if this returns false? means that the keying won't fit
-                // so we must build() and broadcast the builder's vec, then try again.
-            }
-            KeyingEvent::End() => {
-                // Set the end of the storage
-                // TODO needs test
-            }
-        }
-    }
-}
-
 #[readonly::make]
 pub struct SourceEncoder {
     keyer_speed: KeyerSpeed,
@@ -190,6 +125,73 @@ impl Drop for SourceEncoder {
         self.terminate();
     }
 }
+
+
+// An object shared between the main SourceEncoder, and the SourceEncoderKeyerThread -
+// the KeyingEvent handling thread.
+struct SourceEncoderShared {
+    storage: Arc<RwLock<Box<dyn SourceEncodingBuilder + Send + Sync>>>, // ?? Is it Send + Sync?
+    keying_encoder: Box<dyn KeyingEncoder + Send + Sync>,
+    source_encoder_tx: Bus<SourceEncoding>,
+    sent_wpm_polarity: bool,
+    is_mark: bool,
+    keying_speed: KeyerSpeed,
+}
+
+impl SourceEncoderShared {
+    fn emit(&mut self) {
+        if self.storage.read().unwrap().size() == 0 {
+            debug!("Not emitting a SourceEncoding since there's nothing to send");
+            return;
+        }
+        let encoding = self.storage.write().unwrap().build();
+        debug!("Emitting {}", encoding);
+        self.source_encoder_tx.broadcast(encoding);
+    }
+
+    fn set_keyer_speed(&mut self, speed: KeyerSpeed) {
+        self.keying_speed = speed;
+        self.keying_encoder.set_keyer_speed(speed);
+        // Ensure WPM|Polarity is sent before the next Keying.
+        self.sent_wpm_polarity = false;
+    }
+
+    fn keying_event(&mut self, keying_event: KeyingEvent) {
+        match keying_event {
+            KeyingEvent::Start() => {
+                // Don't add anything to storage, but reset the polarity to Mark
+                //self.is_mark = true;
+                // TODO needs test
+            }
+            KeyingEvent::Timed(timed) => {
+                if !self.sent_wpm_polarity {
+                    self.sent_wpm_polarity = true;
+                    // TODO need to encode the WPM/Polarity
+                    let mut storage = self.storage.write().unwrap();
+                    let frame_type = EncoderFrameType::WPMPolarity;
+                    debug!("Adding {:?} {} WPM, polarity {} ", frame_type, self
+                                    .keying_speed, if timed.up { "MARK" } else { "SPACE" }); //
+                    // TODO
+                    // see below..
+                    storage.add_8_bits(frame_type as u8, 4);
+                    storage.add_8_bits(self.keying_speed, 6);
+                    storage.add_bool(timed.up);
+                    // of 2nd block being space.
+                    // TODO what if there's no room?
+                }
+                // TODO pass on to CQ detector
+                self.keying_encoder.encode_keying(timed);
+                // TODO what if this returns false? means that the keying won't fit
+                // so we must build() and broadcast the builder's vec, then try again.
+            }
+            KeyingEvent::End() => {
+                // Set the end of the storage
+                // TODO needs test
+            }
+        }
+    }
+}
+
 
 struct SourceEncoderKeyerThread {
     // Terminate flag
