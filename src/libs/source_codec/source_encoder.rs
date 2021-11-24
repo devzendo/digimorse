@@ -186,9 +186,9 @@ impl SourceEncoderShared {
                         }
                     }
                 }
-                self.is_mark = !self.is_mark;
                 // TODO pass on to CQ detector
                 self.keying_encoder.encode_keying(timed);
+                self.is_mark = !self.is_mark;
                 // TODO what if this returns false? means that the keying won't fit
                 // so we must build() and broadcast the builder's vec, then try again.
             }
