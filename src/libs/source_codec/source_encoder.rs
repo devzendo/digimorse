@@ -11,17 +11,24 @@ use crate::libs::source_codec::keying_encoder::{DefaultKeyingEncoder, KeyingEnco
 use crate::libs::source_codec::source_encoding::{EncoderFrameType, SourceEncoding, SourceEncodingBuilder};
 
 /*
- * Ideas...
- * Batch up encodings to some maximum block size. Can batches be emitted as a byte stream?
- * Track up/down key state, send the current state as the first encoding in a block so that the
- * receiver knows whether it's mark or space, per-block. If a block does not decode correctly
- * the receiver will miss that block and need to re-sync its idea of mark/space.
+ * The source encoder transforms keying information into a number of frames.
+ * Batch up frames to some maximum block size, yet to be determined. When full, emit them as a
+ * Vec<u8>.
+ * Track up/down key state, send the current state as the first WPM/Polarity encoding in a block so
+ * that the receiver knows whether it's mark or space, per-block. If a block does not decode
+ * correctly the receiver will miss that block and need to re-sync its idea of mark/space.
  *
  * If we're aiming for a wide range of WPM speeds, 5 to 60WPM, these have a wide range of dit/dah
  * element durations in ms.
  * A dit at 60WPM is 20ms (and it could be sent short).
  * A wordgap at 5WPM is 1680ms (and it could be sent long).
  * So a range of 20ms to 1680ms.
+ * If the keying is 'perfect' (or very close to it), encode it optimally.
+ * If it's within the usual deltas for the current speed, encode it as a +/- delta from ideal using
+ * the least number of bits that can contain such a delta (bearing in mind that the +/-ve delta
+ * ranges change from high to low as the speed changes from low to high). If it is not within the
+ * usual deltas, encode it naïvely.
+ * Also inject metadata frames as needed - after a given time, and if <START>CQ is detected.
  */
 
 pub trait SourceEncoder {
