@@ -3,7 +3,7 @@ extern crate hamcrest2;
 #[cfg(test)]
 mod source_encoder_spec {
     use crate::libs::keyer_io::keyer_io::{KeyingEvent, KeyerSpeed, KeyingTimedEvent};
-    use crate::libs::source_codec::source_encoder::{DefaultSourceEncoder, SourceEncoder, SourceEncoding};
+    use crate::libs::source_codec::source_encoder::{DefaultSourceEncoder, SourceEncoding};
     use crate::libs::source_codec::source_encoding::{SOURCE_ENCODER_BLOCK_SIZE_IN_BITS};
     use bus::{Bus, BusReader};
     use log::{debug, info};

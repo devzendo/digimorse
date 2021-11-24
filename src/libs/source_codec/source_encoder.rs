@@ -31,17 +31,6 @@ use crate::libs::source_codec::source_encoding::{EncoderFrameType, SourceEncodin
  * Also inject metadata frames as needed - after a given time, and if <START>CQ is detected.
  */
 
-pub trait SourceEncoder {
-    // The SourceEncoder needs to know the keyer speed to build keying frames into their most
-    // compact form; a minimal delta from the three timing elements.
-    fn set_keyer_speed(&mut self, speed: KeyerSpeed);
-    fn get_keyer_speed(&self) -> KeyerSpeed;
-
-    // Irrespective of how full the current frame is, pad it to SOURCE_ENCODER_BLOCK_SIZE and emit
-    // it on the output Bus<SourceEncoding>.
-    fn emit(&mut self);
-}
-
 // An object shared between the main SourceEncoder, and the KeyingEvent handling thread.
 struct SourceEncoderShared {
     storage: Arc<RwLock<Box<dyn SourceEncodingBuilder + Send + Sync>>>, // ?? Is it Send + Sync?
@@ -175,16 +164,8 @@ impl DefaultSourceEncoder {
         ret
     }
 
-}
-
-impl Drop for DefaultSourceEncoder {
-    fn drop(&mut self) {
-        debug!("DefaultSourceEncoder signalling termination to thread on drop");
-        self.terminate();
-    }
-}
-
-impl SourceEncoder for DefaultSourceEncoder {
+    // The SourceEncoder needs to know the keyer speed to build keying frames into their most
+    // compact form; a minimal delta from the three timing elements.
     fn set_keyer_speed(&mut self, speed: KeyerSpeed) {
         self.keyer_speed = speed;
         // TODO pass on to CQ detector
@@ -195,11 +176,19 @@ impl SourceEncoder for DefaultSourceEncoder {
         self.keyer_speed
     }
 
+    // Irrespective of how full the current frame is, pad it to SOURCE_ENCODER_BLOCK_SIZE and emit
+    // it on the output Bus<SourceEncoding>.
     fn emit(&mut self) {
         self.shared.lock().unwrap().emit();
     }
 }
 
+impl Drop for DefaultSourceEncoder {
+    fn drop(&mut self) {
+        debug!("DefaultSourceEncoder signalling termination to thread on drop");
+        self.terminate();
+    }
+}
 
 struct EncoderKeyerThread {
     // Terminate flag
