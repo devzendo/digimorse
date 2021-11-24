@@ -3,7 +3,7 @@ extern crate hamcrest2;
 #[cfg(test)]
 mod source_encoder_spec {
     use crate::libs::keyer_io::keyer_io::{KeyingEvent, KeyerSpeed, KeyingTimedEvent};
-    use crate::libs::source_codec::source_encoder::{DefaultSourceEncoder, SourceEncoding};
+    use crate::libs::source_codec::source_encoder::{SourceEncoder, SourceEncoding};
     use crate::libs::source_codec::source_encoding::{SOURCE_ENCODER_BLOCK_SIZE_IN_BITS};
     use bus::{Bus, BusReader};
     use log::{debug, info};
@@ -33,7 +33,7 @@ mod source_encoder_spec {
         terminate: Arc<AtomicBool>,
         keying_event_tx: Bus<KeyingEvent>,
         source_encoder_rx: BusReader<SourceEncoding>,
-        source_encoder: DefaultSourceEncoder,
+        source_encoder: SourceEncoder,
     }
 
     #[fixture]
@@ -43,7 +43,7 @@ mod source_encoder_spec {
         let keying_event_rx = keying_event_tx.add_rx();
         let mut source_encoder_tx = Bus::new(16);
         let source_encoder_rx = source_encoder_tx.add_rx();
-        let source_encoder = DefaultSourceEncoder::new(keying_event_rx, source_encoder_tx, terminate.clone());
+        let source_encoder = SourceEncoder::new(keying_event_rx, source_encoder_tx, terminate.clone());
 
         info!("Fixture setup sleeping");
         wait_5_ms(); // give things time to start

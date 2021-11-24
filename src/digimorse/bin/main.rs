@@ -28,7 +28,7 @@ use portaudio::PortAudio;
 use digimorse::libs::config_file::config_file::ConfigurationStore;
 use digimorse::libs::audio::audio_devices::{list_audio_devices, output_audio_device_exists, input_audio_device_exists, open_output_audio_device};
 use digimorse::libs::audio::tone_generator::ToneGenerator;
-use digimorse::libs::source_codec::source_encoder::DefaultSourceEncoder;
+use digimorse::libs::source_codec::source_encoder::SourceEncoder;
 use digimorse::libs::source_codec::source_encoding::SourceEncoding;
 
 const VERSION: &'static str = env!("CARGO_PKG_VERSION");
@@ -190,7 +190,7 @@ fn run(arguments: ArgMatches, mode: Mode) -> Result<i32, Box<dyn Error>> {
 
     let mut source_encoder_tx = Bus::new(16);
     let source_encoder_rx = source_encoder_tx.add_rx();
-    let source_encoder = DefaultSourceEncoder::new(source_encoder_keying_event_rx.unwrap(), source_encoder_tx, terminate.clone());
+    let source_encoder = SourceEncoder::new(source_encoder_keying_event_rx.unwrap(), source_encoder_tx, terminate.clone());
 
     if mode == Mode::SourceEncoderDiag {
         info!("Initialising SourceEncooderDiag mode");

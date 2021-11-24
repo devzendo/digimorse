@@ -96,7 +96,7 @@ impl SourceEncoderShared {
 }
 
 #[readonly::make]
-pub struct DefaultSourceEncoder {
+pub struct SourceEncoder {
     keyer_speed: KeyerSpeed,
     terminate: Arc<AtomicBool>,
     storage: Arc<RwLock<Box<dyn SourceEncodingBuilder + Send + Sync>>>, // ?? Is it Send + Sync?
@@ -106,7 +106,7 @@ pub struct DefaultSourceEncoder {
     shared: Arc<Mutex<SourceEncoderShared>>,
 }
 
-impl DefaultSourceEncoder {
+impl SourceEncoder {
     pub fn new(keying_event_rx: BusReader<KeyingEvent>, source_encoder_tx: Bus<SourceEncoding>, terminate: Arc<AtomicBool>) -> Self {
         let builder: Box<dyn SourceEncodingBuilder + Send + Sync> = Box::new
             (BitvecSourceEncodingBuilder::new());
@@ -183,7 +183,7 @@ impl DefaultSourceEncoder {
     }
 }
 
-impl Drop for DefaultSourceEncoder {
+impl Drop for SourceEncoder {
     fn drop(&mut self) {
         debug!("DefaultSourceEncoder signalling termination to thread on drop");
         self.terminate();
