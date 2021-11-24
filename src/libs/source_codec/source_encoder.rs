@@ -31,7 +31,8 @@ use crate::libs::source_codec::source_encoding::{EncoderFrameType, SourceEncodin
  * Also inject metadata frames as needed - after a given time, and if <START>CQ is detected.
  */
 
-// An object shared between the main SourceEncoder, and the KeyingEvent handling thread.
+// An object shared between the main SourceEncoder, and the SourceEncoderKeyerThread -
+// the KeyingEvent handling thread.
 struct SourceEncoderShared {
     storage: Arc<RwLock<Box<dyn SourceEncodingBuilder + Send + Sync>>>, // ?? Is it Send + Sync?
     keying_encoder: Box<dyn KeyingEncoder + Send + Sync>,
@@ -129,9 +130,9 @@ impl SourceEncoder {
         let arc_shared = Arc::new(shared);
         let arc_shared_cloned = arc_shared.clone();
         let thread_handle = thread::spawn(move || {
-            let mut keyer_thread = EncoderKeyerThread::new(keying_event_rx,
-                                                           arc_terminate,
-                                                           arc_shared.clone());
+            let mut keyer_thread = SourceEncoderKeyerThread::new(keying_event_rx,
+                                                                 arc_terminate,
+                                                                 arc_shared.clone());
             keyer_thread.thread_runner();
         });
 
@@ -190,7 +191,7 @@ impl Drop for SourceEncoder {
     }
 }
 
-struct EncoderKeyerThread {
+struct SourceEncoderKeyerThread {
     // Terminate flag
     terminate: Arc<AtomicBool>,
 
@@ -201,7 +202,7 @@ struct EncoderKeyerThread {
     shared: Arc<Mutex<SourceEncoderShared>>,
 }
 
-impl EncoderKeyerThread {
+impl SourceEncoderKeyerThread {
     fn new(keying_event_tx: BusReader<KeyingEvent>,
            terminate: Arc<AtomicBool>,
            shared: Arc<Mutex<SourceEncoderShared>>
