@@ -182,7 +182,7 @@ mod source_encoder_spec {
     }
 
     #[rstest]
-    fn keyer_speed_is_passed_to_the_keying_encoder(mut fixture: SourceEncoderFixture) {
+    fn keyer_speed_is_passed_to_the_keying_encoder_and_causes_another_wpmpolarity_to_be_emitted(mut fixture: SourceEncoderFixture) {
         test_util::panic_after(Duration::from_secs(2), move || {
             fixture.source_encoder.set_keyer_speed(20);
             wait_5_ms();

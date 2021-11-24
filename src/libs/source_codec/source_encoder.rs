@@ -66,6 +66,7 @@ impl SourceEncoderShared {
     fn set_keyer_speed(&mut self, speed: KeyerSpeed) {
         self.keying_speed = speed;
         self.keying_encoder.set_keyer_speed(speed);
+        // Ensure WPM|Polarity is sent before the next Keying.
         self.sent_wpm_polarity = false;
     }
 
