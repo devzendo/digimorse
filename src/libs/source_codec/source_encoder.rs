@@ -1,6 +1,6 @@
 use std::sync::{Arc, Mutex, RwLock};
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::thread;
+use std::{mem, thread};
 use std::thread::JoinHandle;
 use std::time::Duration;
 use bus::{Bus, BusReader};
@@ -144,6 +144,7 @@ impl SourceEncoderShared {
             debug!("Not emitting a SourceEncoding since there's nothing to send");
             return;
         }
+        self.sent_wpm_polarity = false;
         let encoding = self.storage.write().unwrap().build();
         debug!("Emitting {}", encoding);
         self.source_encoder_tx.broadcast(encoding);
@@ -157,28 +158,35 @@ impl SourceEncoderShared {
     }
 
     fn keying_event(&mut self, keying_event: KeyingEvent) {
+        debug!("Encoding keying event {}", keying_event);
         match keying_event {
             KeyingEvent::Start() => {
                 // Don't add anything to storage, but reset the polarity to Mark
-                //self.is_mark = true;
-                // TODO needs test
+                self.is_mark = true;
             }
             KeyingEvent::Timed(timed) => {
                 if !self.sent_wpm_polarity {
                     self.sent_wpm_polarity = true;
-                    // TODO need to encode the WPM/Polarity
-                    let mut storage = self.storage.write().unwrap();
-                    let frame_type = EncoderFrameType::WPMPolarity;
-                    debug!("Adding {:?} {} WPM, polarity {} ", frame_type, self
-                                    .keying_speed, if timed.up { "MARK" } else { "SPACE" }); //
-                    // TODO
-                    // see below..
-                    storage.add_8_bits(frame_type as u8, 4);
-                    storage.add_8_bits(self.keying_speed, 6);
-                    storage.add_bool(timed.up);
-                    // of 2nd block being space.
-                    // TODO what if there's no room?
+                    loop {
+                        let mut storage = self.storage.write().unwrap();
+                        let remaining = storage.remaining();
+                        if remaining < 11 {
+                            mem::drop(storage);
+                            debug!("Insufficient space ({}) to encode WPM|Polarity", remaining);
+                            self.emit();
+                        } else {
+                            let frame_type = EncoderFrameType::WPMPolarity;
+                            debug!("Adding {:?} {} WPM, polarity {} ", frame_type, self
+                                            .keying_speed, if timed.up { "MARK" } else { "SPACE" }); //
+                            storage.add_8_bits(frame_type as u8, 4);
+                            storage.add_8_bits(self.keying_speed, 6);
+                            storage.add_bool(self.is_mark);
+                            mem::drop(storage);
+                            break;
+                        }
+                    }
                 }
+                self.is_mark = !self.is_mark;
                 // TODO pass on to CQ detector
                 self.keying_encoder.encode_keying(timed);
                 // TODO what if this returns false? means that the keying won't fit

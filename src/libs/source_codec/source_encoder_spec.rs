@@ -222,6 +222,73 @@ mod source_encoder_spec {
     }
 
     #[rstest]
+    fn
+    keyer_speed_changes_near_end_of_block_and_wpmpolarity_wont_fit_so_first_block_is_emitted_and_wpmpolarity_and_keying_is_in_second_block(mut fixture: SourceEncoderFixture) {
+        test_util::panic_after(Duration::from_secs(2), move || {
+            fixture.source_encoder.set_keyer_speed(20);
+            wait_5_ms();
+
+            fixture.keying_event_tx.broadcast(KeyingEvent::Start());
+            fixture.keying_event_tx.broadcast(KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 60 }));
+            fixture.keying_event_tx.broadcast(KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 60 }));
+            fixture.keying_event_tx.broadcast(KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 60 }));
+            fixture.keying_event_tx.broadcast(KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 60 }));
+            fixture.keying_event_tx.broadcast(KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 60 }));
+            fixture.keying_event_tx.broadcast(KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 60 }));
+            fixture.keying_event_tx.broadcast(KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 60 }));
+            fixture.keying_event_tx.broadcast(KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 60 }));
+            fixture.keying_event_tx.broadcast(KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 60 }));
+            fixture.keying_event_tx.broadcast(KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 60 }));
+            fixture.keying_event_tx.broadcast(KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 60 }));
+            fixture.keying_event_tx.broadcast(KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 60 }));
+            wait_5_ms();
+
+            // First frame should see a WPM/Polarity and some perfect dits, then padding.
+            //
+            // Change speed, send another perfect dit at that speed - the second frame should see a
+            // WPN/Polarity and the final perfect dit.
+
+            fixture.source_encoder.set_keyer_speed(40);
+            // inter-element dit
+            fixture.keying_event_tx.broadcast(KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 30 }));
+
+            wait_5_ms();
+            fixture.source_encoder.emit();
+            wait_5_ms();
+
+            // Block 1
+            match fixture.source_encoder_rx.recv_timeout(Duration::from_secs(1)) {
+                Ok(encoding) => {
+                    info!("Received SourceEncoding of {}", encoding);
+                    let vec = encoding.block;
+                    //                                    F:PD        F:PD        F:PD
+                    //                     F:WPWPM-    --P    F    :PD    F    :PD    F
+                    assert_eq!(vec, vec![0b00010101, 0b00101100, 0b11001100, 0b11001100,
+                    //                        F:PD        F:PD        F:PD        F:WP1234567
+                    //                     :PD    F    :PD    F    :PD    F    :PD
+                                         0b11001100, 0b11001100, 0b11001100, 0b11000000]);
+                }
+                Err(e) => {
+                    panic!("Should have received a SourceEncoding, not an error of {}", e);
+                }
+            }
+            // Block 2
+            match fixture.source_encoder_rx.recv_timeout(Duration::from_secs(1)) {
+                Ok(encoding) => {
+                    info!("Received SourceEncoding of {}", encoding);
+                    let vec = encoding.block;
+                    //                                    F:PD
+                    //                     F:WPWPM-    --P
+                    assert_eq!(vec, vec![0b00011010, 0b00101100, 0, 0, 0, 0, 0, 0]);
+                }
+                Err(e) => {
+                    panic!("Should have received a SourceEncoding, not an error of {}", e);
+                }
+            }
+        });
+    }
+
+    #[rstest]
     fn emit_with_some_keying_data_emits_with_padding_then_next_emit_emits_nothing(_fixture:
                                                                                   SourceEncoderFixture) {}
 
