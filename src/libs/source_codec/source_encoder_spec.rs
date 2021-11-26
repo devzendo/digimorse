@@ -467,8 +467,6 @@ mod source_encoder_spec {
     }
 
 
-    // TODO flag indicating wpm|polarity sent gets reset on each new frame's first keying
-
     //#[rstest]
     fn encode_keying(mut fixture: SourceEncoderFixture) {
         test_util::panic_after(Duration::from_secs(2), move|| {
