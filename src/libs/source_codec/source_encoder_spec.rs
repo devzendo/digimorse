@@ -114,18 +114,9 @@ mod source_encoder_spec {
     }
 
     #[rstest]
-    fn first_keying_after_start_generates_wpm_and_mark_polarity(mut fixture: SourceEncoderFixture) {
+    fn first_keying_after_start_generates_wpm_and_mark_polarity_then_keying(mut fixture: SourceEncoderFixture) {
         test_util::panic_after(Duration::from_secs(2), move || {
-            fixture.source_encoder.set_keyer_speed(20);
-            wait_5_ms();
-
-            fixture.keying_event_tx.broadcast(KeyingEvent::Start());
-            // A precise dit at 20WPM is 60ms long.
-            fixture.keying_event_tx.broadcast(KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 60 }));
-            wait_5_ms();
-
-            fixture.source_encoder.emit();
-            wait_5_ms();
+            start_single_dit_emit(&mut fixture);
 
             match fixture.source_encoder_rx.recv_timeout(Duration::from_secs(1)) {
                 Ok(encoding) => {
@@ -141,6 +132,55 @@ mod source_encoder_spec {
                 }
             }
         });
+    }
+
+
+    #[rstest]
+    fn keying_does_not_set_the_end_flag(mut fixture: SourceEncoderFixture) {
+        test_util::panic_after(Duration::from_secs(2), move || {
+            start_single_dit_emit(&mut fixture);
+
+            match fixture.source_encoder_rx.recv_timeout(Duration::from_secs(1)) {
+                Ok(encoding) => {
+                    info!("Received SourceEncoding of {}", encoding);
+                    assert_eq!(encoding.is_end, false);
+                }
+                Err(e) => {
+                    panic!("Should have received a SourceEncoding, not an error of {}", e);
+                }
+            }
+        });
+    }
+
+    #[rstest]
+    fn block_vec_is_the_right_size(mut fixture: SourceEncoderFixture) {
+        test_util::panic_after(Duration::from_secs(2), move || {
+            start_single_dit_emit(&mut fixture);
+
+            match fixture.source_encoder_rx.recv_timeout(Duration::from_secs(1)) {
+                Ok(encoding) => {
+                    info!("Received SourceEncoding of {}", encoding);
+                    let vec = encoding.block;
+                    assert_that!(&vec, len(SOURCE_ENCODER_BLOCK_SIZE_IN_BITS / 8));
+                }
+                Err(e) => {
+                    panic!("Should have received a SourceEncoding, not an error of {}", e);
+                }
+            }
+        });
+    }
+
+    fn start_single_dit_emit(mut fixture: &mut SourceEncoderFixture) {
+        fixture.source_encoder.set_keyer_speed(20);
+        wait_5_ms();
+
+        fixture.keying_event_tx.broadcast(KeyingEvent::Start());
+        // A precise dit at 20WPM is 60ms long.
+        fixture.keying_event_tx.broadcast(KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 60 }));
+        wait_5_ms();
+
+        fixture.source_encoder.emit();
+        wait_5_ms();
     }
 
     #[rstest]
@@ -172,7 +212,6 @@ mod source_encoder_spec {
                     //                     F:WPWPM-    --P    F:    PD
                     assert_eq!(vec, vec![0b00010101, 0b00101100, 0b11001100, 0, 0, 0, 0, 0]);
                     // Got                 1   5       2    C       C   C     00 00 00 00 00
-                    assert_eq!(encoding.is_end, false);
                 }
                 Err(e) => {
                     panic!("Should have received a SourceEncoding, not an error of {}", e);
@@ -206,13 +245,9 @@ mod source_encoder_spec {
                 Ok(encoding) => {
                     info!("Received SourceEncoding of {}", encoding);
                     let vec = encoding.block;
-                    assert_that!(&vec, len(SOURCE_ENCODER_BLOCK_SIZE_IN_BITS / 8));
-
                     //                                    F:PD                   F:PD
                     //                     F:WPWPM-    --P    F    :WPWPM--    -P
-                    assert_eq!(vec, vec![0b00010101, 0b00101100, 0b00110100, 0b00011000, 0, 0, 0,
-                                         0]);
-                    assert_eq!(encoding.is_end, false);
+                    assert_eq!(vec, vec![0b00010101, 0b00101100, 0b00110100, 0b00011000, 0, 0, 0, 0]);
                 }
                 Err(e) => {
                     panic!("Should have received a SourceEncoding, not an error of {}", e);
@@ -348,11 +383,40 @@ mod source_encoder_spec {
     }
 
     #[rstest]
-    fn emit_with_some_keying_data_emits_with_padding_then_next_emit_emits_nothing(_fixture:
-                                                                                  SourceEncoderFixture) {}
+    fn emit_with_some_keying_data_emits_with_padding_then_next_emit_emits_nothing(mut fixture:
+                                                                                  SourceEncoderFixture) {
+        test_util::panic_after(Duration::from_secs(2), move || {
+            fixture.source_encoder.set_keyer_speed(20);
+            wait_5_ms();
 
+            fixture.keying_event_tx.broadcast(KeyingEvent::Start());
+            fixture.keying_event_tx.broadcast(KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 60 }));
+            wait_5_ms();
+            fixture.source_encoder.emit();
+            wait_5_ms();
+            fixture.source_encoder.emit();
+            wait_5_ms();
+
+            // Block 1
+            match fixture.source_encoder_rx.recv_timeout(Duration::from_secs(1)) {
+                Ok(encoding) => {
+                    info!("Received SourceEncoding of {}", encoding);
+                    let vec = encoding.block;
+                    //                                    F:PD
+                    //                     F:WPWPM-    --P
+                    assert_eq!(vec, vec![0b00010101, 0b00101100, 0, 0, 0, 0, 0, 0]);
+                }
+                Err(e) => {
+                    panic!("Should have received a SourceEncoding, not an error of {}", e);
+                }
+            }
+            // No Block 2
+            should_timeout(fixture);
+        });
+    }
 
     // TODO keying with end, emit, sets the end flag in the SourceEncoding
+
 
     // TODO keying with end, emit, then more keying and emit has a cleared end flag in
     // the second SourceEncoding
