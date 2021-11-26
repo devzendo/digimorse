@@ -163,6 +163,7 @@ impl SourceEncoderShared {
             KeyingEvent::Start() => {
                 // Don't add anything to storage, but reset the polarity to Mark
                 self.is_mark = true;
+                debug!("Polarity is now MARK");
             }
             KeyingEvent::Timed(timed) => {
                 loop {
@@ -177,9 +178,9 @@ impl SourceEncoderShared {
                                 debug!("Insufficient space ({}) to encode WPM|Polarity", remaining);
                                 self.emit();
                             } else {
+                                // The polarity emitted is that of the current element.
                                 let frame_type = EncoderFrameType::WPMPolarity;
-                                debug!("Adding {:?} {} WPM, polarity {} ", frame_type, self
-                                                .keying_speed, if timed.up { "MARK" } else { "SPACE" }); //
+                                debug!("Adding {:?} {} WPM, polarity {} ", frame_type, self.keying_speed, if self.is_mark { "MARK" } else {"SPACE" });
                                 storage.add_8_bits(frame_type as u8, 4);
                                 storage.add_8_bits(self.keying_speed, 6);
                                 storage.add_bool(self.is_mark);
@@ -194,7 +195,8 @@ impl SourceEncoderShared {
                     // will be emitted first since emit clears that flag, then we'll succeed in
                     // encoding this keying.
                     if self.keying_encoder.encode_keying(&timed) {
-                        self.is_mark = !self.is_mark;
+                        self.is_mark = !timed.up; // up == false => MARK, up == true => SPACE.
+                        debug!("Polarity after encoding is {}", if self.is_mark { "MARK" } else { "SPACE"});
                         break;
                     } else {
                         let mut storage = self.storage.write().unwrap();
