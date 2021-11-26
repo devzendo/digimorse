@@ -113,6 +113,19 @@ mod source_encoder_spec {
         }
     }
 
+    fn expect_block_with_expected_end(mut fixture: &mut SourceEncoderFixture, expected_end: bool) {
+        match fixture.source_encoder_rx.recv_timeout(Duration::from_secs(1)) {
+            Ok(encoding) => {
+                info!("Received SourceEncoding of {}", encoding);
+                assert_eq!(encoding.is_end, expected_end);
+            }
+            Err(e) => {
+                panic!("Should have received a SourceEncoding, not an error of {}", e);
+            }
+        }
+    }
+
+
     #[rstest]
     fn first_keying_after_start_generates_wpm_and_mark_polarity_then_keying(mut fixture: SourceEncoderFixture) {
         test_util::panic_after(Duration::from_secs(2), move || {
@@ -140,15 +153,7 @@ mod source_encoder_spec {
         test_util::panic_after(Duration::from_secs(2), move || {
             start_single_dit_emit(&mut fixture);
 
-            match fixture.source_encoder_rx.recv_timeout(Duration::from_secs(1)) {
-                Ok(encoding) => {
-                    info!("Received SourceEncoding of {}", encoding);
-                    assert_eq!(encoding.is_end, false);
-                }
-                Err(e) => {
-                    panic!("Should have received a SourceEncoding, not an error of {}", e);
-                }
-            }
+            expect_block_with_expected_end(&mut fixture, false);
         });
     }
 
@@ -415,11 +420,52 @@ mod source_encoder_spec {
         });
     }
 
-    // TODO keying with end, emit, sets the end flag in the SourceEncoding
+    #[rstest]
+    fn keying_with_end_sets_the_end_flag(mut fixture: SourceEncoderFixture) {
+        test_util::panic_after(Duration::from_secs(2), move || {
+            fixture.source_encoder.set_keyer_speed(20);
+            wait_5_ms();
 
+            fixture.keying_event_tx.broadcast(KeyingEvent::Start());
+            fixture.keying_event_tx.broadcast(KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 60 }));
+            fixture.keying_event_tx.broadcast(KeyingEvent::End());
+            wait_5_ms();
 
-    // TODO keying with end, emit, then more keying and emit has a cleared end flag in
-    // the second SourceEncoding
+            fixture.source_encoder.emit();
+            wait_5_ms();
+
+            expect_block_with_expected_end(&mut fixture, true);
+        });
+    }
+
+    #[rstest]
+    fn the_end_flag_is_cleared_after_emitting(mut fixture: SourceEncoderFixture) {
+        test_util::panic_after(Duration::from_secs(2), move || {
+            fixture.source_encoder.set_keyer_speed(20);
+            wait_5_ms();
+
+            fixture.keying_event_tx.broadcast(KeyingEvent::Start());
+            fixture.keying_event_tx.broadcast(KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 60 }));
+            fixture.keying_event_tx.broadcast(KeyingEvent::End());
+            wait_5_ms();
+
+            fixture.source_encoder.emit();
+            wait_5_ms();
+
+            fixture.keying_event_tx.broadcast(KeyingEvent::Start());
+            fixture.keying_event_tx.broadcast(KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 60 }));
+            wait_5_ms();
+
+            fixture.source_encoder.emit();
+            wait_5_ms();
+
+            // Block 1
+            expect_block_with_expected_end(&mut fixture, true);
+            // Block 2
+            expect_block_with_expected_end(&mut fixture, false);
+        });
+    }
+
 
     // TODO flag indicating wpm|polarity sent gets reset on each new frame's first keying
 

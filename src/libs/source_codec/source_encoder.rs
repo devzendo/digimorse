@@ -210,7 +210,7 @@ impl SourceEncoderShared {
             }
             KeyingEvent::End() => {
                 // Set the end of the storage
-                // TODO needs test
+                self.storage.write().unwrap().set_end();
             }
         }
     }
