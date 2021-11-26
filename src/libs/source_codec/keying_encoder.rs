@@ -16,6 +16,7 @@ pub trait KeyingEncoder {
     // Routines used internally by the KeyingEncoder, and also reused by tests. All return true if
     // the encoding will fit, false if it won't.
     fn encode_perfect_dit(&mut self) -> bool;
+    fn encode_perfect_dah(&mut self) -> bool;
 }
 
 pub struct DefaultKeyingEncoder {
@@ -49,7 +50,7 @@ impl KeyingEncoder for DefaultKeyingEncoder {
         if keying.duration == self.perfect_dit_ms {
             return self.encode_perfect_dit();
         } else if keying.duration == self.perfect_dah_ms {
-
+            return self.encode_perfect_dah();
         } else if keying.duration == self.perfect_wordgap_ms {
 
         } else {
@@ -87,6 +88,18 @@ impl KeyingEncoder for DefaultKeyingEncoder {
             return false
         } else {
             let frame_type = EncoderFrameType::KeyingPerfectDit;
+            debug!("Adding {:?}", frame_type);
+            storage.add_8_bits(frame_type as u8, 4);
+            return true
+        }
+    }
+
+    fn encode_perfect_dah(&mut self) -> bool {
+        let mut storage = self.storage.write().unwrap();
+        if storage.remaining() < 4 {
+            return false
+        } else {
+            let frame_type = EncoderFrameType::KeyingPerfectDah;
             debug!("Adding {:?}", frame_type);
             storage.add_8_bits(frame_type as u8, 4);
             return true

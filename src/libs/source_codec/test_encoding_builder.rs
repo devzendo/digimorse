@@ -75,32 +75,38 @@ pub fn encoded(wpm: KeyerSpeed, frames: &[Frame]) -> Vec<u8> {
                 keying_encoder.encode_perfect_dit();
             }
             Frame::KeyingPerfectDah => {
-                // let mut b = builder.write().unwrap();
-                // b.add_8_bits(EncoderFrameType::KeyingPerfectDah as u8, 4);
+                let mut b = builder.write().unwrap();
+                b.add_8_bits(EncoderFrameType::KeyingPerfectDah as u8, 4);
             }
             Frame::KeyingPerfectWordgap => {
+                unimplemented!();
                 // let mut b = builder.write().unwrap();
                 // b.add_8_bits(EncoderFrameType::KeyingPerfectWordgap as u8, 4);
             }
             Frame::KeyingEnd => {
+                unimplemented!();
                 // builder.add_8_bits(EncoderFrameType::KeyingEnd as u8, 4);
             }
             Frame::KeyingDeltaDit { delta } => {
+                unimplemented!();
                 // builder.add_8_bits(EncoderFrameType::KeyingDeltaDit as u8, 4);
                 // // TODO size depends on WPM; add sign then abs(delta)
                 // builder.add_16_bits(*delta, 9);
             }
             Frame::KeyingDeltaDah { delta } => {
+                unimplemented!();
                 // builder.add_8_bits(EncoderFrameType::KeyingDeltaDah as u8, 4);
                 // // TODO size depends on WPM; add sign then abs(delta)
                 // builder.add_16_bits(*delta, 9);
             }
             Frame::KeyingDeltaWordgap { delta } => {
+                unimplemented!();
                 // builder.add_8_bits(EncoderFrameType::KeyingDeltaWordgap as u8, 4);
                 // // TODO size depends on WPM; add sign then abs(delta)
                 // builder.add_16_bits(*delta, 9);
             }
             Frame::KeyingNaive { duration } => {
+                unimplemented!();
                 // builder.add_8_bits(EncoderFrameType::KeyingNaive as u8, 4);
                 // builder.add_16_bits(*duration, 11);
             }
@@ -123,10 +129,11 @@ fn encode_test() {
     let vec = encoded(20, &[
         Frame::WPMPolarity { wpm: 20, polarity: true },
         Frame::KeyingPerfectDit,
+        Frame::KeyingPerfectDah,
         Frame::Padding,
     ]);
     assert_eq!(vec,
         //                    F:PD
-        //     F:WPWPM-    --P
-        vec![0b00010101, 0b00101100, 0, 0, 0, 0, 0, 0]);
+        //     F:WPWPM-    --P    F    :PD
+        vec![0b00010101, 0b00101100, 0b11100000, 0, 0, 0, 0, 0]);
 }
