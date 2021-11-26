@@ -165,32 +165,46 @@ impl SourceEncoderShared {
                 self.is_mark = true;
             }
             KeyingEvent::Timed(timed) => {
-                if !self.sent_wpm_polarity {
-                    self.sent_wpm_polarity = true;
-                    loop {
-                        let mut storage = self.storage.write().unwrap();
-                        let remaining = storage.remaining();
-                        if remaining < 11 {
-                            mem::drop(storage);
-                            debug!("Insufficient space ({}) to encode WPM|Polarity", remaining);
-                            self.emit();
-                        } else {
-                            let frame_type = EncoderFrameType::WPMPolarity;
-                            debug!("Adding {:?} {} WPM, polarity {} ", frame_type, self
-                                            .keying_speed, if timed.up { "MARK" } else { "SPACE" }); //
-                            storage.add_8_bits(frame_type as u8, 4);
-                            storage.add_8_bits(self.keying_speed, 6);
-                            storage.add_bool(self.is_mark);
-                            mem::drop(storage);
-                            break;
+                loop {
+                    if !self.sent_wpm_polarity {
+                        // Encode the WPM|Polarity.
+                        self.sent_wpm_polarity = true;
+                        loop {
+                            let mut storage = self.storage.write().unwrap();
+                            let remaining = storage.remaining();
+                            if remaining < 11 {
+                                mem::drop(storage);
+                                debug!("Insufficient space ({}) to encode WPM|Polarity", remaining);
+                                self.emit();
+                            } else {
+                                let frame_type = EncoderFrameType::WPMPolarity;
+                                debug!("Adding {:?} {} WPM, polarity {} ", frame_type, self
+                                                .keying_speed, if timed.up { "MARK" } else { "SPACE" }); //
+                                storage.add_8_bits(frame_type as u8, 4);
+                                storage.add_8_bits(self.keying_speed, 6);
+                                storage.add_bool(self.is_mark);
+                                mem::drop(storage);
+                                break;
+                            }
                         }
                     }
+                    // Encode the keying.
+                    // TODO pass on to CQ detector
+                    // If it won't fit, emit the current block and go round again - the WPM|Polarity
+                    // will be emitted first since emit clears that flag, then we'll succeed in
+                    // encoding this keying.
+                    if self.keying_encoder.encode_keying(&timed) {
+                        self.is_mark = !self.is_mark;
+                        break;
+                    } else {
+                        let mut storage = self.storage.write().unwrap();
+                        let remaining = storage.remaining();
+                        mem::drop(storage);
+                        debug!("Insufficient space ({}) to encode keying", remaining);
+                        self.emit();
+                        // Go round the loop again...
+                    }
                 }
-                // TODO pass on to CQ detector
-                self.keying_encoder.encode_keying(timed);
-                self.is_mark = !self.is_mark;
-                // TODO what if this returns false? means that the keying won't fit
-                // so we must build() and broadcast the builder's vec, then try again.
             }
             KeyingEvent::End() => {
                 // Set the end of the storage

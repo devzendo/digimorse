@@ -7,7 +7,7 @@ pub trait KeyingEncoder {
     /// Encode a KeyingTimedEvent in the Builder, in the most appropriate encoding (perfect, delta
     /// or naïve). If this encoding will fit, encode it and return true. If it won't fit, return
     /// false. The caller will then build() the Builder and emit it, and call again.
-    fn encode_keying(&mut self, keying: KeyingTimedEvent) -> bool;
+    fn encode_keying(&mut self, keying: &KeyingTimedEvent) -> bool;
     // The KeyingEncoder needs to know the keyer speed to build keying frames into their most
     // compact form; a minimal delta from the three timing elements.
     fn set_keyer_speed(&mut self, speed: KeyerSpeed);
@@ -39,7 +39,7 @@ impl DefaultKeyingEncoder {
 }
 
 impl KeyingEncoder for DefaultKeyingEncoder {
-    fn encode_keying(&mut self, keying: KeyingTimedEvent) -> bool {
+    fn encode_keying(&mut self, keying: &KeyingTimedEvent) -> bool {
         if self.keyer_speed == 0 {
             panic!("No speed has been set on the DefaultKeyingEncoder");
         }
