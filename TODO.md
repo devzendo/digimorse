@@ -1,6 +1,8 @@
 # Current Development Activities
 
-* Use the bitvec_source_encoding_builder in the source_encoder to encode keying events.
+* End handling is incomplete- should append a keying end frame, this could overflow but does not require a WPM/Polarity
+  frame since it’s not actual keying that needs decoding wrt a WPM. An end keying event should automatically cause an
+  emit after it is encoded.
 
 # Known problems
 * Generate the proper configured sidetone sine wave; will have to have a lock around 
