@@ -98,8 +98,13 @@ mod keying_encoder_spec {
         assert_eq!(fixture.encoder.encode_keying(&KeyingTimedEvent { up: false, duration: PERFECT_DIT_DURATION }), false);
     }
 
-    // TODO wpm_changes_are_tracked_for_perfect_encodings
-    // encode a perfect dit, change the WPM, encode another at the new WPM's duration - check for
-    // two perfect dits encoded
-
+    #[rstest]
+    fn wpm_changes_are_tracked_for_perfect_encodings(mut fixture: KeyingEncoderFixture) {
+        assert_eq!(fixture.encoder.encode_keying(&KeyingTimedEvent { up: true, duration: PERFECT_DIT_DURATION }), true);
+        fixture.encoder.set_keyer_speed(40);
+        assert_eq!(fixture.encoder.encode_keying(&KeyingTimedEvent { up: false, duration: 30 }), true);
+        // No WPM|Polarity encoding at the start or after the change of speed, but the correct
+        // perfect duration is updated.
+        assert_eq!(fixture.bytes(), vec![0b01100110, 0, 0, 0, 0, 0, 0, 0]);
+    }
 }
