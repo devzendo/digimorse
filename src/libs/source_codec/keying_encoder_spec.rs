@@ -107,4 +107,31 @@ mod keying_encoder_spec {
         // perfect duration is updated.
         assert_eq!(fixture.bytes(), vec![0b01100110, 0, 0, 0, 0, 0, 0, 0]);
     }
+
+    #[rstest]
+    fn delta_encoding_ranges_are_correct_for_the_wpm(mut fixture: KeyingEncoderFixture) {
+        // reset
+        fixture.encoder.set_keyer_speed(0);
+        assert_eq!(fixture.encoder.get_dit_delta_range(), (0, 0));
+        assert_eq!(fixture.encoder.get_dah_delta_range(), (0, 0));
+        assert_eq!(fixture.encoder.get_wordgap_delta_range(), (0, 0));
+
+        // range of speeds
+        fixture.encoder.set_keyer_speed(5);
+        assert_eq!(fixture.encoder.get_dit_delta_range(), (-240, 240));
+        assert_eq!(fixture.encoder.get_dah_delta_range(), (-240, 480));
+        assert_eq!(fixture.encoder.get_wordgap_delta_range(), (-480, 367));
+
+        fixture.encoder.set_keyer_speed(20);
+        assert_eq!(fixture.encoder.get_dit_delta_range(), (-60, 60));
+        assert_eq!(fixture.encoder.get_dah_delta_range(), (-60, 120));
+        assert_eq!(fixture.encoder.get_wordgap_delta_range(), (-120, 120));
+
+        fixture.encoder.set_keyer_speed(60);
+        assert_eq!(fixture.encoder.get_dit_delta_range(), (-20, 20));
+        assert_eq!(fixture.encoder.get_dah_delta_range(), (-20, 40));
+        assert_eq!(fixture.encoder.get_wordgap_delta_range(), (-40, 40));
+    }
+
+    // TODO delta wordgap at 5WPM above 367 is encoded as a naïve encoding.
 }

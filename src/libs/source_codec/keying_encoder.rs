@@ -1,7 +1,10 @@
+use std::cmp::min;
 use log::debug;
 use std::sync::{Arc, RwLock};
 use crate::libs::keyer_io::keyer_io::{KeyerEdgeDurationMs, KeyerSpeed, KeyingTimedEvent};
 use crate::libs::source_codec::source_encoding::{EncoderFrameType, SourceEncodingBuilder};
+
+pub type KeyerRangeDelta = i16;
 
 pub trait KeyingEncoder {
     /// Encode a KeyingTimedEvent in the Builder, in the most appropriate encoding (perfect, delta
@@ -13,6 +16,11 @@ pub trait KeyingEncoder {
     fn set_keyer_speed(&mut self, speed: KeyerSpeed);
     fn get_keyer_speed(&self) -> KeyerSpeed;
 
+    /// Obtain the delta ranges, for the current keyer speed.
+    fn get_dit_delta_range(&self) -> (KeyerRangeDelta, KeyerRangeDelta);
+    fn get_dah_delta_range(&self) -> (KeyerRangeDelta, KeyerRangeDelta);
+    fn get_wordgap_delta_range(&self) -> (KeyerRangeDelta, KeyerRangeDelta);
+
     // Routines used internally by the KeyingEncoder, and also reused by tests. All return true if
     // the encoding will fit, false if it won't.
     fn encode_perfect_dit(&mut self) -> bool;
@@ -20,12 +28,19 @@ pub trait KeyingEncoder {
     fn encode_perfect_wordgap(&mut self) -> bool;
 }
 
+
 pub struct DefaultKeyingEncoder {
     keyer_speed: KeyerSpeed,
     storage: Arc<RwLock<Box<dyn SourceEncodingBuilder + Send + Sync>>>,
     perfect_dit_ms: KeyerEdgeDurationMs,
     perfect_dah_ms: KeyerEdgeDurationMs,
     perfect_wordgap_ms: KeyerEdgeDurationMs,
+    negative_dit_range: KeyerRangeDelta,
+    positive_dit_range: KeyerRangeDelta,
+    negative_dah_range: KeyerRangeDelta,
+    positive_dah_range: KeyerRangeDelta,
+    negative_wordgap_range: KeyerRangeDelta,
+    positive_wordgap_range: KeyerRangeDelta,
 }
 
 impl DefaultKeyingEncoder {
@@ -35,7 +50,13 @@ impl DefaultKeyingEncoder {
             storage,
             perfect_dit_ms: 0,
             perfect_dah_ms: 0,
-            perfect_wordgap_ms: 0
+            perfect_wordgap_ms: 0,
+            negative_dit_range: 0,
+            positive_dit_range: 0,
+            negative_dah_range: 0,
+            positive_dah_range: 0,
+            negative_wordgap_range: 0,
+            positive_wordgap_range: 0,
         }
     }
 
@@ -81,15 +102,39 @@ impl KeyingEncoder for DefaultKeyingEncoder {
             self.perfect_dit_ms = 0;
             self.perfect_dah_ms = 0;
             self.perfect_wordgap_ms = 0;
+            self.negative_dit_range = 0;
+            self.positive_dit_range = 0;
+            self.negative_dah_range = 0;
+            self.positive_dah_range = 0;
+            self.negative_wordgap_range = 0;
+            self.positive_wordgap_range = 0;
+
         } else {
             let dit = 1200 / speed as u16; // funky...
             self.perfect_dit_ms = dit as KeyerEdgeDurationMs;
             self.perfect_dah_ms = self.perfect_dit_ms * 3;
             self.perfect_wordgap_ms = self.perfect_dit_ms * 7;
+            // Delta ranges are based off midpoints between the perfect dit/dah/wordgap. The maximum
+            // is capped at 367, not 480 since wordgap+367=2047 which fits in 11 bits. Slow delta
+            // wordgaps above 367 would be encoded as a naïve.
+            // See docs/Morse speeds.xlsx for the derivations of these.
+            let dit_dah_midpoint = (self.perfect_dah_ms - self.perfect_dit_ms) as i16;
+            let dah_wordgap_midpoint = (self.perfect_dah_ms + ((self.perfect_wordgap_ms - self.perfect_dah_ms)/2)) as i16;
+            self.negative_dit_range = -(dit as i16);
+            self.positive_dit_range = dit as i16;
+            self.negative_dah_range = -(self.perfect_dah_ms as i16 - dit_dah_midpoint);
+            self.positive_dah_range = dah_wordgap_midpoint - self.perfect_dah_ms as i16;
+            self.negative_wordgap_range = -(self.perfect_wordgap_ms as i16 - dah_wordgap_midpoint);
+            self.positive_wordgap_range = min(367, -(self.negative_wordgap_range));
         }
         debug!("KeyingEncoder speed set to {} WPM; dit: {}ms dah: {}ms wordgap: {}ms", self
             .keyer_speed,
-            self.perfect_dit_ms, self.perfect_dah_ms, self.perfect_wordgap_ms)
+            self.perfect_dit_ms, self.perfect_dah_ms, self.perfect_wordgap_ms);
+        debug!("Delta dit ({}, {}) dah ({}, {}), wordgap ({}, {})",
+            self.negative_dit_range, self.positive_dit_range,
+            self.negative_dah_range, self.positive_dah_range,
+            self.negative_wordgap_range, self.positive_wordgap_range
+        );
     }
 
     fn get_keyer_speed(&self) -> KeyerSpeed {
@@ -108,6 +153,17 @@ impl KeyingEncoder for DefaultKeyingEncoder {
         self.encode_perfect_frame(EncoderFrameType::KeyingPerfectWordgap)
     }
 
+    fn get_dit_delta_range(&self) -> (KeyerRangeDelta, KeyerRangeDelta) {
+        (self.negative_dit_range, self.positive_dit_range)
+    }
+
+    fn get_dah_delta_range(&self) -> (KeyerRangeDelta, KeyerRangeDelta) {
+        (self.negative_dah_range, self.positive_dah_range)
+    }
+
+    fn get_wordgap_delta_range(&self) -> (KeyerRangeDelta, KeyerRangeDelta) {
+        (self.negative_wordgap_range, self.positive_wordgap_range)
+    }
 }
 
 // From the table of delta encoding bit ranges per keying speed
