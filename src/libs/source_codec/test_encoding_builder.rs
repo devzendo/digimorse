@@ -79,9 +79,8 @@ pub fn encoded(wpm: KeyerSpeed, frames: &[Frame]) -> Vec<u8> {
                 b.add_8_bits(EncoderFrameType::KeyingPerfectDah as u8, 4);
             }
             Frame::KeyingPerfectWordgap => {
-                unimplemented!();
-                // let mut b = builder.write().unwrap();
-                // b.add_8_bits(EncoderFrameType::KeyingPerfectWordgap as u8, 4);
+                let mut b = builder.write().unwrap();
+                b.add_8_bits(EncoderFrameType::KeyingPerfectWordgap as u8, 4);
             }
             Frame::KeyingEnd => {
                 unimplemented!();
@@ -130,10 +129,11 @@ fn encode_test() {
         Frame::WPMPolarity { wpm: 20, polarity: true },
         Frame::KeyingPerfectDit,
         Frame::KeyingPerfectDah,
+        Frame::KeyingPerfectWordgap,
         Frame::Padding,
     ]);
     assert_eq!(vec,
-        //                    F:PD
+        //                    F:PD        F:PW
         //     F:WPWPM-    --P    F    :PD
-        vec![0b00010101, 0b00101100, 0b11100000, 0, 0, 0, 0, 0]);
+        vec![0b00010101, 0b00101100, 0b11110000, 0, 0, 0, 0, 0]);
 }

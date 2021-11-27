@@ -12,7 +12,7 @@ mod keying_encoder_spec {
     use crate::libs::keyer_io::keyer_io::KeyingTimedEvent;
     use crate::libs::source_codec::bitvec_source_encoding_builder::BitvecSourceEncodingBuilder;
     use crate::libs::source_codec::keying_encoder::{DefaultKeyingEncoder, KeyingEncoder};
-    use crate::libs::source_codec::keying_encoder::keying_encoder_spec::{PERFECT_DAH_DURATION, PERFECT_DIT_DURATION};
+    use crate::libs::source_codec::keying_encoder::keying_encoder_spec::{PERFECT_DAH_DURATION, PERFECT_DIT_DURATION, PERFECT_WORDGAP_DURATION};
     use crate::libs::source_codec::source_encoding::SourceEncodingBuilder;
 
     #[ctor::ctor]
@@ -68,6 +68,12 @@ mod keying_encoder_spec {
     pub fn encode_perfect_dah(mut fixture: KeyingEncoderFixture) {
         assert_eq!(fixture.encoder.encode_keying(&KeyingTimedEvent { up: true, duration: PERFECT_DAH_DURATION }), true);
         assert_eq!(fixture.bytes(), vec![0b01110000, 0, 0, 0, 0, 0, 0, 0]);
+    }
+
+    #[rstest]
+    pub fn encode_perfect_wordgap(mut fixture: KeyingEncoderFixture) {
+        assert_eq!(fixture.encoder.encode_keying(&KeyingTimedEvent { up: true, duration: PERFECT_WORDGAP_DURATION }), true);
+        assert_eq!(fixture.bytes(), vec![0b10000000, 0, 0, 0, 0, 0, 0, 0]);
     }
 
     // TODO

@@ -477,7 +477,7 @@ mod source_encoder_spec {
             fixture.keying_event_tx.broadcast(KeyingEvent::Start());
             fixture.keying_event_tx.broadcast(KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 60 }));
             fixture.keying_event_tx.broadcast(KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 180 }));
-            // fixture.keying_event_tx.broadcast(KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 60 }));
+            fixture.keying_event_tx.broadcast(KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 420 }));
             // fixture.keying_event_tx.broadcast(KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 60 }));
             // fixture.keying_event_tx.broadcast(KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 60 }));
             // fixture.keying_event_tx.broadcast(KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 60 }));
@@ -504,7 +504,7 @@ mod source_encoder_spec {
                         Frame::WPMPolarity { wpm: 20, polarity: true },
                         Frame::KeyingPerfectDit,
                         Frame::KeyingPerfectDah,
-
+                        Frame::KeyingPerfectWordgap,
                     ]);
                     assert_eq!(vec, expected_encoding);
                 }
