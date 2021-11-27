@@ -234,7 +234,7 @@ mod keying_encoder_spec {
     #[test]
     #[should_panic]
     pub fn encode_to_binary_lower_bits_range_exceeded() {
-        encode_to_binary(0, 5);
+        encode_to_binary(0, 4);
     }
 
     #[test]
@@ -248,6 +248,19 @@ mod keying_encoder_spec {
         for delta in -480 ..= 480 {
             encode_to_binary(delta, 9);
         }
+        for delta in -240 ..= 240 {
+            encode_to_binary(delta, 8);
+        }
+        for delta in -127 ..= 127 {
+            encode_to_binary(delta, 7);
+        }
+        for delta in -63 ..= 63 {
+            encode_to_binary(delta, 6);
+        }
+        for delta in -31 ..= 31 {
+            encode_to_binary(delta, 5);
+        }
+
         for bits in 5 ..= 9 {
             encode_to_binary(0, bits);
         }
@@ -255,8 +268,69 @@ mod keying_encoder_spec {
 
     #[test]
     #[should_panic]
+    pub fn encode_to_binary_lower_9_bits_range_exceeded() {
+        encode_to_binary(-481, 9);
+    }
+
+    #[test]
+    #[should_panic]
+    pub fn encode_to_binary_upper_9_bits_range_exceeded() {
+        encode_to_binary(481, 9);
+    }
+
+    #[test]
+    #[should_panic]
+    pub fn encode_to_binary_lower_8_bits_range_exceeded() {
+        encode_to_binary(-241, 8);
+    }
+
+    #[test]
+    #[should_panic]
+    pub fn encode_to_binary_upper_8_bits_range_exceeded() {
+        encode_to_binary(241, 8);
+    }
+
+    #[test]
+    #[should_panic]
+    pub fn encode_to_binary_lower_7_bits_range_exceeded() {
+        encode_to_binary(-128, 7);
+    }
+
+    #[test]
+    #[should_panic]
+    pub fn encode_to_binary_upper_7_bits_range_exceeded() {
+        encode_to_binary(128, 7);
+    }
+
+    #[test]
+    #[should_panic]
+    pub fn encode_to_binary_lower_6_bits_range_exceeded() {
+        encode_to_binary(-64, 6);
+    }
+
+    #[test]
+    #[should_panic]
+    pub fn encode_to_binary_upper_6_bits_range_exceeded() {
+        encode_to_binary(-64, 6);
+    }
+
+    #[test]
+    #[should_panic]
+    pub fn encode_to_binary_lower_5_bits_range_exceeded() {
+        encode_to_binary(-32, 5);
+    }
+
+    #[test]
+    #[should_panic]
+    pub fn encode_to_binary_upper_5_bits_range_exceeded() {
+        encode_to_binary(32, 5);
+    }
+
+
+    #[test]
+    #[should_panic]
     pub fn decode_from_binary_lower_bits_range_exceeded() {
-        decode_from_binary(0, 5);
+        decode_from_binary(0, 4);
     }
 
     #[test]
@@ -277,6 +351,44 @@ mod keying_encoder_spec {
     }
 
     #[test]
+    pub fn encode_to_binary_illustrative_cases() {
+        //                                                            Sxxxxx
+        assert_eq!(encode_to_binary(-31,   5), 0b0000000000100001);
+        assert_eq!(encode_to_binary(-3,    5), 0b0000000000111101);
+        assert_eq!(encode_to_binary(-2,    5), 0b0000000000111110);
+        assert_eq!(encode_to_binary(-1,    5), 0b0000000000111111);
+        assert_eq!(encode_to_binary(0,     5), 0b0000000000000000);
+        assert_eq!(encode_to_binary(1,     5), 0b0000000000000001);
+        assert_eq!(encode_to_binary(2,     5), 0b0000000000000010);
+        assert_eq!(encode_to_binary(3,     5), 0b0000000000000011);
+        assert_eq!(encode_to_binary(31,    5), 0b0000000000011111);
+
+        //                                                           Sxxxxxx
+        assert_eq!(encode_to_binary(-63,   6), 0b0000000001000001);
+        assert_eq!(encode_to_binary(-31,   6), 0b0000000001100001);
+        assert_eq!(encode_to_binary(31,    6), 0b0000000000011111);
+        assert_eq!(encode_to_binary(63,    6), 0b0000000000111111);
+
+        //                                                          Sxxxxxxx
+        assert_eq!(encode_to_binary(-127,  7), 0b0000000010000001);
+        assert_eq!(encode_to_binary(-63,   7), 0b0000000011000001);
+        assert_eq!(encode_to_binary(63,    7), 0b0000000000111111);
+        assert_eq!(encode_to_binary(127,   7), 0b0000000001111111);
+
+        //                                                         Sxxxxxxxx
+        assert_eq!(encode_to_binary(-240,  8), 0b0000000100010000);
+        assert_eq!(encode_to_binary(-127,  8), 0b0000000110000001);
+        assert_eq!(encode_to_binary(127,   8), 0b0000000001111111);
+        assert_eq!(encode_to_binary(240,   8), 0b0000000011110000);
+
+        //                                                        Sxxxxxxxxx
+        assert_eq!(encode_to_binary(-480,  9), 0b0000001000100000);
+        assert_eq!(encode_to_binary(-240,  9), 0b0000001100010000);
+        assert_eq!(encode_to_binary(240,   9), 0b0000000011110000);
+        assert_eq!(encode_to_binary(480,   9), 0b0000000111100000);
+    }
+
+    #[test]
     pub fn encode_to_and_decode_from_binary_round_trip() {
         for delta in -480 ..= 480 {
             let encoded = encode_to_binary(delta, 9);
@@ -293,6 +405,10 @@ mod keying_encoder_spec {
         for delta in -64 ..= 64 {
             let encoded = encode_to_binary(delta, 6);
             assert_eq!(decode_from_binary(encoded, 6), delta);
+        }
+        for delta in -32 ..= 32 {
+            let encoded = encode_to_binary(delta, 5);
+            assert_eq!(decode_from_binary(encoded, 5), delta);
         }
     }
 

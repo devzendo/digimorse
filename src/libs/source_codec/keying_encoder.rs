@@ -220,13 +220,45 @@ pub fn wordgap_encoding_range(wpm: KeyerSpeed) -> (u8, u8) {
 /// necessarily sign extended. Users of this should take the 1+bits rightmost bits of the output
 /// to obtain the encoding including sign.
 pub fn encode_to_binary(delta: i16, bits: u8) -> u16 {
-    0
+    if delta < -480 || delta > 480 {
+        panic!("Cannot encode an out of range delta ({})", delta);
+    }
+    if bits < 5 || bits > 9 {
+        panic!("Cannot encode with an out of range number of bits ({})", bits);
+    }
+    let out_of_range =
+        (bits == 9 && (delta < -480 || delta > 480)) ||
+        (bits == 8 && (delta < -240 || delta > 240)) ||
+        (bits == 7 && (delta < -127 || delta > 127)) ||
+        (bits == 6 && (delta < -63  || delta > 63)) ||
+        (bits == 5 && (delta < -31  || delta > 31));
+    if out_of_range {
+        panic!("Cannot encode delta {} in {} bits", delta, bits);
+    }
+    debug!("Encoding delta {} in {} bits", delta, bits);
+
+    if delta >= 0 {
+        delta as u16
+    } else {
+        let mut mask = 0u16;
+        for i in 0 ..= bits {
+            mask = (mask << 1) | 1;
+        }
+        debug!("<=0    mask is {:#016b}", mask);
+
+        let ret = (delta as u16) & mask;
+        debug!("<=0 encoded as {:#016b}", ret);
+        ret
+    }
 }
 
 /// Inverse of encode_to_binary. Given an encoded value and the number of bits of its value (ie not
 /// including the sign bit), return the signed value encoded in the bits+1 rightmost bits of
 /// encoded. The output will be truncated to the range [-480 .. 480].
 pub fn decode_from_binary(encoded: u16, bits: u8) -> i16 {
+    if bits < 5 || bits > 9 {
+        panic!("Cannot decode with an out of range number of bits ({})", bits);
+    }
     0
 }
 
