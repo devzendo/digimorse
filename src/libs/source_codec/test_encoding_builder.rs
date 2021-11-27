@@ -123,17 +123,60 @@ pub fn encoded(wpm: KeyerSpeed, frames: &[Frame]) -> Vec<u8> {
     source_encoding.block
 }
 
-#[test]
-fn encode_test() {
-    let vec = encoded(20, &[
-        Frame::WPMPolarity { wpm: 20, polarity: true },
-        Frame::KeyingPerfectDit,
-        Frame::KeyingPerfectDah,
-        Frame::KeyingPerfectWordgap,
-        Frame::Padding,
-    ]);
-    assert_eq!(vec,
-        //                    F:PD        F:PW
-        //     F:WPWPM-    --P    F    :PD
-        vec![0b00010101, 0b00101100, 0b11110000, 0, 0, 0, 0, 0]);
+
+#[cfg(test)]
+mod test_encoding_builder_spec {
+    use crate::libs::source_codec::test_encoding_builder::{encoded, Frame};
+
+    #[test]
+    fn encode_wpm_polarity() {
+        let vec = encoded(20, &[
+            Frame::WPMPolarity { wpm: 20, polarity: true },
+        ]);
+        assert_eq!(vec,
+                   //
+                   //     F:WPWPM-    --P
+                   vec![0b00010101, 0b00100000, 0, 0, 0, 0, 0, 0]);
+    }
+
+    #[test]
+    fn encode_perfect_dit() {
+        let vec = encoded(20, &[
+            Frame::KeyingPerfectDit,
+        ]);
+        assert_eq!(vec,
+                   //     F:PD
+                   vec![0b01100000, 0, 0, 0, 0, 0, 0, 0]);
+    }
+
+    #[test]
+    fn encode_perfect_dah() {
+        let vec = encoded(20, &[
+            Frame::KeyingPerfectDah,
+        ]);
+        assert_eq!(vec,
+                   //     F:PD
+                   vec![0b01110000, 0, 0, 0, 0, 0, 0, 0]);
+    }
+
+    #[test]
+    fn encode_perfect_wordgap() {
+        let vec = encoded(20, &[
+            Frame::KeyingPerfectWordgap,
+        ]);
+        assert_eq!(vec,
+                   //     F:PW
+                   vec![0b10000000, 0, 0, 0, 0, 0, 0, 0]);
+    }
+
+    #[test]
+    fn encode_padding() {
+        let vec = encoded(20, &[
+            Frame::Padding,
+        ]);
+        assert_eq!(vec,
+                   //     F:PA
+                   vec![0b00000000, 0, 0, 0, 0, 0, 0, 0]);
+    }
 }
+
