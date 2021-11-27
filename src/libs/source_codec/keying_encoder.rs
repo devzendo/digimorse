@@ -38,6 +38,19 @@ impl DefaultKeyingEncoder {
             perfect_wordgap_ms: 0
         }
     }
+
+    fn encode_perfect_frame(&mut self, frame_type: EncoderFrameType) -> bool {
+        let mut storage = self.storage.write().unwrap();
+        let remaining = storage.remaining();
+        if remaining < 4 {
+            debug!("Insufficient storage ({}) to add {:?}", remaining, frame_type);
+            return false
+        } else {
+            debug!("Adding {:?} (remaining before:{})", frame_type, remaining);
+            storage.add_8_bits(frame_type as u8, 4);
+            return true
+        }
+    }
 }
 
 impl KeyingEncoder for DefaultKeyingEncoder {
@@ -84,39 +97,15 @@ impl KeyingEncoder for DefaultKeyingEncoder {
     }
 
     fn encode_perfect_dit(&mut self) -> bool {
-        let mut storage = self.storage.write().unwrap();
-        if storage.remaining() < 4 {
-            return false
-        } else {
-            let frame_type = EncoderFrameType::KeyingPerfectDit;
-            debug!("Adding {:?}", frame_type);
-            storage.add_8_bits(frame_type as u8, 4);
-            return true
-        }
+        self.encode_perfect_frame(EncoderFrameType::KeyingPerfectDit)
     }
 
     fn encode_perfect_dah(&mut self) -> bool {
-        let mut storage = self.storage.write().unwrap();
-        if storage.remaining() < 4 {
-            return false
-        } else {
-            let frame_type = EncoderFrameType::KeyingPerfectDah;
-            debug!("Adding {:?}", frame_type);
-            storage.add_8_bits(frame_type as u8, 4);
-            return true
-        }
+        self.encode_perfect_frame(EncoderFrameType::KeyingPerfectDah)
     }
 
     fn encode_perfect_wordgap(&mut self) -> bool {
-        let mut storage = self.storage.write().unwrap();
-        if storage.remaining() < 4 {
-            return false
-        } else {
-            let frame_type = EncoderFrameType::KeyingPerfectWordgap;
-            debug!("Adding {:?}", frame_type);
-            storage.add_8_bits(frame_type as u8, 4);
-            return true
-        }
+        self.encode_perfect_frame(EncoderFrameType::KeyingPerfectWordgap)
     }
 
 }

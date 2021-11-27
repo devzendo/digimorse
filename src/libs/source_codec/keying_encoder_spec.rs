@@ -76,10 +76,29 @@ mod keying_encoder_spec {
         assert_eq!(fixture.bytes(), vec![0b10000000, 0, 0, 0, 0, 0, 0, 0]);
     }
 
-    // TODO
-    // encode_keying won't fit and returns false
+    #[rstest]
+    fn keying_wont_fit_in_block_so_returns_false(mut fixture: KeyingEncoderFixture) {
+        assert_eq!(fixture.encoder.encode_keying(&KeyingTimedEvent { up: true, duration: PERFECT_DIT_DURATION }), true);
+        assert_eq!(fixture.encoder.encode_keying(&KeyingTimedEvent { up: false, duration: PERFECT_DIT_DURATION }), true);
+        assert_eq!(fixture.encoder.encode_keying(&KeyingTimedEvent { up: true, duration: PERFECT_DIT_DURATION }), true);
+        assert_eq!(fixture.encoder.encode_keying(&KeyingTimedEvent { up: false, duration: PERFECT_DIT_DURATION }), true);
+        assert_eq!(fixture.encoder.encode_keying(&KeyingTimedEvent { up: true, duration: PERFECT_DIT_DURATION }), true);
+        assert_eq!(fixture.encoder.encode_keying(&KeyingTimedEvent { up: false, duration: PERFECT_DIT_DURATION }), true);
+        assert_eq!(fixture.encoder.encode_keying(&KeyingTimedEvent { up: true, duration: PERFECT_DIT_DURATION }), true);
+        assert_eq!(fixture.encoder.encode_keying(&KeyingTimedEvent { up: false, duration: PERFECT_DIT_DURATION }), true);
+        assert_eq!(fixture.encoder.encode_keying(&KeyingTimedEvent { up: true, duration: PERFECT_DIT_DURATION }), true);
+        assert_eq!(fixture.encoder.encode_keying(&KeyingTimedEvent { up: false, duration: PERFECT_DIT_DURATION }), true);
+        assert_eq!(fixture.encoder.encode_keying(&KeyingTimedEvent { up: true, duration: PERFECT_DIT_DURATION }), true);
+        assert_eq!(fixture.encoder.encode_keying(&KeyingTimedEvent { up: false, duration: PERFECT_DIT_DURATION }), true);
+        assert_eq!(fixture.encoder.encode_keying(&KeyingTimedEvent { up: true, duration: PERFECT_DIT_DURATION }), true);
+        assert_eq!(fixture.encoder.encode_keying(&KeyingTimedEvent { up: false, duration: PERFECT_DIT_DURATION }), true);
+        assert_eq!(fixture.encoder.encode_keying(&KeyingTimedEvent { up: true, duration: PERFECT_DIT_DURATION }), true);
+        assert_eq!(fixture.encoder.encode_keying(&KeyingTimedEvent { up: false, duration: PERFECT_DIT_DURATION }), true);
+        // This one won't fit in the block..
+        assert_eq!(fixture.encoder.encode_keying(&KeyingTimedEvent { up: false, duration: PERFECT_DIT_DURATION }), false);
+    }
 
-    // wpm_changes_are_tracked_for_perfect_encodings
+    // TODO wpm_changes_are_tracked_for_perfect_encodings
     // encode a perfect dit, change the WPM, encode another at the new WPM's duration - check for
     // two perfect dits encoded
 
