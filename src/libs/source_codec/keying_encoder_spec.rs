@@ -11,7 +11,7 @@ mod keying_encoder_spec {
     use std::sync::{Arc, RwLock};
     use crate::libs::keyer_io::keyer_io::KeyingTimedEvent;
     use crate::libs::source_codec::bitvec_source_encoding_builder::BitvecSourceEncodingBuilder;
-    use crate::libs::source_codec::keying_encoder::{DefaultKeyingEncoder, KeyingEncoder};
+    use crate::libs::source_codec::keying_encoder::{dah_encoding_range, decode_from_binary, DefaultKeyingEncoder, dit_encoding_range, encode_to_binary, KeyingEncoder, wordgap_encoding_range};
     use crate::libs::source_codec::keying_encoder::keying_encoder_spec::{PERFECT_DAH_DURATION, PERFECT_DIT_DURATION, PERFECT_WORDGAP_DURATION};
     use crate::libs::source_codec::source_encoding::SourceEncodingBuilder;
 
@@ -132,6 +132,245 @@ mod keying_encoder_spec {
         assert_eq!(fixture.encoder.get_dah_delta_range(), (-20, 40));
         assert_eq!(fixture.encoder.get_wordgap_delta_range(), (-40, 40));
     }
+
+
+    #[test]
+    #[should_panic]
+    pub fn dit_encoding_range_at_zero() {
+        dit_encoding_range(0);
+    }
+
+    #[test]
+    #[should_panic]
+    pub fn dit_encoding_range_at_4() {
+        dit_encoding_range(4);
+    }
+
+    #[test]
+    #[should_panic]
+    pub fn dit_encoding_range_at_61() {
+        dit_encoding_range(61);
+    }
+
+    #[test]
+    #[should_panic]
+    pub fn dah_encoding_range_at_zero() {
+        dah_encoding_range(0);
+    }
+
+    #[test]
+    #[should_panic]
+    pub fn dah_encoding_range_at_4() {
+        dah_encoding_range(4);
+    }
+
+    #[test]
+    #[should_panic]
+    pub fn dah_encoding_range_at_61() {
+        dah_encoding_range(61);
+    }
+
+    #[test]
+    #[should_panic]
+    pub fn wordgap_encoding_range_at_zero() {
+        wordgap_encoding_range(0);
+    }
+
+    #[test]
+    #[should_panic]
+    pub fn wordgap_encoding_range_at_4() {
+        wordgap_encoding_range(4);
+    }
+
+    #[test]
+    #[should_panic]
+    pub fn wordgap_encoding_range_at_61() {
+        wordgap_encoding_range(61);
+    }
+
+    #[test]
+    pub fn encoding_ranges_at_boundaries() {
+        assert_eq!(dit_encoding_range(5), (8, 8));
+        assert_eq!(dit_encoding_range(9), (8, 8));
+        assert_eq!(dit_encoding_range(10), (7, 7));
+        assert_eq!(dit_encoding_range(18), (7, 7));
+        assert_eq!(dit_encoding_range(19), (6, 6));
+        assert_eq!(dit_encoding_range(37), (6, 6));
+        assert_eq!(dit_encoding_range(38), (5, 5));
+        assert_eq!(dit_encoding_range(60), (5, 5));
+
+        assert_eq!(dah_encoding_range(5), (8, 9));
+        assert_eq!(dah_encoding_range(9), (8, 9));
+        assert_eq!(dah_encoding_range(10), (7, 8));
+        assert_eq!(dah_encoding_range(18), (7, 8));
+        assert_eq!(dah_encoding_range(19), (6, 7));
+        assert_eq!(dah_encoding_range(37), (6, 7));
+        assert_eq!(dah_encoding_range(38), (5, 6));
+        assert_eq!(dah_encoding_range(60), (5, 6));
+
+        assert_eq!(wordgap_encoding_range(5), (9, 9));
+        assert_eq!(wordgap_encoding_range(9), (9, 9));
+        assert_eq!(wordgap_encoding_range(10), (8, 8));
+        assert_eq!(wordgap_encoding_range(18), (8, 8));
+        assert_eq!(wordgap_encoding_range(19), (7, 7));
+        assert_eq!(wordgap_encoding_range(37), (7, 7));
+        assert_eq!(wordgap_encoding_range(38), (6, 6));
+        assert_eq!(wordgap_encoding_range(60), (6, 6));
+    }
+
+
+    #[test]
+    #[should_panic]
+    pub fn encode_to_binary_lower_range_exceeded() {
+        encode_to_binary(-481, 8);
+    }
+
+    #[test]
+    #[should_panic]
+    pub fn encode_to_binary_upper_range_exceeded() {
+        encode_to_binary(481, 8);
+    }
+
+    #[test]
+    #[should_panic]
+    pub fn encode_to_binary_lower_bits_range_exceeded() {
+        encode_to_binary(0, 5);
+    }
+
+    #[test]
+    #[should_panic]
+    pub fn encode_to_binary_upper_bits_range_exceeded() {
+        encode_to_binary(0, 10);
+    }
+
+    #[test]
+    pub fn encode_to_binary_good_ranges_doesnt_panic() {
+        for delta in -480 ..= 480 {
+            encode_to_binary(delta, 9);
+        }
+        for bits in 5 ..= 9 {
+            encode_to_binary(0, bits);
+        }
+    }
+
+    #[test]
+    #[should_panic]
+    pub fn decode_from_binary_lower_bits_range_exceeded() {
+        decode_from_binary(0, 5);
+    }
+
+    #[test]
+    #[should_panic]
+    pub fn decode_from_binary_upper_bits_range_exceeded() {
+        decode_from_binary(0, 10);
+    }
+
+    #[test]
+    pub fn decode_from_binary_lower_output_range_truncated() {
+        // dodgy casting..
+        assert_eq!(decode_from_binary((-481 as i16) as u16, 9), -480);
+    }
+
+    #[test]
+    pub fn decode_from_binary_upper_output_range_exceeded() {
+        assert_eq!(decode_from_binary(481, 9), 480);
+    }
+
+    #[test]
+    pub fn encode_to_and_decode_from_binary_round_trip() {
+        for delta in -480 ..= 480 {
+            let encoded = encode_to_binary(delta, 9);
+            assert_eq!(decode_from_binary(encoded, 9), delta);
+        }
+        for delta in -240 ..= 240 {
+            let encoded = encode_to_binary(delta, 8);
+            assert_eq!(decode_from_binary(encoded, 8), delta);
+        }
+        for delta in -127 ..= 127 {
+            let encoded = encode_to_binary(delta, 7);
+            assert_eq!(decode_from_binary(encoded, 7), delta);
+        }
+        for delta in -64 ..= 64 {
+            let encoded = encode_to_binary(delta, 6);
+            assert_eq!(decode_from_binary(encoded, 6), delta);
+        }
+    }
+
+
+    #[rstest]
+    pub fn encode_delta_dit_below(mut fixture: KeyingEncoderFixture) {
+        assert_eq!(fixture.encoder.encode_keying(&KeyingTimedEvent { up: true, duration: PERFECT_DIT_DURATION - 1 }), true);
+        assert_eq!(fixture.bytes(), vec![0b10100000, 0, 0, 0, 0, 0, 0, 0]);
+    }
+
+    #[rstest]
+    pub fn encode_delta_dit_above(mut fixture: KeyingEncoderFixture) {
+        assert_eq!(fixture.encoder.encode_keying(&KeyingTimedEvent { up: true, duration: PERFECT_DIT_DURATION + 1 }), true);
+        assert_eq!(fixture.bytes(), vec![0b10100000, 0, 0, 0, 0, 0, 0, 0]);
+    }
+
+    #[rstest]
+    pub fn encode_delta_dah_below(mut fixture: KeyingEncoderFixture) {
+        assert_eq!(fixture.encoder.encode_keying(&KeyingTimedEvent { up: true, duration: PERFECT_DAH_DURATION - 1 }), true);
+        assert_eq!(fixture.bytes(), vec![0b10110000, 0, 0, 0, 0, 0, 0, 0]);
+    }
+
+    #[rstest]
+    pub fn encode_delta_dah_above(mut fixture: KeyingEncoderFixture) {
+        assert_eq!(fixture.encoder.encode_keying(&KeyingTimedEvent { up: true, duration: PERFECT_DAH_DURATION + 1 }), true);
+        assert_eq!(fixture.bytes(), vec![0b10110000, 0, 0, 0, 0, 0, 0, 0]);
+    }
+
+    #[rstest]
+    pub fn encode_delta_wordgap_below(mut fixture: KeyingEncoderFixture) {
+        assert_eq!(fixture.encoder.encode_keying(&KeyingTimedEvent { up: true, duration: PERFECT_WORDGAP_DURATION - 1 }), true);
+        assert_eq!(fixture.bytes(), vec![0b11000000, 0, 0, 0, 0, 0, 0, 0]);
+    }
+
+    #[rstest]
+    pub fn encode_delta_wordgap_above(mut fixture: KeyingEncoderFixture) {
+        assert_eq!(fixture.encoder.encode_keying(&KeyingTimedEvent { up: true, duration: PERFECT_WORDGAP_DURATION + 1 }), true);
+        assert_eq!(fixture.bytes(), vec![0b11000000, 0, 0, 0, 0, 0, 0, 0]);
+    }
+
+
+    #[rstest]
+    pub fn encode_delta_dit_below_min(mut fixture: KeyingEncoderFixture) {
+        assert_eq!(fixture.encoder.encode_keying(&KeyingTimedEvent { up: true, duration: PERFECT_DIT_DURATION - 60 }), true);
+        assert_eq!(fixture.bytes(), vec![0b10100000, 0, 0, 0, 0, 0, 0, 0]);
+    }
+
+    #[rstest]
+    pub fn encode_delta_dit_above_max(mut fixture: KeyingEncoderFixture) {
+        assert_eq!(fixture.encoder.encode_keying(&KeyingTimedEvent { up: true, duration: PERFECT_DIT_DURATION + 60 }), true);
+        assert_eq!(fixture.bytes(), vec![0b10100000, 0, 0, 0, 0, 0, 0, 0]);
+    }
+
+    #[rstest]
+    pub fn encode_delta_dah_below_min(mut fixture: KeyingEncoderFixture) {
+        assert_eq!(fixture.encoder.encode_keying(&KeyingTimedEvent { up: true, duration: PERFECT_DAH_DURATION - 60 }), true);
+        assert_eq!(fixture.bytes(), vec![0b10110000, 0, 0, 0, 0, 0, 0, 0]);
+    }
+
+    #[rstest]
+    pub fn encode_delta_dah_above_max(mut fixture: KeyingEncoderFixture) {
+        assert_eq!(fixture.encoder.encode_keying(&KeyingTimedEvent { up: true, duration: PERFECT_DAH_DURATION + 120 }), true);
+        assert_eq!(fixture.bytes(), vec![0b10110000, 0, 0, 0, 0, 0, 0, 0]);
+    }
+
+    #[rstest]
+    pub fn encode_delta_wordgap_below_min(mut fixture: KeyingEncoderFixture) {
+        assert_eq!(fixture.encoder.encode_keying(&KeyingTimedEvent { up: true, duration: PERFECT_WORDGAP_DURATION - 120 }), true);
+        assert_eq!(fixture.bytes(), vec![0b11000000, 0, 0, 0, 0, 0, 0, 0]);
+    }
+
+    #[rstest]
+    pub fn encode_delta_wordgap_above_max(mut fixture: KeyingEncoderFixture) {
+        assert_eq!(fixture.encoder.encode_keying(&KeyingTimedEvent { up: true, duration: PERFECT_WORDGAP_DURATION + 120 }), true);
+        assert_eq!(fixture.bytes(), vec![0b11000000, 0, 0, 0, 0, 0, 0, 0]);
+    }
+
+    // TODO what about quantisation?
 
     // TODO delta wordgap at 5WPM above 367 is encoded as a naïve encoding.
 }

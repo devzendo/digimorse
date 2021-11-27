@@ -168,42 +168,66 @@ impl KeyingEncoder for DefaultKeyingEncoder {
 
 // From the table of delta encoding bit ranges per keying speed
 pub fn dit_encoding_range(wpm: KeyerSpeed) -> (u8, u8) {
-    if wpm >= 5 && wpm <= 9 {
-        return (8, 8);
-    } else if wpm >= 10 && wpm <= 18 {
-        return (7, 7);
-    } else if wpm >= 19 && wpm <= 37 {
-        return (6, 6);
-    } else if wpm <= 60 {
-        return (5, 5)
+    if wpm >= 5 {
+        if wpm <= 9 {
+            return (8, 8);
+        } else if wpm >= 10 && wpm <= 18 {
+            return (7, 7);
+        } else if wpm >= 19 && wpm <= 37 {
+            return (6, 6);
+        } else if wpm <= 60 {
+            return (5, 5)
+        }
     }
     panic!("WPM of {} is out of range in dit_encoding_range", wpm);
 }
 
 pub fn dah_encoding_range(wpm: KeyerSpeed) -> (u8, u8) {
-    if wpm >= 5 && wpm <= 9 {
-        return (8, 9);
-    } else if wpm >= 10 && wpm <= 18 {
-        return (7, 8);
-    } else if wpm >= 19 && wpm <= 37 {
-        return (6, 7);
-    } else if wpm <= 60 {
-        return (5, 6)
+    if wpm >= 5 {
+        if wpm <= 9 {
+            return (8, 9);
+        } else if wpm >= 10 && wpm <= 18 {
+            return (7, 8);
+        } else if wpm >= 19 && wpm <= 37 {
+            return (6, 7);
+        } else if wpm <= 60 {
+            return (5, 6)
+        }
     }
     panic!("WPM of {} is out of range in dah_encoding_range", wpm);
 }
 
 pub fn wordgap_encoding_range(wpm: KeyerSpeed) -> (u8, u8) {
-    if wpm >= 5 && wpm <= 9 {
-        return (9, 9);
-    } else if wpm >= 10 && wpm <= 18 {
-        return (8, 8);
-    } else if wpm >= 19 && wpm <= 37 {
-        return (7, 7);
-    } else if wpm <= 60 {
-        return (6, 6)
+    if wpm >= 5 {
+        if wpm <= 9 {
+            return (9, 9);
+        } else if wpm >= 10 && wpm <= 18 {
+            return (8, 8);
+        } else if wpm >= 19 && wpm <= 37 {
+            return (7, 7);
+        } else if wpm <= 60 {
+            return (6, 6)
+        }
     }
     panic!("WPM of {} is out of range in wordgap_encoding_range", wpm);
+}
+
+/// Given a number in the union of the largest delta range [-480 .. 480], encode it in a number of
+/// bits, returning it in a larger type that can that have quantity of its rightmost bits taken.
+/// The output type must be large enough to encode a sign bit plus enough bits to encode 480
+/// (1+9 bits); ie a u16. Negative deltas are encoded using 2's complement binary.
+/// The bits parameter does not include the sign bit, but the output does. The output is not
+/// necessarily sign extended. Users of this should take the 1+bits rightmost bits of the output
+/// to obtain the encoding including sign.
+pub fn encode_to_binary(delta: i16, bits: u8) -> u16 {
+    0
+}
+
+/// Inverse of encode_to_binary. Given an encoded value and the number of bits of its value (ie not
+/// including the sign bit), return the signed value encoded in the bits+1 rightmost bits of
+/// encoded. The output will be truncated to the range [-480 .. 480].
+pub fn decode_from_binary(encoded: u16, bits: u8) -> i16 {
+    0
 }
 
 #[cfg(test)]
