@@ -31,6 +31,9 @@ pub trait KeyingEncoder {
     fn encode_perfect_dit(&mut self) -> bool;
     fn encode_perfect_dah(&mut self) -> bool;
     fn encode_perfect_wordgap(&mut self) -> bool;
+    fn encode_delta_dit(&mut self, delta: i16) -> bool;
+    fn encode_delta_dah(&mut self, delta: i16) -> bool;
+    fn encode_delta_wordgap(&mut self, delta: i16) -> bool;
 }
 
 
@@ -77,6 +80,28 @@ impl DefaultKeyingEncoder {
             return true
         }
     }
+
+    fn encode_delta_frame(&mut self, frame_type: EncoderFrameType, delta: i16, encoding_range: (u8, u8)) -> bool {
+        let mut storage = self.storage.write().unwrap();
+        let remaining = storage.remaining();
+        // if remaining < 4 {
+        //     debug!("Insufficient storage ({}) to add {:?}", remaining, frame_type);
+        //     return false
+        // } else {
+            debug!("Adding {:?} (remaining before:{})", frame_type, remaining);
+            storage.add_8_bits(frame_type as u8, 4);
+            // delta can't be 0, else this would be encoded as a perfect
+            let bits;
+            if delta < 0 {
+                bits = encoding_range.0
+            } else {
+                bits = encoding_range.1
+            }
+            storage.add_16_bits(encode_to_binary(delta, bits), bits as usize);
+        // TODO what if it won't fit?
+            return true
+        // }
+    }
 }
 
 impl KeyingEncoder for DefaultKeyingEncoder {
@@ -95,7 +120,35 @@ impl KeyingEncoder for DefaultKeyingEncoder {
             return self.encode_perfect_wordgap();
         } else {
             // Can we use delta encoding? Is this duration within the ranges?
-            // Nope, use naïve encoding.
+            // TODO cache these intervals and i16s..
+            let duration_i16 = keying.duration as i16;
+            let dit_i16 = self.perfect_dit_ms as i16;
+            let dah_i16 = self.perfect_dah_ms as i16;
+            let wordgap_i16 = self.perfect_wordgap_ms as i16;
+            let lower_dit_bound = dit_i16 + self.negative_dit_range;
+            let upper_dit_bound = dit_i16 + self.positive_dit_range;
+            debug!("dit range {} .. {}", lower_dit_bound, upper_dit_bound);
+            let lower_dah_bound = dah_i16 + self.negative_dah_range;
+            let upper_dah_bound = dah_i16 + self.positive_dah_range;
+            debug!("dah range {} .. {}", lower_dah_bound, upper_dah_bound);
+            let lower_wordgap_bound = wordgap_i16 + self.negative_wordgap_range;
+            let upper_wordgap_bound = wordgap_i16 + self.positive_wordgap_range;
+            debug!("wordgap range {} .. {}", lower_wordgap_bound, upper_wordgap_bound);
+            if duration_i16 >= lower_dit_bound &&
+                duration_i16 <= upper_dit_bound {
+                // It's a delta dit
+                self.encode_delta_dit(keying.duration as i16 - self.perfect_dit_ms as i16);
+            } else if duration_i16 >= lower_dah_bound &&
+                duration_i16 <= upper_dah_bound {
+                // It's a delta dah
+                self.encode_delta_dah(keying.duration as i16 - self.perfect_dah_ms as i16);
+            } else if duration_i16 >= lower_wordgap_bound &&
+                duration_i16 <= upper_wordgap_bound {
+                // It's a delta wordgap
+                self.encode_delta_wordgap(keying.duration as i16 - self.perfect_wordgap_ms as i16);
+            } else {
+                // Nope, use naïve encoding.
+            }
         }
         true
     }
@@ -115,7 +168,7 @@ impl KeyingEncoder for DefaultKeyingEncoder {
             self.positive_wordgap_range = 0;
 
         } else {
-            let decimal_dit_ms = (1200f32 / speed as f32);
+            let decimal_dit_ms = 1200f32 / speed as f32;
             let decimal_dah_ms = decimal_dit_ms * 3f32;
             let decimal_wordgap_ms = decimal_dit_ms * 7f32;
             debug!("decimal_dit_ms is {}", decimal_dit_ms);
@@ -130,10 +183,13 @@ impl KeyingEncoder for DefaultKeyingEncoder {
             let dit_dah_midpoint = decimal_dah_ms - decimal_dit_ms;
             let dah_wordgap_midpoint = decimal_dah_ms + ((decimal_wordgap_ms - decimal_dah_ms)/2f32);
             debug!("dit_dah_midpoint {}, dah_wordgap_midpoint {}", dit_dah_midpoint, dah_wordgap_midpoint);
+            // There will be non-null intersections between the three, so I've shrunk the middle dah
+            // range on either end by one. Then the three ranges are disjoint. This diverges from
+            // the docs/Morse speeds.xlsx spreadsheet.
             self.negative_dit_range = -(dit as i16);
             self.positive_dit_range = dit as i16;
-            self.negative_dah_range = -(decimal_dah_ms - dit_dah_midpoint) as i16;
-            self.positive_dah_range = (dah_wordgap_midpoint - decimal_dah_ms) as i16;
+            self.negative_dah_range = -(decimal_dah_ms - dit_dah_midpoint) as i16 + 1;
+            self.positive_dah_range = (dah_wordgap_midpoint - decimal_dah_ms) as i16 - 1;
             self.negative_wordgap_range = -(decimal_wordgap_ms - dah_wordgap_midpoint) as i16;
             self.positive_wordgap_range = min(367, -(self.negative_wordgap_range));
         }
@@ -161,6 +217,18 @@ impl KeyingEncoder for DefaultKeyingEncoder {
 
     fn encode_perfect_wordgap(&mut self) -> bool {
         self.encode_perfect_frame(EncoderFrameType::KeyingPerfectWordgap)
+    }
+
+    fn encode_delta_dit(&mut self, delta: i16) -> bool {
+        self.encode_delta_frame(EncoderFrameType::KeyingDeltaDit, delta, dit_encoding_range(self.keyer_speed))
+    }
+
+    fn encode_delta_dah(&mut self, delta: i16) -> bool {
+        self.encode_delta_frame(EncoderFrameType::KeyingDeltaDah, delta, dah_encoding_range(self.keyer_speed))
+    }
+
+    fn encode_delta_wordgap(&mut self, delta: i16) -> bool {
+        self.encode_delta_frame(EncoderFrameType::KeyingDeltaWordgap, delta, wordgap_encoding_range(self.keyer_speed))
     }
 
     fn get_perfect_dit_ms(&self) -> KeyerEdgeDurationMs {
@@ -241,6 +309,7 @@ pub fn wordgap_encoding_range(wpm: KeyerSpeed) -> (u8, u8) {
 /// The bits parameter does not include the sign bit, but the output does. The output is not
 /// necessarily sign extended. Users of this should take the 1+bits rightmost bits of the output
 /// to obtain the encoding including sign.
+// TODO bits should probably be a usize
 pub fn encode_to_binary(delta: i16, bits: u8) -> u16 {
     if delta < -480 || delta > 480 {
         panic!("Cannot encode an out of range delta ({})", delta);
@@ -288,7 +357,7 @@ pub fn decode_from_binary(encoded: u16, bits: u8) -> i16 {
     }
     let mask = mask_n_bits(bits);
     let mut sign = 1u16;
-    for i in 0..bits {
+    for _ in 0..bits {
         sign <<= 1;
     }
     debug!("encoded        {:#018b}", encoded);
