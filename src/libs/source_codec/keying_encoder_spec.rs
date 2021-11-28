@@ -6,6 +6,7 @@ const PERFECT_WORDGAP_DURATION: KeyerEdgeDurationMs = 420;
 
 #[cfg(test)]
 mod keying_encoder_spec {
+    use log::{debug, info};
     use rstest::*;
     use std::env;
     use std::sync::{Arc, RwLock};
@@ -108,6 +109,26 @@ mod keying_encoder_spec {
         assert_eq!(fixture.bytes(), vec![0b01100110, 0, 0, 0, 0, 0, 0, 0]);
     }
 
+    // For WPMs that don't yield integer durations...
+    #[rstest]
+    fn perfect_encoding_durations_floor_correctly(mut fixture: KeyingEncoderFixture) {
+        fixture.encoder.set_keyer_speed(7);
+        assert_eq!(fixture.encoder.get_perfect_dit_ms(), 171);
+        assert_eq!(fixture.encoder.get_perfect_dah_ms(), 514);
+        assert_eq!(fixture.encoder.get_perfect_wordgap_ms(), 1200);
+
+        fixture.encoder.set_keyer_speed(33);
+        assert_eq!(fixture.encoder.get_perfect_dit_ms(), 36);
+        assert_eq!(fixture.encoder.get_perfect_dah_ms(), 109);
+        assert_eq!(fixture.encoder.get_perfect_wordgap_ms(), 254);
+
+        fixture.encoder.set_keyer_speed(39);
+        assert_eq!(fixture.encoder.get_perfect_dit_ms(), 30);
+        assert_eq!(fixture.encoder.get_perfect_dah_ms(), 92);
+        assert_eq!(fixture.encoder.get_perfect_wordgap_ms(), 215);
+    }
+
+    // For WPMs that don't yield integer durations...
     #[rstest]
     fn delta_encoding_ranges_are_correct_for_the_wpm(mut fixture: KeyingEncoderFixture) {
         // reset
@@ -133,6 +154,24 @@ mod keying_encoder_spec {
         assert_eq!(fixture.encoder.get_wordgap_delta_range(), (-40, 40));
     }
 
+    #[rstest]
+    fn delta_encoding_ranges_floor_correctly(mut fixture: KeyingEncoderFixture) {
+        fixture.encoder.set_keyer_speed(7);
+        assert_eq!(fixture.encoder.get_dit_delta_range(), (-171, 171));
+        assert_eq!(fixture.encoder.get_dah_delta_range(), (-171, 342));
+        assert_eq!(fixture.encoder.get_wordgap_delta_range(), (-342, 342));
+
+        fixture.encoder.set_keyer_speed(33);
+        assert_eq!(fixture.encoder.get_dit_delta_range(), (-36, 36));
+        assert_eq!(fixture.encoder.get_dah_delta_range(), (-36, 72));
+        assert_eq!(fixture.encoder.get_wordgap_delta_range(), (-72, 72));
+
+        fixture.encoder.set_keyer_speed(39);
+        assert_eq!(fixture.encoder.get_dit_delta_range(), (-30, 30));
+        assert_eq!(fixture.encoder.get_dah_delta_range(), (-30, 61));
+        assert_eq!(fixture.encoder.get_wordgap_delta_range(), (-61, 61));
+
+    }
 
     #[test]
     #[should_panic]
@@ -390,23 +429,28 @@ mod keying_encoder_spec {
 
     #[test]
     pub fn encode_to_and_decode_from_binary_round_trip() {
+        info!("9 bits");
         for delta in -480 ..= 480 {
             let encoded = encode_to_binary(delta, 9);
             assert_eq!(decode_from_binary(encoded, 9), delta);
         }
+        info!("8 bits");
         for delta in -240 ..= 240 {
             let encoded = encode_to_binary(delta, 8);
             assert_eq!(decode_from_binary(encoded, 8), delta);
         }
+        info!("7 bits");
         for delta in -127 ..= 127 {
             let encoded = encode_to_binary(delta, 7);
             assert_eq!(decode_from_binary(encoded, 7), delta);
         }
-        for delta in -64 ..= 64 {
+        info!("6 bits");
+        for delta in -63 ..= 63 {
             let encoded = encode_to_binary(delta, 6);
             assert_eq!(decode_from_binary(encoded, 6), delta);
         }
-        for delta in -32 ..= 32 {
+        info!("5 bits");
+        for delta in -31 ..= 31 {
             let encoded = encode_to_binary(delta, 5);
             assert_eq!(decode_from_binary(encoded, 5), delta);
         }
@@ -416,7 +460,17 @@ mod keying_encoder_spec {
     #[rstest]
     pub fn encode_delta_dit_below(mut fixture: KeyingEncoderFixture) {
         assert_eq!(fixture.encoder.encode_keying(&KeyingTimedEvent { up: true, duration: PERFECT_DIT_DURATION - 1 }), true);
-        assert_eq!(fixture.bytes(), vec![0b10100000, 0, 0, 0, 0, 0, 0, 0]);
+        let bytes = fixture.bytes();
+        debug!("{}", dump_byte_vec(&bytes));
+        assert_eq!(bytes, vec![0b10100000, 0, 0, 0, 0, 0, 0, 0]);
+    }
+
+    fn dump_byte_vec(bytes: &Vec<u8>) -> String {
+        let mut out = vec![];
+        for b in bytes {
+            out.push(format!("{:#010b}", b));
+        }
+        format!("[{}]", out.join(", "))
     }
 
     #[rstest]

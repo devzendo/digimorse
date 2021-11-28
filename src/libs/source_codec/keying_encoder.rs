@@ -16,6 +16,11 @@ pub trait KeyingEncoder {
     fn set_keyer_speed(&mut self, speed: KeyerSpeed);
     fn get_keyer_speed(&self) -> KeyerSpeed;
 
+    /// Obtain the perfect timings, for the current keyer speed.
+    fn get_perfect_dit_ms(&self) -> KeyerEdgeDurationMs;
+    fn get_perfect_dah_ms(&self) -> KeyerEdgeDurationMs;
+    fn get_perfect_wordgap_ms(&self) -> KeyerEdgeDurationMs;
+
     /// Obtain the delta ranges, for the current keyer speed.
     fn get_dit_delta_range(&self) -> (KeyerRangeDelta, KeyerRangeDelta);
     fn get_dah_delta_range(&self) -> (KeyerRangeDelta, KeyerRangeDelta);
@@ -110,21 +115,26 @@ impl KeyingEncoder for DefaultKeyingEncoder {
             self.positive_wordgap_range = 0;
 
         } else {
-            let dit = 1200 / speed as u16; // funky...
-            self.perfect_dit_ms = dit as KeyerEdgeDurationMs;
-            self.perfect_dah_ms = self.perfect_dit_ms * 3;
-            self.perfect_wordgap_ms = self.perfect_dit_ms * 7;
+            let decimal_dit_ms = (1200f32 / speed as f32);
+            let decimal_dah_ms = decimal_dit_ms * 3f32;
+            let decimal_wordgap_ms = decimal_dit_ms * 7f32;
+            debug!("decimal_dit_ms is {}", decimal_dit_ms);
+            let dit = decimal_dit_ms as u16; // funky...
+            self.perfect_dit_ms = decimal_dit_ms as KeyerEdgeDurationMs;
+            self.perfect_dah_ms = decimal_dah_ms as KeyerEdgeDurationMs;
+            self.perfect_wordgap_ms = decimal_wordgap_ms as KeyerEdgeDurationMs;
             // Delta ranges are based off midpoints between the perfect dit/dah/wordgap. The maximum
             // is capped at 367, not 480 since wordgap+367=2047 which fits in 11 bits. Slow delta
             // wordgaps above 367 would be encoded as a naïve.
             // See docs/Morse speeds.xlsx for the derivations of these.
-            let dit_dah_midpoint = (self.perfect_dah_ms - self.perfect_dit_ms) as i16;
-            let dah_wordgap_midpoint = (self.perfect_dah_ms + ((self.perfect_wordgap_ms - self.perfect_dah_ms)/2)) as i16;
+            let dit_dah_midpoint = decimal_dah_ms - decimal_dit_ms;
+            let dah_wordgap_midpoint = decimal_dah_ms + ((decimal_wordgap_ms - decimal_dah_ms)/2f32);
+            debug!("dit_dah_midpoint {}, dah_wordgap_midpoint {}", dit_dah_midpoint, dah_wordgap_midpoint);
             self.negative_dit_range = -(dit as i16);
             self.positive_dit_range = dit as i16;
-            self.negative_dah_range = -(self.perfect_dah_ms as i16 - dit_dah_midpoint);
-            self.positive_dah_range = dah_wordgap_midpoint - self.perfect_dah_ms as i16;
-            self.negative_wordgap_range = -(self.perfect_wordgap_ms as i16 - dah_wordgap_midpoint);
+            self.negative_dah_range = -(decimal_dah_ms - dit_dah_midpoint) as i16;
+            self.positive_dah_range = (dah_wordgap_midpoint - decimal_dah_ms) as i16;
+            self.negative_wordgap_range = -(decimal_wordgap_ms - dah_wordgap_midpoint) as i16;
             self.positive_wordgap_range = min(367, -(self.negative_wordgap_range));
         }
         debug!("KeyingEncoder speed set to {} WPM; dit: {}ms dah: {}ms wordgap: {}ms", self
@@ -151,6 +161,18 @@ impl KeyingEncoder for DefaultKeyingEncoder {
 
     fn encode_perfect_wordgap(&mut self) -> bool {
         self.encode_perfect_frame(EncoderFrameType::KeyingPerfectWordgap)
+    }
+
+    fn get_perfect_dit_ms(&self) -> KeyerEdgeDurationMs {
+        self.perfect_dit_ms
+    }
+
+    fn get_perfect_dah_ms(&self) -> KeyerEdgeDurationMs {
+        self.perfect_dah_ms
+    }
+
+    fn get_perfect_wordgap_ms(&self) -> KeyerEdgeDurationMs {
+        self.perfect_wordgap_ms
     }
 
     fn get_dit_delta_range(&self) -> (KeyerRangeDelta, KeyerRangeDelta) {
@@ -240,16 +262,21 @@ pub fn encode_to_binary(delta: i16, bits: u8) -> u16 {
     if delta >= 0 {
         delta as u16
     } else {
-        let mut mask = 0u16;
-        for i in 0 ..= bits {
-            mask = (mask << 1) | 1;
-        }
-        debug!("<=0    mask is {:#016b}", mask);
+        let mask = mask_n_bits(bits + 1);
+        debug!("<=0    mask is {:#018b}", mask);
 
         let ret = (delta as u16) & mask;
-        debug!("<=0 encoded as {:#016b}", ret);
+        debug!("<=0 encoded as {:#018b}", ret);
         ret
     }
+}
+
+fn mask_n_bits(bits: u8) -> u16 {
+    let mut mask = 0u16;
+    for _ in 0..bits {
+        mask = (mask << 1) | 1;
+    }
+    mask
 }
 
 /// Inverse of encode_to_binary. Given an encoded value and the number of bits of its value (ie not
@@ -259,7 +286,33 @@ pub fn decode_from_binary(encoded: u16, bits: u8) -> i16 {
     if bits < 5 || bits > 9 {
         panic!("Cannot decode with an out of range number of bits ({})", bits);
     }
-    0
+    let mask = mask_n_bits(bits);
+    let mut sign = 1u16;
+    for i in 0..bits {
+        sign <<= 1;
+    }
+    debug!("encoded        {:#018b}", encoded);
+    debug!("sign           {:#018b}", sign);
+    debug!("mask           {:#018b}", mask);
+    let mut ret;
+    if encoded & sign == 0 {
+        ret = encoded as i16;
+    } else {
+        if encoded == 0 {
+            ret = 0
+        } else {
+            ret = -((!(encoded - 1) & mask) as i16);
+        }
+    }
+    if ret > 480 {
+        debug!("decoded ({}) > 480; truncating", ret);
+        ret = 480;
+    } else if ret < -480 {
+        debug!("decoded ({}) < -480; truncating", ret);
+        ret = -480;
+    }
+    debug!("decoded        {:#016b} ({})", ret, ret);
+    ret
 }
 
 #[cfg(test)]
