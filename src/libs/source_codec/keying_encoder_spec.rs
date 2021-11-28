@@ -15,6 +15,7 @@ mod keying_encoder_spec {
     use crate::libs::source_codec::keying_encoder::{dah_encoding_range, decode_from_binary, DefaultKeyingEncoder, dit_encoding_range, encode_to_binary, KeyingEncoder, wordgap_encoding_range};
     use crate::libs::source_codec::keying_encoder::keying_encoder_spec::{PERFECT_DAH_DURATION, PERFECT_DIT_DURATION, PERFECT_WORDGAP_DURATION};
     use crate::libs::source_codec::source_encoding::SourceEncodingBuilder;
+    use crate::libs::util::util::dump_byte_vec;
 
     #[ctor::ctor]
     fn before_each() {
@@ -463,14 +464,6 @@ mod keying_encoder_spec {
         let bytes = fixture.bytes();
         debug!("{}", dump_byte_vec(&bytes));
         assert_eq!(bytes, vec![0b10100000, 0, 0, 0, 0, 0, 0, 0]);
-    }
-
-    fn dump_byte_vec(bytes: &Vec<u8>) -> String {
-        let mut out = vec![];
-        for b in bytes {
-            out.push(format!("{:#010b}", b));
-        }
-        format!("[{}]", out.join(", "))
     }
 
     #[rstest]
