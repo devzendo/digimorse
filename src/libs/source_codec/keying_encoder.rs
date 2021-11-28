@@ -81,7 +81,7 @@ impl DefaultKeyingEncoder {
         }
     }
 
-    fn encode_delta_frame(&mut self, frame_type: EncoderFrameType, delta: i16, encoding_range: (u8, u8)) -> bool {
+    fn encode_delta_frame(&mut self, frame_type: EncoderFrameType, delta: i16, encoding_range: (usize, usize)) -> bool {
         let mut storage = self.storage.write().unwrap();
         let remaining = storage.remaining();
         // if remaining < 4 {
@@ -97,7 +97,7 @@ impl DefaultKeyingEncoder {
             } else {
                 bits = encoding_range.1
             }
-            storage.add_16_bits(encode_to_binary(delta, bits), bits as usize);
+            storage.add_16_bits(encode_to_binary(delta, bits), bits);
         // TODO what if it won't fit?
             return true
         // }
@@ -257,7 +257,7 @@ impl KeyingEncoder for DefaultKeyingEncoder {
 }
 
 // From the table of delta encoding bit ranges per keying speed
-pub fn dit_encoding_range(wpm: KeyerSpeed) -> (u8, u8) {
+pub fn dit_encoding_range(wpm: KeyerSpeed) -> (usize, usize) {
     if wpm >= 5 {
         if wpm <= 9 {
             return (8, 8);
@@ -272,7 +272,7 @@ pub fn dit_encoding_range(wpm: KeyerSpeed) -> (u8, u8) {
     panic!("WPM of {} is out of range in dit_encoding_range", wpm);
 }
 
-pub fn dah_encoding_range(wpm: KeyerSpeed) -> (u8, u8) {
+pub fn dah_encoding_range(wpm: KeyerSpeed) -> (usize, usize) {
     if wpm >= 5 {
         if wpm <= 9 {
             return (8, 9);
@@ -287,7 +287,7 @@ pub fn dah_encoding_range(wpm: KeyerSpeed) -> (u8, u8) {
     panic!("WPM of {} is out of range in dah_encoding_range", wpm);
 }
 
-pub fn wordgap_encoding_range(wpm: KeyerSpeed) -> (u8, u8) {
+pub fn wordgap_encoding_range(wpm: KeyerSpeed) -> (usize, usize) {
     if wpm >= 5 {
         if wpm <= 9 {
             return (9, 9);
@@ -309,8 +309,7 @@ pub fn wordgap_encoding_range(wpm: KeyerSpeed) -> (u8, u8) {
 /// The bits parameter does not include the sign bit, but the output does. The output is not
 /// necessarily sign extended. Users of this should take the 1+bits rightmost bits of the output
 /// to obtain the encoding including sign.
-// TODO bits should probably be a usize
-pub fn encode_to_binary(delta: i16, bits: u8) -> u16 {
+pub fn encode_to_binary(delta: i16, bits: usize) -> u16 {
     if delta < -480 || delta > 480 {
         panic!("Cannot encode an out of range delta ({})", delta);
     }
@@ -340,7 +339,7 @@ pub fn encode_to_binary(delta: i16, bits: u8) -> u16 {
     }
 }
 
-fn mask_n_bits(bits: u8) -> u16 {
+fn mask_n_bits(bits: usize) -> u16 {
     let mut mask = 0u16;
     for _ in 0..bits {
         mask = (mask << 1) | 1;
@@ -351,7 +350,7 @@ fn mask_n_bits(bits: u8) -> u16 {
 /// Inverse of encode_to_binary. Given an encoded value and the number of bits of its value (ie not
 /// including the sign bit), return the signed value encoded in the bits+1 rightmost bits of
 /// encoded. The output will be truncated to the range [-480 .. 480].
-pub fn decode_from_binary(encoded: u16, bits: u8) -> i16 {
+pub fn decode_from_binary(encoded: u16, bits: usize) -> i16 {
     if bits < 5 || bits > 9 {
         panic!("Cannot decode with an out of range number of bits ({})", bits);
     }
