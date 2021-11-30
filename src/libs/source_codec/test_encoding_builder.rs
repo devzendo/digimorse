@@ -83,31 +83,20 @@ pub fn encoded(wpm: KeyerSpeed, frames: &[Frame]) -> Vec<u8> {
                 b.add_8_bits(EncoderFrameType::KeyingPerfectWordgap as u8, 4);
             }
             Frame::KeyingEnd => {
-                unimplemented!();
-                // builder.add_8_bits(EncoderFrameType::KeyingEnd as u8, 4);
+                let mut b = builder.write().unwrap();
+                b.add_8_bits(EncoderFrameType::KeyingEnd as u8, 4);
             }
             Frame::KeyingDeltaDit { delta } => {
-                unimplemented!();
-                // builder.add_8_bits(EncoderFrameType::KeyingDeltaDit as u8, 4);
-                // // TODO size depends on WPM; add sign then abs(delta)
-                // builder.add_16_bits(*delta, 9);
+                keying_encoder.encode_delta_dit((*delta) as i16);
             }
             Frame::KeyingDeltaDah { delta } => {
-                unimplemented!();
-                // builder.add_8_bits(EncoderFrameType::KeyingDeltaDah as u8, 4);
-                // // TODO size depends on WPM; add sign then abs(delta)
-                // builder.add_16_bits(*delta, 9);
+                keying_encoder.encode_delta_dah((*delta) as i16);
             }
             Frame::KeyingDeltaWordgap { delta } => {
-                unimplemented!();
-                // builder.add_8_bits(EncoderFrameType::KeyingDeltaWordgap as u8, 4);
-                // // TODO size depends on WPM; add sign then abs(delta)
-                // builder.add_16_bits(*delta, 9);
+                keying_encoder.encode_delta_wordgap((*delta) as i16);
             }
             Frame::KeyingNaive { duration } => {
-                unimplemented!();
-                // builder.add_8_bits(EncoderFrameType::KeyingNaive as u8, 4);
-                // builder.add_16_bits(*duration, 11);
+                keying_encoder.encode_naive(*duration);
             }
             Frame::Unused => {
                 let mut b = builder.write().unwrap();
@@ -126,7 +115,9 @@ pub fn encoded(wpm: KeyerSpeed, frames: &[Frame]) -> Vec<u8> {
 
 #[cfg(test)]
 mod test_encoding_builder_spec {
+    use log::debug;
     use crate::libs::source_codec::test_encoding_builder::{encoded, Frame};
+    use crate::libs::util::util::dump_byte_vec;
 
     #[test]
     fn encode_wpm_polarity() {
@@ -177,6 +168,60 @@ mod test_encoding_builder_spec {
         assert_eq!(vec,
                    //     F:PA
                    vec![0b00000000, 0, 0, 0, 0, 0, 0, 0]);
+    }
+
+    #[test]
+    fn encode_end() {
+        let vec = encoded(20, &[
+            Frame::KeyingEnd,
+        ]);
+        assert_eq!(vec,
+                   //     F:EN
+                   vec![0b10010000, 0, 0, 0, 0, 0, 0, 0]);
+    }
+
+    #[test]
+    fn encode_delta_dit() {
+        let vec = encoded(20, &[
+            Frame::KeyingDeltaDit { delta: 1 },
+        ]);
+        debug!("{}", dump_byte_vec(&vec));
+        assert_eq!(vec,
+                   //     F:DD
+                   vec![0b10100000, 0b00100000, 0, 0, 0, 0, 0, 0]);
+    }
+
+    #[test]
+    fn encode_delta_dah() {
+        let vec = encoded(20, &[
+            Frame::KeyingDeltaDah { delta: 1 },
+        ]);
+        debug!("{}", dump_byte_vec(&vec));
+        assert_eq!(vec,
+                   //     F:DD
+                   vec![0b10110000, 0b00010000, 0, 0, 0, 0, 0, 0]);
+    }
+
+    #[test]
+    fn encode_delta_wordgap() {
+        let vec = encoded(20, &[
+            Frame::KeyingDeltaWordgap { delta: 1 },
+        ]);
+        debug!("{}", dump_byte_vec(&vec));
+        assert_eq!(vec,
+                   //     F:DW
+                   vec![0b11000000, 0b00010000, 0, 0, 0, 0, 0, 0]);
+    }
+
+    #[test]
+    fn encode_naive() {
+        let vec = encoded(20, &[
+            Frame::KeyingNaive { duration: 16 },
+        ]);
+        debug!("{}", dump_byte_vec(&vec));
+        assert_eq!(vec,
+                   //     F:NE
+                   vec![0b11010000, 0b00100000, 0, 0, 0, 0, 0, 0]);
     }
 }
 
