@@ -84,23 +84,26 @@ impl DefaultKeyingEncoder {
     fn encode_delta_frame(&mut self, frame_type: EncoderFrameType, delta: i16, encoding_range: (usize, usize)) -> bool {
         let mut storage = self.storage.write().unwrap();
         let remaining = storage.remaining();
-        // if remaining < 4 {
-        //     debug!("Insufficient storage ({}) to add {:?}", remaining, frame_type);
-        //     return false
-        // } else {
+        let bits;
+        if delta < 0 {
+            bits = encoding_range.0
+        } else {
+            bits = encoding_range.1
+        }
+        // The full frame size contains the frame type (4), the bits required for the delta (bits)
+        // plus a sign bit.
+        let full_frame_size = 4 + bits + 1;
+        debug!("Full frame of delta encoding is {} bits; {} remain", full_frame_size, remaining);
+        if remaining < full_frame_size {
+            debug!("Insufficient storage ({}) to add {} bits of {:?}", remaining, full_frame_size, frame_type);
+            return false
+        } else {
             debug!("Adding {:?} (remaining before:{})", frame_type, remaining);
             storage.add_8_bits(frame_type as u8, 4);
             // delta can't be 0, else this would be encoded as a perfect
-            let bits;
-            if delta < 0 {
-                bits = encoding_range.0
-            } else {
-                bits = encoding_range.1
-            }
-            storage.add_16_bits(encode_to_binary(delta, bits), bits);
-        // TODO what if it won't fit?
+            storage.add_16_bits(encode_to_binary(delta, bits), bits + 1); // +1 is the sign
             return true
-        // }
+        }
     }
 }
 
@@ -134,18 +137,15 @@ impl KeyingEncoder for DefaultKeyingEncoder {
             let lower_wordgap_bound = wordgap_i16 + self.negative_wordgap_range;
             let upper_wordgap_bound = wordgap_i16 + self.positive_wordgap_range;
             debug!("wordgap range {} .. {}", lower_wordgap_bound, upper_wordgap_bound);
-            if duration_i16 >= lower_dit_bound &&
-                duration_i16 <= upper_dit_bound {
+            if duration_i16 >= lower_dit_bound && duration_i16 <= upper_dit_bound {
                 // It's a delta dit
-                self.encode_delta_dit(keying.duration as i16 - self.perfect_dit_ms as i16);
-            } else if duration_i16 >= lower_dah_bound &&
-                duration_i16 <= upper_dah_bound {
+                return self.encode_delta_dit(keying.duration as i16 - self.perfect_dit_ms as i16);
+            } else if duration_i16 >= lower_dah_bound && duration_i16 <= upper_dah_bound {
                 // It's a delta dah
-                self.encode_delta_dah(keying.duration as i16 - self.perfect_dah_ms as i16);
-            } else if duration_i16 >= lower_wordgap_bound &&
-                duration_i16 <= upper_wordgap_bound {
+                return self.encode_delta_dah(keying.duration as i16 - self.perfect_dah_ms as i16);
+            } else if duration_i16 >= lower_wordgap_bound && duration_i16 <= upper_wordgap_bound {
                 // It's a delta wordgap
-                self.encode_delta_wordgap(keying.duration as i16 - self.perfect_wordgap_ms as i16);
+                return self.encode_delta_wordgap(keying.duration as i16 - self.perfect_wordgap_ms as i16);
             } else {
                 // Nope, use naïve encoding.
             }
@@ -302,13 +302,17 @@ pub fn wordgap_encoding_range(wpm: KeyerSpeed) -> (usize, usize) {
     panic!("WPM of {} is out of range in wordgap_encoding_range", wpm);
 }
 
-/// Given a number in the union of the largest delta range [-480 .. 480], encode it in a number of
-/// bits, returning it in a larger type that can that have quantity of its rightmost bits taken.
+/// Given a number in delta range [-480 .. 480] (see note below), encode it in a given number of
+/// bits, returning it in a suitably sized type. This type can have enough of its rightmost bits
+/// taken to represent the encoded delta.
 /// The output type must be large enough to encode a sign bit plus enough bits to encode 480
 /// (1+9 bits); ie a u16. Negative deltas are encoded using 2's complement binary.
 /// The bits parameter does not include the sign bit, but the output does. The output is not
-/// necessarily sign extended. Users of this should take the 1+bits rightmost bits of the output
+/// sign extended - i.e. for negative outputs, only the sign bit in the output is 1: bits to the
+/// left of the sign bit are 0. Users of this should take the 1+bits rightmost bits of the output
 /// to obtain the encoding including sign.
+/// The input range [-480 .. 480] is formed by taking the union of all the delta ranges, i.e. it
+/// has upper and lower bounds large enough to hold any delta encoding.
 pub fn encode_to_binary(delta: i16, bits: usize) -> u16 {
     if delta < -480 || delta > 480 {
         panic!("Cannot encode an out of range delta ({})", delta);

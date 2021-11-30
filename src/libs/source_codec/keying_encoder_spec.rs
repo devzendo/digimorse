@@ -465,62 +465,82 @@ mod keying_encoder_spec {
     #[rstest]
     pub fn encode_delta_dit_below(mut fixture: KeyingEncoderFixture) {
         assert_eq!(fixture.encoder.encode_keying(&KeyingTimedEvent { up: true, duration: PERFECT_DIT_DURATION - 1 }), true);
-        assert_eq!(fixture.bytes(), vec![0b10101111, 0b11000000, 0, 0, 0, 0, 0, 0]);
+        let bytes = fixture.bytes();
+        debug!("{}", dump_byte_vec(&bytes));
+        assert_eq!(bytes, vec![0b10101111, 0b11100000, 0, 0, 0, 0, 0, 0]);
     }
 
     #[rstest]
     pub fn encode_delta_dit_above(mut fixture: KeyingEncoderFixture) {
         assert_eq!(fixture.encoder.encode_keying(&KeyingTimedEvent { up: true, duration: PERFECT_DIT_DURATION + 1 }), true);
-        assert_eq!(fixture.bytes(), vec![0b10100000, 0b01000000, 0, 0, 0, 0, 0, 0]);
+        let bytes = fixture.bytes();
+        debug!("{}", dump_byte_vec(&bytes));
+        assert_eq!(bytes, vec![0b10100000, 0b00100000, 0, 0, 0, 0, 0, 0]);
     }
 
     #[rstest]
     pub fn encode_delta_dah_below(mut fixture: KeyingEncoderFixture) {
         assert_eq!(fixture.encoder.encode_keying(&KeyingTimedEvent { up: true, duration: PERFECT_DAH_DURATION - 1 }), true);
-        assert_eq!(fixture.bytes(), vec![0b10111111, 0b11000000, 0, 0, 0, 0, 0, 0]);
+        let bytes = fixture.bytes();
+        debug!("{}", dump_byte_vec(&bytes));
+        assert_eq!(bytes, vec![0b10111111, 0b11100000, 0, 0, 0, 0, 0, 0]);
     }
 
     #[rstest]
     pub fn encode_delta_dah_above(mut fixture: KeyingEncoderFixture) {
         assert_eq!(fixture.encoder.encode_keying(&KeyingTimedEvent { up: true, duration: PERFECT_DAH_DURATION + 1 }), true);
-        assert_eq!(fixture.bytes(), vec![0b10110000, 0b00100000, 0, 0, 0, 0, 0, 0]);
+        let bytes = fixture.bytes();
+        debug!("{}", dump_byte_vec(&bytes));
+        assert_eq!(bytes, vec![0b10110000, 0b00010000, 0, 0, 0, 0, 0, 0]);
     }
 
     #[rstest]
     pub fn encode_delta_wordgap_below(mut fixture: KeyingEncoderFixture) {
         assert_eq!(fixture.encoder.encode_keying(&KeyingTimedEvent { up: true, duration: PERFECT_WORDGAP_DURATION - 1 }), true);
-        assert_eq!(fixture.bytes(), vec![0b11001111, 0b11100000, 0, 0, 0, 0, 0, 0]);
+        let bytes = fixture.bytes();
+        debug!("{}", dump_byte_vec(&bytes));
+        assert_eq!(bytes, vec![0b11001111, 0b11110000, 0, 0, 0, 0, 0, 0]);
     }
 
     #[rstest]
     pub fn encode_delta_wordgap_above(mut fixture: KeyingEncoderFixture) {
         assert_eq!(fixture.encoder.encode_keying(&KeyingTimedEvent { up: true, duration: PERFECT_WORDGAP_DURATION + 1 }), true);
-        assert_eq!(fixture.bytes(), vec![0b11000000, 0b00100000, 0, 0, 0, 0, 0, 0]);
+        let bytes = fixture.bytes();
+        debug!("{}", dump_byte_vec(&bytes));
+        assert_eq!(bytes, vec![0b11000000, 0b00010000, 0, 0, 0, 0, 0, 0]);
     }
 
 
     #[rstest]
     pub fn encode_delta_dit_below_min(mut fixture: KeyingEncoderFixture) {
         assert_eq!(fixture.encoder.encode_keying(&KeyingTimedEvent { up: true, duration: PERFECT_DIT_DURATION - 60 }), true);
-        assert_eq!(fixture.bytes(), vec![0b10100001, 0b00000000, 0, 0, 0, 0, 0, 0]);
+        let bytes = fixture.bytes();
+        debug!("{}", dump_byte_vec(&bytes));
+        assert_eq!(bytes, vec![0b10101000, 0b10000000, 0, 0, 0, 0, 0, 0]);
     }
 
     #[rstest]
     pub fn encode_delta_dit_above_max(mut fixture: KeyingEncoderFixture) {
         assert_eq!(fixture.encoder.encode_keying(&KeyingTimedEvent { up: true, duration: PERFECT_DIT_DURATION + 60 }), true);
-        assert_eq!(fixture.bytes(), vec![0b10101111, 0b00000000, 0, 0, 0, 0, 0, 0]);
+        let bytes = fixture.bytes();
+        debug!("{}", dump_byte_vec(&bytes));
+        assert_eq!(bytes, vec![0b10100111, 0b10000000, 0, 0, 0, 0, 0, 0]);
     }
 
     #[rstest]
     pub fn encode_delta_dah_below_min(mut fixture: KeyingEncoderFixture) {
         assert_eq!(fixture.encoder.encode_keying(&KeyingTimedEvent { up: true, duration: PERFECT_DAH_DURATION - 59 }), true);
-        assert_eq!(fixture.bytes(), vec![0b10110001, 0b01000000, 0, 0, 0, 0, 0, 0]);
+        let bytes = fixture.bytes();
+        debug!("{}", dump_byte_vec(&bytes));
+        assert_eq!(bytes, vec![0b10111000, 0b10100000, 0, 0, 0, 0, 0, 0]);
     }
 
     #[rstest]
     pub fn encode_delta_dah_above_max(mut fixture: KeyingEncoderFixture) {
         assert_eq!(fixture.encoder.encode_keying(&KeyingTimedEvent { up: true, duration: PERFECT_DAH_DURATION + 119 }), true);
-        assert_eq!(fixture.bytes(), vec![0b10111110, 0b11100000, 0, 0, 0, 0, 0, 0]);
+        let bytes = fixture.bytes();
+        debug!("{}", dump_byte_vec(&bytes));
+        assert_eq!(bytes, vec![0b10110111, 0b01110000, 0, 0, 0, 0, 0, 0]);
     }
 
     #[rstest]
@@ -528,16 +548,42 @@ mod keying_encoder_spec {
         assert_eq!(fixture.encoder.encode_keying(&KeyingTimedEvent { up: true, duration: PERFECT_WORDGAP_DURATION - 120 }), true);
         let bytes = fixture.bytes();
         debug!("{}", dump_byte_vec(&bytes));
-        assert_eq!(bytes, vec![0b11000001, 0b00000000, 0, 0, 0, 0, 0, 0]);
+        assert_eq!(bytes, vec![0b11001000, 0b10000000, 0, 0, 0, 0, 0, 0]);
     }
 
     #[rstest]
     pub fn encode_delta_wordgap_above_max(mut fixture: KeyingEncoderFixture) {
         assert_eq!(fixture.encoder.encode_keying(&KeyingTimedEvent { up: true, duration: PERFECT_WORDGAP_DURATION + 120 }), true);
-        assert_eq!(fixture.bytes(), vec![0b11001111, 0b00000000, 0, 0, 0, 0, 0, 0]);
+        let bytes = fixture.bytes();
+        debug!("{}", dump_byte_vec(&bytes));
+        assert_eq!(bytes, vec![0b11000111, 0b10000000, 0, 0, 0, 0, 0, 0]);
     }
 
-    // TODO delta_keying_wont_fit_in_block_so_returns_false(mut fixture: KeyingEncoderFixture) {
+    #[rstest]
+    fn delta_keying_negative_wont_fit_in_block_so_returns_false(mut fixture: KeyingEncoderFixture) {
+        // Using dah here with a negative delta so that the lower-sized encoding (at 20WPM, 6 bits)
+        // is used.
+        assert_eq!(fixture.encoder.encode_keying(&KeyingTimedEvent { up: true, duration: PERFECT_DAH_DURATION - 10 }), true);
+        assert_eq!(fixture.encoder.encode_keying(&KeyingTimedEvent { up: false, duration: PERFECT_DAH_DURATION - 11 }), true);
+        assert_eq!(fixture.encoder.encode_keying(&KeyingTimedEvent { up: true, duration: PERFECT_DAH_DURATION - 12 }), true);
+        assert_eq!(fixture.encoder.encode_keying(&KeyingTimedEvent { up: false, duration: PERFECT_DAH_DURATION - 13 }), true);
+        assert_eq!(fixture.encoder.encode_keying(&KeyingTimedEvent { up: true, duration: PERFECT_DAH_DURATION - 14 }), true);
+        // This one won't fit in the block..
+        assert_eq!(fixture.encoder.encode_keying(&KeyingTimedEvent { up: false, duration: PERFECT_DAH_DURATION - 15 }), false);
+    }
+
+    #[rstest]
+    fn delta_keying_positive_wont_fit_in_block_so_returns_false(mut fixture: KeyingEncoderFixture) {
+        // Using dah here with a positive delta so that the higher-sized encoding (at 20WPM, 7 bits)
+        // is used.
+        assert_eq!(fixture.encoder.encode_keying(&KeyingTimedEvent { up: true, duration: PERFECT_DAH_DURATION + 10 }), true);
+        assert_eq!(fixture.encoder.encode_keying(&KeyingTimedEvent { up: false, duration: PERFECT_DAH_DURATION + 11 }), true);
+        assert_eq!(fixture.encoder.encode_keying(&KeyingTimedEvent { up: true, duration: PERFECT_DAH_DURATION + 12 }), true);
+        assert_eq!(fixture.encoder.encode_keying(&KeyingTimedEvent { up: false, duration: PERFECT_DAH_DURATION + 13 }), true);
+        assert_eq!(fixture.encoder.encode_keying(&KeyingTimedEvent { up: true, duration: PERFECT_DAH_DURATION + 14 }), true);
+        // This one won't fit in the block..
+        assert_eq!(fixture.encoder.encode_keying(&KeyingTimedEvent { up: false, duration: PERFECT_DAH_DURATION + 15 }), false);
+    }
 
     // TODO what about quantisation?
 
