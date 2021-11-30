@@ -225,30 +225,6 @@ impl KeyingEncoder for DefaultKeyingEncoder {
         self.keyer_speed
     }
 
-    fn encode_perfect_dit(&mut self) -> bool {
-        self.encode_perfect_frame(EncoderFrameType::KeyingPerfectDit)
-    }
-
-    fn encode_perfect_dah(&mut self) -> bool {
-        self.encode_perfect_frame(EncoderFrameType::KeyingPerfectDah)
-    }
-
-    fn encode_perfect_wordgap(&mut self) -> bool {
-        self.encode_perfect_frame(EncoderFrameType::KeyingPerfectWordgap)
-    }
-
-    fn encode_delta_dit(&mut self, delta: i16) -> bool {
-        self.encode_delta_frame(EncoderFrameType::KeyingDeltaDit, delta, dit_encoding_range(self.keyer_speed))
-    }
-
-    fn encode_delta_dah(&mut self, delta: i16) -> bool {
-        self.encode_delta_frame(EncoderFrameType::KeyingDeltaDah, delta, dah_encoding_range(self.keyer_speed))
-    }
-
-    fn encode_delta_wordgap(&mut self, delta: i16) -> bool {
-        self.encode_delta_frame(EncoderFrameType::KeyingDeltaWordgap, delta, wordgap_encoding_range(self.keyer_speed))
-    }
-
     fn get_perfect_dit_ms(&self) -> KeyerEdgeDurationMs {
         self.perfect_dit_ms
     }
@@ -271,6 +247,30 @@ impl KeyingEncoder for DefaultKeyingEncoder {
 
     fn get_wordgap_delta_range(&self) -> (KeyerRangeDelta, KeyerRangeDelta) {
         (self.negative_wordgap_range, self.positive_wordgap_range)
+    }
+
+    fn encode_perfect_dit(&mut self) -> bool {
+        self.encode_perfect_frame(EncoderFrameType::KeyingPerfectDit)
+    }
+
+    fn encode_perfect_dah(&mut self) -> bool {
+        self.encode_perfect_frame(EncoderFrameType::KeyingPerfectDah)
+    }
+
+    fn encode_perfect_wordgap(&mut self) -> bool {
+        self.encode_perfect_frame(EncoderFrameType::KeyingPerfectWordgap)
+    }
+
+    fn encode_delta_dit(&mut self, delta: i16) -> bool {
+        self.encode_delta_frame(EncoderFrameType::KeyingDeltaDit, delta, dit_encoding_range(self.keyer_speed))
+    }
+
+    fn encode_delta_dah(&mut self, delta: i16) -> bool {
+        self.encode_delta_frame(EncoderFrameType::KeyingDeltaDah, delta, dah_encoding_range(self.keyer_speed))
+    }
+
+    fn encode_delta_wordgap(&mut self, delta: i16) -> bool {
+        self.encode_delta_frame(EncoderFrameType::KeyingDeltaWordgap, delta, wordgap_encoding_range(self.keyer_speed))
     }
 }
 
