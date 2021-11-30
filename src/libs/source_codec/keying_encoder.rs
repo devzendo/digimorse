@@ -45,10 +45,16 @@ pub struct DefaultKeyingEncoder {
     perfect_wordgap_ms: KeyerEdgeDurationMs,
     negative_dit_range: KeyerRangeDelta,
     positive_dit_range: KeyerRangeDelta,
+    lower_dit_bound: KeyerEdgeDurationMs,
+    upper_dit_bound: KeyerEdgeDurationMs,
     negative_dah_range: KeyerRangeDelta,
     positive_dah_range: KeyerRangeDelta,
+    lower_dah_bound: KeyerEdgeDurationMs,
+    upper_dah_bound: KeyerEdgeDurationMs,
     negative_wordgap_range: KeyerRangeDelta,
     positive_wordgap_range: KeyerRangeDelta,
+    lower_wordgap_bound: KeyerEdgeDurationMs,
+    upper_wordgap_bound: KeyerEdgeDurationMs,
 }
 
 impl DefaultKeyingEncoder {
@@ -61,10 +67,16 @@ impl DefaultKeyingEncoder {
             perfect_wordgap_ms: 0,
             negative_dit_range: 0,
             positive_dit_range: 0,
+            lower_dit_bound: 0,
+            upper_dit_bound: 0,
             negative_dah_range: 0,
             positive_dah_range: 0,
+            lower_dah_bound: 0,
+            upper_dah_bound: 0,
             negative_wordgap_range: 0,
             positive_wordgap_range: 0,
+            lower_wordgap_bound: 0,
+            upper_wordgap_bound: 0
         }
     }
 
@@ -123,27 +135,13 @@ impl KeyingEncoder for DefaultKeyingEncoder {
             return self.encode_perfect_wordgap();
         } else {
             // Can we use delta encoding? Is this duration within the ranges?
-            // TODO cache these intervals and i16s..
-            let duration_i16 = keying.duration as i16;
-            let dit_i16 = self.perfect_dit_ms as i16;
-            let dah_i16 = self.perfect_dah_ms as i16;
-            let wordgap_i16 = self.perfect_wordgap_ms as i16;
-            let lower_dit_bound = dit_i16 + self.negative_dit_range;
-            let upper_dit_bound = dit_i16 + self.positive_dit_range;
-            debug!("dit range {} .. {}", lower_dit_bound, upper_dit_bound);
-            let lower_dah_bound = dah_i16 + self.negative_dah_range;
-            let upper_dah_bound = dah_i16 + self.positive_dah_range;
-            debug!("dah range {} .. {}", lower_dah_bound, upper_dah_bound);
-            let lower_wordgap_bound = wordgap_i16 + self.negative_wordgap_range;
-            let upper_wordgap_bound = wordgap_i16 + self.positive_wordgap_range;
-            debug!("wordgap range {} .. {}", lower_wordgap_bound, upper_wordgap_bound);
-            if duration_i16 >= lower_dit_bound && duration_i16 <= upper_dit_bound {
+            if keying.duration >= self.lower_dit_bound && keying.duration <= self.upper_dit_bound {
                 // It's a delta dit
                 return self.encode_delta_dit(keying.duration as i16 - self.perfect_dit_ms as i16);
-            } else if duration_i16 >= lower_dah_bound && duration_i16 <= upper_dah_bound {
+            } else if keying.duration >= self.lower_dah_bound && keying.duration <= self.upper_dah_bound {
                 // It's a delta dah
                 return self.encode_delta_dah(keying.duration as i16 - self.perfect_dah_ms as i16);
-            } else if duration_i16 >= lower_wordgap_bound && duration_i16 <= upper_wordgap_bound {
+            } else if keying.duration >= self.lower_wordgap_bound && keying.duration <= self.upper_wordgap_bound {
                 // It's a delta wordgap
                 return self.encode_delta_wordgap(keying.duration as i16 - self.perfect_wordgap_ms as i16);
             } else {
@@ -167,11 +165,17 @@ impl KeyingEncoder for DefaultKeyingEncoder {
             self.negative_wordgap_range = 0;
             self.positive_wordgap_range = 0;
 
+            self.lower_dit_bound = 0;
+            self.upper_dit_bound = 0;
+            self.lower_dah_bound = 0;
+            self.upper_dah_bound = 0;
+            self.lower_wordgap_bound = 0;
+            self.upper_wordgap_bound = 0;
         } else {
             let decimal_dit_ms = 1200f32 / speed as f32;
             let decimal_dah_ms = decimal_dit_ms * 3f32;
             let decimal_wordgap_ms = decimal_dit_ms * 7f32;
-            debug!("decimal_dit_ms is {}", decimal_dit_ms);
+            //debug!("decimal_dit_ms is {}", decimal_dit_ms);
             let dit = decimal_dit_ms as u16; // funky...
             self.perfect_dit_ms = decimal_dit_ms as KeyerEdgeDurationMs;
             self.perfect_dah_ms = decimal_dah_ms as KeyerEdgeDurationMs;
@@ -182,7 +186,7 @@ impl KeyingEncoder for DefaultKeyingEncoder {
             // See docs/Morse speeds.xlsx for the derivations of these.
             let dit_dah_midpoint = decimal_dah_ms - decimal_dit_ms;
             let dah_wordgap_midpoint = decimal_dah_ms + ((decimal_wordgap_ms - decimal_dah_ms)/2f32);
-            debug!("dit_dah_midpoint {}, dah_wordgap_midpoint {}", dit_dah_midpoint, dah_wordgap_midpoint);
+            //debug!("dit_dah_midpoint {}, dah_wordgap_midpoint {}", dit_dah_midpoint, dah_wordgap_midpoint);
             // There will be non-null intersections between the three, so I've shrunk the middle dah
             // range on either end by one. Then the three ranges are disjoint. This diverges from
             // the docs/Morse speeds.xlsx spreadsheet.
@@ -192,15 +196,29 @@ impl KeyingEncoder for DefaultKeyingEncoder {
             self.positive_dah_range = (dah_wordgap_midpoint - decimal_dah_ms) as i16 - 1;
             self.negative_wordgap_range = -(decimal_wordgap_ms - dah_wordgap_midpoint) as i16;
             self.positive_wordgap_range = min(367, -(self.negative_wordgap_range));
+            // Delta encoding bounds...
+            let dit_i16 = self.perfect_dit_ms as i16;
+            let dah_i16 = self.perfect_dah_ms as i16;
+            let wordgap_i16 = self.perfect_wordgap_ms as i16;
+            self.lower_dit_bound = (dit_i16 + self.negative_dit_range) as KeyerEdgeDurationMs;
+            self.upper_dit_bound = (dit_i16 + self.positive_dit_range) as KeyerEdgeDurationMs;
+            self.lower_dah_bound = (dah_i16 + self.negative_dah_range) as KeyerEdgeDurationMs;
+            self.upper_dah_bound = (dah_i16 + self.positive_dah_range) as KeyerEdgeDurationMs;
+            self.lower_wordgap_bound = (wordgap_i16 + self.negative_wordgap_range) as KeyerEdgeDurationMs;
+            self.upper_wordgap_bound = (wordgap_i16 + self.positive_wordgap_range) as KeyerEdgeDurationMs;
         }
         debug!("KeyingEncoder speed set to {} WPM; dit: {}ms dah: {}ms wordgap: {}ms", self
             .keyer_speed,
             self.perfect_dit_ms, self.perfect_dah_ms, self.perfect_wordgap_ms);
-        debug!("Delta dit ({}, {}) dah ({}, {}), wordgap ({}, {})",
+        debug!("Delta dit [{} .. {}] dah [{} .. {}], wordgap [{} .. {}]",
             self.negative_dit_range, self.positive_dit_range,
             self.negative_dah_range, self.positive_dah_range,
             self.negative_wordgap_range, self.positive_wordgap_range
         );
+        debug!("Duration dit [{} .. {}]ms dah [{} .. {}]ms wordgap [{} .. {}]ms",
+            self.lower_dit_bound, self.upper_dit_bound,
+            self.lower_dah_bound, self.upper_dah_bound,
+            self.lower_wordgap_bound, self.upper_wordgap_bound);
     }
 
     fn get_keyer_speed(&self) -> KeyerSpeed {
