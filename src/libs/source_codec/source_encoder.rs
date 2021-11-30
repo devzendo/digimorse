@@ -199,7 +199,7 @@ impl SourceEncoderShared {
                         debug!("Polarity after encoding is {}", if self.is_mark { "MARK" } else { "SPACE"});
                         break;
                     } else {
-                        let mut storage = self.storage.write().unwrap();
+                        let storage = self.storage.write().unwrap();
                         let remaining = storage.remaining();
                         mem::drop(storage);
                         debug!("Insufficient space ({}) to encode keying", remaining);

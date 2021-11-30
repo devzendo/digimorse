@@ -114,7 +114,7 @@ mod source_encoder_spec {
         }
     }
 
-    fn expect_block_with_expected_end(mut fixture: &mut SourceEncoderFixture, expected_end: bool) {
+    fn expect_block_with_expected_end(fixture: &mut SourceEncoderFixture, expected_end: bool) {
         match fixture.source_encoder_rx.recv_timeout(Duration::from_secs(1)) {
             Ok(encoding) => {
                 info!("Received SourceEncoding of {}", encoding);
@@ -176,7 +176,7 @@ mod source_encoder_spec {
         });
     }
 
-    fn start_single_dit_emit(mut fixture: &mut SourceEncoderFixture) {
+    fn start_single_dit_emit(fixture: &mut SourceEncoderFixture) {
         fixture.source_encoder.set_keyer_speed(20);
         wait_5_ms();
 
