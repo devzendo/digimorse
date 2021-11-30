@@ -83,13 +83,13 @@ impl DefaultKeyingEncoder {
     fn encode_perfect_frame(&mut self, frame_type: EncoderFrameType) -> bool {
         let mut storage = self.storage.write().unwrap();
         let remaining = storage.remaining();
-        if remaining < 4 {
+        return if remaining < 4 {
             debug!("Insufficient storage ({}) to add {:?}", remaining, frame_type);
-            return false
+            false
         } else {
             debug!("Adding {:?} (remaining before:{})", frame_type, remaining);
             storage.add_8_bits(frame_type as u8, 4);
-            return true
+            true
         }
     }
 
@@ -106,15 +106,15 @@ impl DefaultKeyingEncoder {
         // plus a sign bit.
         let full_frame_size = 4 + bits + 1;
         debug!("Full frame of delta encoding is {} bits; {} remain", full_frame_size, remaining);
-        if remaining < full_frame_size {
+        return if remaining < full_frame_size {
             debug!("Insufficient storage ({}) to add {} bits of {:?}", remaining, full_frame_size, frame_type);
-            return false
+            false
         } else {
             debug!("Adding {:?} (remaining before:{})", frame_type, remaining);
             storage.add_8_bits(frame_type as u8, 4);
             // delta can't be 0, else this would be encoded as a perfect
             storage.add_16_bits(encode_to_binary(delta, bits), bits + 1); // +1 is the sign
-            return true
+            true
         }
     }
 }
