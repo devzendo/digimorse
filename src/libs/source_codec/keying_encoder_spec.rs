@@ -585,6 +585,33 @@ mod keying_encoder_spec {
         assert_eq!(fixture.encoder.encode_keying(&KeyingTimedEvent { up: false, duration: PERFECT_DAH_DURATION + 15 }), false);
     }
 
+    // Naïve encoding ------------------------------------------------------------------------------
+
+    #[rstest]
+    #[should_panic]
+    pub fn encode_naive_wordgap_out_of_bounds(mut fixture: KeyingEncoderFixture) {
+        fixture.encoder.set_keyer_speed(5);
+        fixture.encoder.encode_keying(&KeyingTimedEvent { up: true, duration: 1680 + 368 });
+    }
+
+    #[rstest]
+    pub fn encode_naive_wordgap(mut fixture: KeyingEncoderFixture) {
+        assert_eq!(fixture.encoder.encode_keying(&KeyingTimedEvent { up: true, duration: PERFECT_WORDGAP_DURATION + 121 }), true);
+        let bytes = fixture.bytes();
+        debug!("{}", dump_byte_vec(&bytes));
+        assert_eq!(bytes, vec![0b11010100, 0b00111010, 0, 0, 0, 0, 0, 0]);
+    }
+
+    #[rstest]
+    fn naive_wont_fit_in_block_so_returns_false(mut fixture: KeyingEncoderFixture) {
+        assert_eq!(fixture.encoder.encode_keying(&KeyingTimedEvent { up: true, duration: PERFECT_WORDGAP_DURATION + 121 }), true);
+        assert_eq!(fixture.encoder.encode_keying(&KeyingTimedEvent { up: false, duration: PERFECT_WORDGAP_DURATION + 122 }), true);
+        assert_eq!(fixture.encoder.encode_keying(&KeyingTimedEvent { up: true, duration: PERFECT_WORDGAP_DURATION + 123 }), true);
+        assert_eq!(fixture.encoder.encode_keying(&KeyingTimedEvent { up: false, duration: PERFECT_WORDGAP_DURATION + 124 }), true);
+        // This one won't fit in the block..
+        assert_eq!(fixture.encoder.encode_keying(&KeyingTimedEvent { up: true, duration: PERFECT_WORDGAP_DURATION + 125 }), false);
+    }
+
     // TODO what about quantisation?
 
     // TODO delta wordgap at 5WPM above 367 is encoded as a naïve encoding.

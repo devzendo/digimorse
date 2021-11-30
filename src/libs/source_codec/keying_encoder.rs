@@ -34,6 +34,7 @@ pub trait KeyingEncoder {
     fn encode_delta_dit(&mut self, delta: i16) -> bool;
     fn encode_delta_dah(&mut self, delta: i16) -> bool;
     fn encode_delta_wordgap(&mut self, delta: i16) -> bool;
+    fn encode_naive(&mut self, duration: KeyerEdgeDurationMs) -> bool;
 }
 
 
@@ -146,9 +147,9 @@ impl KeyingEncoder for DefaultKeyingEncoder {
                 return self.encode_delta_wordgap(keying.duration as i16 - self.perfect_wordgap_ms as i16);
             } else {
                 // Nope, use naïve encoding.
+                return self.encode_naive(keying.duration);
             }
         }
-        true
     }
 
     fn set_keyer_speed(&mut self, speed: KeyerSpeed) {
@@ -271,6 +272,24 @@ impl KeyingEncoder for DefaultKeyingEncoder {
 
     fn encode_delta_wordgap(&mut self, delta: i16) -> bool {
         self.encode_delta_frame(EncoderFrameType::KeyingDeltaWordgap, delta, wordgap_encoding_range(self.keyer_speed))
+    }
+
+    fn encode_naive(&mut self, duration: KeyerEdgeDurationMs) -> bool {
+        if duration > 2047 {
+            panic!("Duration of {} cannot be encoded in 11 bits", duration);
+        }
+        let mut storage = self.storage.write().unwrap();
+        let remaining = storage.remaining();
+        return if remaining < 15 {
+            debug!("Insufficient storage ({}) to add 15 bits of {:?}", remaining, EncoderFrameType::KeyingNaive);
+            false
+        } else {
+            debug!("Adding {:?} duration {} (remaining before:{})", EncoderFrameType::KeyingNaive, duration, remaining);
+            storage.add_8_bits(EncoderFrameType::KeyingNaive as u8, 4);
+            // delta can't be 0, else this would be encoded as a perfect
+            storage.add_16_bits(duration, 11);
+            true
+        }
     }
 }
 
