@@ -209,6 +209,7 @@ impl SourceEncoderShared {
                 }
             }
             KeyingEvent::End() => {
+                // TODO encode a keying end event
                 // Set the end of the storage
                 self.storage.write().unwrap().set_end();
             }

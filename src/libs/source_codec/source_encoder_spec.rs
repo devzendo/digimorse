@@ -475,12 +475,17 @@ mod source_encoder_spec {
             wait_5_ms();
 
             fixture.keying_event_tx.broadcast(KeyingEvent::Start());
+            // Perfects
             fixture.keying_event_tx.broadcast(KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 60 }));
             fixture.keying_event_tx.broadcast(KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 180 }));
             fixture.keying_event_tx.broadcast(KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 420 }));
-            // fixture.keying_event_tx.broadcast(KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 60 }));
-            // fixture.keying_event_tx.broadcast(KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 60 }));
-            // fixture.keying_event_tx.broadcast(KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 60 }));
+            // Deltas
+            fixture.keying_event_tx.broadcast(KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 65 }));
+            fixture.keying_event_tx.broadcast(KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 175 }));
+            fixture.keying_event_tx.broadcast(KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 425 }));
+            // Naïve
+            fixture.keying_event_tx.broadcast(KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 600 }));
+// TODO            fixture.keying_event_tx.broadcast(KeyingEvent::End());
             // fixture.keying_event_tx.broadcast(KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 60 }));
             // fixture.keying_event_tx.broadcast(KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 60 }));
             // fixture.keying_event_tx.broadcast(KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 60 }));
@@ -505,6 +510,11 @@ mod source_encoder_spec {
                         Frame::KeyingPerfectDit,
                         Frame::KeyingPerfectDah,
                         Frame::KeyingPerfectWordgap,
+                        Frame::KeyingDeltaDit { delta: 5 },
+                        Frame::KeyingDeltaDah { delta: -5 },
+                        Frame::KeyingDeltaWordgap { delta: 5 },
+                        Frame::KeyingNaive { duration: 600 },
+// TODO                        Frame::KeyingEnd,
                     ]);
                     assert_eq!(vec, expected_encoding);
                 }
