@@ -2,21 +2,10 @@ extern crate hamcrest2;
 
 #[cfg(test)]
 mod source_decoder_spec {
-    use std::{env, thread};
-    use std::sync::Arc;
-    use std::sync::atomic::{AtomicBool, Ordering};
-    use std::time::Duration;
-
-    use bus::{Bus, BusReader};
-    use hamcrest2::prelude::*;
-    use log::{debug, info};
-    use rstest::*;
-
-    use crate::libs::keyer_io::keyer_io::{KeyerSpeed, KeyingEvent, KeyingTimedEvent};
-    use crate::libs::source_codec::source_encoder::SourceEncoder;
-    use crate::libs::source_codec::source_encoding::{Frame, SOURCE_ENCODER_BLOCK_SIZE_IN_BITS};
+    use std::env;
+    use crate::libs::source_codec::source_decoder::source_decode;
+    use crate::libs::source_codec::source_encoding::Frame;
     use crate::libs::source_codec::test_encoding_builder::encoded;
-    use crate::libs::util::test_util;
 
     #[ctor::ctor]
     fn before_each() {
@@ -26,4 +15,22 @@ mod source_decoder_spec {
 
     #[ctor::dtor]
     fn after_each() {}
+
+    #[test]
+    pub fn decode_emptiness() {
+        let block = encoded(20, &[]);
+        let expected_frames = vec![];
+        assert_decoded_eq(block, expected_frames)
+    }
+
+    fn assert_decoded_eq(block: Vec<u8>, expected_frames: Vec<Frame>) {
+        match source_decode(block) {
+            Ok(frames) => {
+                assert_eq!(frames, expected_frames);
+            }
+            Err(e) => {
+                panic!("Should not fail with {}", e);
+            }
+        }
+    }
 }
