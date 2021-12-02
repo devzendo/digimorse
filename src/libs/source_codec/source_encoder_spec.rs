@@ -2,17 +2,19 @@ extern crate hamcrest2;
 
 #[cfg(test)]
 mod source_encoder_spec {
-    use crate::libs::keyer_io::keyer_io::{KeyingEvent, KeyerSpeed, KeyingTimedEvent};
-    use crate::libs::source_codec::source_encoder::{SourceEncoder, SourceEncoding};
-    use crate::libs::source_codec::source_encoding::{SOURCE_ENCODER_BLOCK_SIZE_IN_BITS};
-    use bus::{Bus, BusReader};
-    use log::{debug, info};
-    use hamcrest2::prelude::*;
-    use rstest::*;
     use std::{env, thread};
     use std::sync::Arc;
     use std::sync::atomic::{AtomicBool, Ordering};
     use std::time::Duration;
+
+    use bus::{Bus, BusReader};
+    use hamcrest2::prelude::*;
+    use log::{debug, info};
+    use rstest::*;
+
+    use crate::libs::keyer_io::keyer_io::{KeyerSpeed, KeyingEvent, KeyingTimedEvent};
+    use crate::libs::source_codec::source_encoder::{SourceEncoder, SourceEncoding};
+    use crate::libs::source_codec::source_encoding::SOURCE_ENCODER_BLOCK_SIZE_IN_BITS;
     use crate::libs::source_codec::test_encoding_builder::{encoded, Frame};
     use crate::libs::util::test_util;
 
@@ -24,10 +26,6 @@ mod source_encoder_spec {
 
     #[ctor::dtor]
     fn after_each() {}
-
-    fn wait_5_ms() {
-        thread::sleep(Duration::from_millis(5));
-    }
 
     pub struct SourceEncoderFixture {
         terminate: Arc<AtomicBool>,
@@ -46,7 +44,7 @@ mod source_encoder_spec {
         let source_encoder = SourceEncoder::new(keying_event_rx, source_encoder_tx, terminate.clone());
 
         info!("Fixture setup sleeping");
-        wait_5_ms(); // give things time to start
+        test_util::wait_5_ms(); // give things time to start
         info!("Fixture setup out of sleep");
 
         SourceEncoderFixture {
@@ -61,7 +59,7 @@ mod source_encoder_spec {
         fn drop(&mut self) {
             debug!("SourceEncoderFixture setting terminate flag...");
             self.terminate.store(true, Ordering::SeqCst);
-            wait_5_ms();
+            test_util::wait_5_ms();
             debug!("SourceEncoderFixture ...set terminate flag");
         }
     }
@@ -84,7 +82,7 @@ mod source_encoder_spec {
     fn emit_after_no_keying_data_emits_nothing(mut fixture: SourceEncoderFixture) {
         test_util::panic_after(Duration::from_secs(2), move || {
             fixture.source_encoder.emit();
-            wait_5_ms();
+            test_util::wait_5_ms();
 
             should_timeout(fixture)
         });
@@ -94,9 +92,9 @@ mod source_encoder_spec {
     fn emit_after_just_start_keying_data_emits_nothing(mut fixture: SourceEncoderFixture) {
         test_util::panic_after(Duration::from_secs(2), move || {
             fixture.keying_event_tx.broadcast(KeyingEvent::Start());
-            wait_5_ms();
+            test_util::wait_5_ms();
             fixture.source_encoder.emit();
-            wait_5_ms();
+            test_util::wait_5_ms();
 
             should_timeout(fixture)
         });
@@ -177,15 +175,15 @@ mod source_encoder_spec {
 
     fn start_single_dit_emit(fixture: &mut SourceEncoderFixture) {
         fixture.source_encoder.set_keyer_speed(20);
-        wait_5_ms();
+        test_util::wait_5_ms();
 
         fixture.keying_event_tx.broadcast(KeyingEvent::Start());
         // A precise dit at 20WPM is 60ms long.
         fixture.keying_event_tx.broadcast(KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 60 }));
-        wait_5_ms();
+        test_util::wait_5_ms();
 
         fixture.source_encoder.emit();
-        wait_5_ms();
+        test_util::wait_5_ms();
     }
 
     #[rstest]
@@ -204,9 +202,9 @@ mod source_encoder_spec {
             fixture.keying_event_tx.broadcast(KeyingEvent::Timed(KeyingTimedEvent { up: true,
                 duration: 60 }));
 
-            wait_5_ms();
+            test_util::wait_5_ms();
             fixture.source_encoder.emit();
-            wait_5_ms();
+            test_util::wait_5_ms();
 
             match fixture.source_encoder_rx.recv_timeout(Duration::from_secs(1)) {
                 Ok(encoding) => {
@@ -229,12 +227,12 @@ mod source_encoder_spec {
     fn keyer_speed_is_passed_to_the_keying_encoder_and_causes_another_wpmpolarity_to_be_emitted(mut fixture: SourceEncoderFixture) {
         test_util::panic_after(Duration::from_secs(2), move || {
             fixture.source_encoder.set_keyer_speed(20);
-            wait_5_ms();
+            test_util::wait_5_ms();
 
             fixture.keying_event_tx.broadcast(KeyingEvent::Start());
             // A precise dit at 20WPM is 60ms long.
             fixture.keying_event_tx.broadcast(KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 60 }));
-            wait_5_ms();
+            test_util::wait_5_ms();
 
             // Should see a WPM/Polarity and a perfect dit. Change speed, send another perfect dit
             // at that speed - should get another WPN/Polarity and a second perfect dit.
@@ -242,9 +240,9 @@ mod source_encoder_spec {
             // inter-element dit
             fixture.keying_event_tx.broadcast(KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 30 }));
 
-            wait_5_ms();
+            test_util::wait_5_ms();
             fixture.source_encoder.emit();
-            wait_5_ms();
+            test_util::wait_5_ms();
 
             match fixture.source_encoder_rx.recv_timeout(Duration::from_secs(1)) {
                 Ok(encoding) => {
@@ -266,7 +264,7 @@ mod source_encoder_spec {
     keyer_speed_changes_near_end_of_block_and_wpmpolarity_wont_fit_so_first_block_is_emitted_and_wpmpolarity_and_keying_is_in_second_block(mut fixture: SourceEncoderFixture) {
         test_util::panic_after(Duration::from_secs(2), move || {
             fixture.source_encoder.set_keyer_speed(20);
-            wait_5_ms();
+            test_util::wait_5_ms();
 
             fixture.keying_event_tx.broadcast(KeyingEvent::Start());
             fixture.keying_event_tx.broadcast(KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 60 }));
@@ -281,7 +279,7 @@ mod source_encoder_spec {
             fixture.keying_event_tx.broadcast(KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 60 }));
             fixture.keying_event_tx.broadcast(KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 60 }));
             fixture.keying_event_tx.broadcast(KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 60 }));
-            wait_5_ms();
+            test_util::wait_5_ms();
 
             // First frame should see a WPM/Polarity and some perfect dits, then padding.
             //
@@ -292,9 +290,9 @@ mod source_encoder_spec {
             // inter-element dit
             fixture.keying_event_tx.broadcast(KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 30 }));
 
-            wait_5_ms();
+            test_util::wait_5_ms();
             fixture.source_encoder.emit();
-            wait_5_ms();
+            test_util::wait_5_ms();
 
             // Block 1
             match fixture.source_encoder_rx.recv_timeout(Duration::from_secs(1)) {
@@ -332,7 +330,7 @@ mod source_encoder_spec {
     fn keying_wont_fit_in_first_block_so_goes_in_next_block_after_wpmpolarity(mut fixture: SourceEncoderFixture) {
         test_util::panic_after(Duration::from_secs(2), move || {
             fixture.source_encoder.set_keyer_speed(20);
-            wait_5_ms();
+            test_util::wait_5_ms();
 
             fixture.keying_event_tx.broadcast(KeyingEvent::Start());
             fixture.keying_event_tx.broadcast(KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 60 }));
@@ -351,9 +349,9 @@ mod source_encoder_spec {
             // This one won't fit in the block..
             fixture.keying_event_tx.broadcast(KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 60 }));
 
-            wait_5_ms();
+            test_util::wait_5_ms();
             fixture.source_encoder.emit();
-            wait_5_ms();
+            test_util::wait_5_ms();
 
             // Block 1
             match fixture.source_encoder_rx.recv_timeout(Duration::from_secs(1)) {
@@ -392,15 +390,15 @@ mod source_encoder_spec {
                                                                                   SourceEncoderFixture) {
         test_util::panic_after(Duration::from_secs(2), move || {
             fixture.source_encoder.set_keyer_speed(20);
-            wait_5_ms();
+            test_util::wait_5_ms();
 
             fixture.keying_event_tx.broadcast(KeyingEvent::Start());
             fixture.keying_event_tx.broadcast(KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 60 }));
-            wait_5_ms();
+            test_util::wait_5_ms();
             fixture.source_encoder.emit();
-            wait_5_ms();
+            test_util::wait_5_ms();
             fixture.source_encoder.emit();
-            wait_5_ms();
+            test_util::wait_5_ms();
 
             // Block 1
             match fixture.source_encoder_rx.recv_timeout(Duration::from_secs(1)) {
@@ -424,15 +422,15 @@ mod source_encoder_spec {
     fn keying_with_end_sets_the_end_flag(mut fixture: SourceEncoderFixture) {
         test_util::panic_after(Duration::from_secs(2), move || {
             fixture.source_encoder.set_keyer_speed(20);
-            wait_5_ms();
+            test_util::wait_5_ms();
 
             fixture.keying_event_tx.broadcast(KeyingEvent::Start());
             fixture.keying_event_tx.broadcast(KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 60 }));
             fixture.keying_event_tx.broadcast(KeyingEvent::End());
-            wait_5_ms();
+            test_util::wait_5_ms();
 
             fixture.source_encoder.emit();
-            wait_5_ms();
+            test_util::wait_5_ms();
 
             expect_block_with_expected_end(&mut fixture, true);
         });
@@ -442,22 +440,22 @@ mod source_encoder_spec {
     fn the_end_flag_is_cleared_after_emitting(mut fixture: SourceEncoderFixture) {
         test_util::panic_after(Duration::from_secs(2), move || {
             fixture.source_encoder.set_keyer_speed(20);
-            wait_5_ms();
+            test_util::wait_5_ms();
 
             fixture.keying_event_tx.broadcast(KeyingEvent::Start());
             fixture.keying_event_tx.broadcast(KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 60 }));
             fixture.keying_event_tx.broadcast(KeyingEvent::End());
-            wait_5_ms();
+            test_util::wait_5_ms();
 
             fixture.source_encoder.emit();
-            wait_5_ms();
+            test_util::wait_5_ms();
 
             fixture.keying_event_tx.broadcast(KeyingEvent::Start());
             fixture.keying_event_tx.broadcast(KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 60 }));
-            wait_5_ms();
+            test_util::wait_5_ms();
 
             fixture.source_encoder.emit();
-            wait_5_ms();
+            test_util::wait_5_ms();
 
             // Block 1
             expect_block_with_expected_end(&mut fixture, true);
@@ -470,13 +468,13 @@ mod source_encoder_spec {
     fn keying_with_end_emits_an_end_frame(mut fixture: SourceEncoderFixture) {
         test_util::panic_after(Duration::from_secs(2), move || {
             fixture.source_encoder.set_keyer_speed(20);
-            wait_5_ms();
+            test_util::wait_5_ms();
 
             fixture.keying_event_tx.broadcast(KeyingEvent::End());
-            wait_5_ms();
+            test_util::wait_5_ms();
 
             fixture.source_encoder.emit();
-            wait_5_ms();
+            test_util::wait_5_ms();
 
             match fixture.source_encoder_rx.recv_timeout(Duration::from_secs(1)) {
                 Ok(encoding) => {
@@ -499,7 +497,7 @@ mod source_encoder_spec {
     fn end_wont_fit_in_first_block_so_goes_in_next_block(mut fixture: SourceEncoderFixture) {
         test_util::panic_after(Duration::from_secs(2), move || {
             fixture.source_encoder.set_keyer_speed(20);
-            wait_5_ms();
+            test_util::wait_5_ms();
 
             fixture.keying_event_tx.broadcast(KeyingEvent::Start());
             fixture.keying_event_tx.broadcast(KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 60 }));
@@ -518,9 +516,9 @@ mod source_encoder_spec {
             // Won't fit.
             fixture.keying_event_tx.broadcast(KeyingEvent::End());
 
-            wait_5_ms();
+            test_util::wait_5_ms();
             fixture.source_encoder.emit();
-            wait_5_ms();
+            test_util::wait_5_ms();
 
             // Block 1
             match fixture.source_encoder_rx.recv_timeout(Duration::from_secs(1)) {
@@ -573,7 +571,7 @@ mod source_encoder_spec {
     fn all_types_of_keying(mut fixture: SourceEncoderFixture) {
         test_util::panic_after(Duration::from_secs(2), move || {
             fixture.source_encoder.set_keyer_speed(20);
-            wait_5_ms();
+            test_util::wait_5_ms();
 
             fixture.keying_event_tx.broadcast(KeyingEvent::Start());
             // Perfects
@@ -589,9 +587,9 @@ mod source_encoder_spec {
 
             fixture.keying_event_tx.broadcast(KeyingEvent::End());
 
-            wait_5_ms();
+            test_util::wait_5_ms();
             fixture.source_encoder.emit();
-            wait_5_ms();
+            test_util::wait_5_ms();
 
             // Block 1
             expect_encoded_block(&mut fixture, encoded(20, &[

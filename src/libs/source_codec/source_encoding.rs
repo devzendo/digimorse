@@ -1,5 +1,4 @@
 extern crate num;
-// use num::FromPrimitive;
 
 use std::fmt::{Display, Formatter};
 use std::fmt;

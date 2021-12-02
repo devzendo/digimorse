@@ -1,6 +1,6 @@
-use std::time::Duration;
 use std::sync::mpsc;
 use std::thread;
+use std::time::Duration;
 
 // Thanks to Shepmaster, https://github.com/rust-lang/rfcs/issues/2798
 pub fn panic_after<T, F>(d: Duration, f: F) -> T
@@ -20,4 +20,8 @@ pub fn panic_after<T, F>(d: Duration, f: F) -> T
         Ok(_) => handle.join().expect("Thread panicked"),
         Err(_) => panic!("Thread took too long"),
     }
+}
+
+pub fn wait_5_ms() {
+    thread::sleep(Duration::from_millis(5));
 }
