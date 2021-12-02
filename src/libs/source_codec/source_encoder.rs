@@ -199,6 +199,7 @@ impl SourceEncoderShared {
                         debug!("Polarity after encoding is {}", if self.is_mark { "MARK" } else { "SPACE"});
                         break;
                     } else {
+                        // TODO write access needed?
                         let storage = self.storage.write().unwrap();
                         let remaining = storage.remaining();
                         mem::drop(storage);
@@ -209,9 +210,23 @@ impl SourceEncoderShared {
                 }
             }
             KeyingEvent::End() => {
-                // TODO encode a keying end event
-                // Set the end of the storage
-                self.storage.write().unwrap().set_end();
+                loop {
+                    let mut storage = self.storage.write().unwrap();
+                    let remaining = storage.remaining();
+                    if remaining < 4 {
+                        mem::drop(storage);
+                        debug!("Insufficient space ({}) to encode End", remaining);
+                        self.emit();
+                        // Go round the loop again...
+                    } else {
+                        let frame_type = EncoderFrameType::KeyingEnd;
+                        debug!("Adding {:?} ", frame_type);
+                        storage.add_8_bits(frame_type as u8, 4);
+                        // Set the end of the storage
+                        storage.set_end();
+                        break;
+                    }
+                }
             }
         }
     }

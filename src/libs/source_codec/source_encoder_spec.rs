@@ -467,6 +467,108 @@ mod source_encoder_spec {
         });
     }
 
+    #[rstest]
+    fn keying_with_end_emits_an_end_frame(mut fixture: SourceEncoderFixture) {
+        test_util::panic_after(Duration::from_secs(2), move || {
+            fixture.source_encoder.set_keyer_speed(20);
+            wait_5_ms();
+
+            fixture.keying_event_tx.broadcast(KeyingEvent::End());
+            wait_5_ms();
+
+            fixture.source_encoder.emit();
+            wait_5_ms();
+
+            match fixture.source_encoder_rx.recv_timeout(Duration::from_secs(1)) {
+                Ok(encoding) => {
+                    info!("Received SourceEncoding of {}", encoding);
+                    let vec = encoding.block;
+
+                    let expected_encoding = encoded(20, &[
+                        Frame::KeyingEnd,
+                    ]);
+                    assert_eq!(vec, expected_encoding);
+                }
+                Err(e) => {
+                    panic!("Should have received a SourceEncoding, not an error of {}", e);
+                }
+            }
+        });
+    }
+
+    #[rstest]
+    fn end_wont_fit_in_first_block_so_goes_in_next_block(mut fixture: SourceEncoderFixture) {
+        test_util::panic_after(Duration::from_secs(2), move || {
+            fixture.source_encoder.set_keyer_speed(20);
+            wait_5_ms();
+
+            fixture.keying_event_tx.broadcast(KeyingEvent::Start());
+            fixture.keying_event_tx.broadcast(KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 60 }));
+            fixture.keying_event_tx.broadcast(KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 60 }));
+            fixture.keying_event_tx.broadcast(KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 60 }));
+            fixture.keying_event_tx.broadcast(KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 60 }));
+            fixture.keying_event_tx.broadcast(KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 60 }));
+            fixture.keying_event_tx.broadcast(KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 60 }));
+            fixture.keying_event_tx.broadcast(KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 60 }));
+            fixture.keying_event_tx.broadcast(KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 60 }));
+            fixture.keying_event_tx.broadcast(KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 60 }));
+            fixture.keying_event_tx.broadcast(KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 60 }));
+            fixture.keying_event_tx.broadcast(KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 60 }));
+            fixture.keying_event_tx.broadcast(KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 60 }));
+            fixture.keying_event_tx.broadcast(KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 60 }));
+            // Won't fit.
+            fixture.keying_event_tx.broadcast(KeyingEvent::End());
+
+            wait_5_ms();
+            fixture.source_encoder.emit();
+            wait_5_ms();
+
+            // Block 1
+            match fixture.source_encoder_rx.recv_timeout(Duration::from_secs(1)) {
+                Ok(encoding) => {
+                    info!("Received SourceEncoding of {}", encoding);
+                    let vec = encoding.block;
+                    let expected_encoding = encoded(20, &[
+                        Frame::WPMPolarity { wpm: 20, polarity: true },
+                        Frame::KeyingPerfectDit,
+                        Frame::KeyingPerfectDit,
+                        Frame::KeyingPerfectDit,
+                        Frame::KeyingPerfectDit,
+                        Frame::KeyingPerfectDit,
+                        Frame::KeyingPerfectDit,
+                        Frame::KeyingPerfectDit,
+                        Frame::KeyingPerfectDit,
+                        Frame::KeyingPerfectDit,
+                        Frame::KeyingPerfectDit,
+                        Frame::KeyingPerfectDit,
+                        Frame::KeyingPerfectDit,
+                        Frame::KeyingPerfectDit,
+                    ]);
+                    assert_eq!(vec, expected_encoding);
+                    assert_eq!(encoding.is_end, false); // It'll be set in the overflow block, next.
+                }
+                Err(e) => {
+                    panic!("Should have received a SourceEncoding, not an error of {}", e);
+                }
+            }
+            // Block 2
+            match fixture.source_encoder_rx.recv_timeout(Duration::from_secs(1)) {
+                Ok(encoding) => {
+                    info!("Received SourceEncoding of {}", encoding);
+                    let vec = encoding.block;
+                    let expected_encoding = encoded(20, &[
+                        Frame::KeyingEnd,
+                    ]);
+                    assert_eq!(vec, expected_encoding);
+                    assert_eq!(encoding.is_end, true);
+                }
+                Err(e) => {
+                    panic!("Should have received a SourceEncoding, not an error of {}", e);
+                }
+            }
+        });
+    }
+
 
     #[rstest]
     fn all_types_of_keying(mut fixture: SourceEncoderFixture) {
@@ -485,96 +587,44 @@ mod source_encoder_spec {
             fixture.keying_event_tx.broadcast(KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 425 }));
             // Naïve
             fixture.keying_event_tx.broadcast(KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 600 }));
-// TODO            fixture.keying_event_tx.broadcast(KeyingEvent::End());
-            // fixture.keying_event_tx.broadcast(KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 60 }));
-            // fixture.keying_event_tx.broadcast(KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 60 }));
-            // fixture.keying_event_tx.broadcast(KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 60 }));
-            // fixture.keying_event_tx.broadcast(KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 60 }));
-            // fixture.keying_event_tx.broadcast(KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 60 }));
-            // fixture.keying_event_tx.broadcast(KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 60 }));
-            // fixture.keying_event_tx.broadcast(KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 60 }));
-            // fixture.keying_event_tx.broadcast(KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 60 }));
+
+            fixture.keying_event_tx.broadcast(KeyingEvent::End());
 
             wait_5_ms();
             fixture.source_encoder.emit();
             wait_5_ms();
 
             // Block 1
-            match fixture.source_encoder_rx.recv_timeout(Duration::from_secs(1)) {
-                Ok(encoding) => {
-                    info!("Received SourceEncoding of {}", encoding);
-                    let vec = encoding.block;
+            expect_encoded_block(&mut fixture, encoded(20, &[
+                Frame::WPMPolarity { wpm: 20, polarity: true },
+                Frame::KeyingPerfectDit,
+                Frame::KeyingPerfectDah,
+                Frame::KeyingPerfectWordgap,
+                Frame::KeyingDeltaDit { delta: 5 },
+                Frame::KeyingDeltaDah { delta: -5 },
+                Frame::KeyingDeltaWordgap { delta: 5 },
+            ]));
 
-                    let expected_encoding = encoded(20, &[
-                        Frame::WPMPolarity { wpm: 20, polarity: true },
-                        Frame::KeyingPerfectDit,
-                        Frame::KeyingPerfectDah,
-                        Frame::KeyingPerfectWordgap,
-                        Frame::KeyingDeltaDit { delta: 5 },
-                        Frame::KeyingDeltaDah { delta: -5 },
-                        Frame::KeyingDeltaWordgap { delta: 5 },
-                        Frame::KeyingNaive { duration: 600 },
-// TODO                        Frame::KeyingEnd,
-                    ]);
-                    assert_eq!(vec, expected_encoding);
-                }
-                Err(e) => {
-                    panic!("Should have received a SourceEncoding, not an error of {}", e);
-                }
-            }
+            // Block 2
+            expect_encoded_block(&mut fixture, encoded(20, &[
+                Frame::WPMPolarity { wpm: 20, polarity: true },
+                Frame::KeyingNaive { duration: 600 },
+                Frame::KeyingEnd,
+            ]));
         });
     }
 
-    //#[rstest]
-    fn encode_keying(mut fixture: SourceEncoderFixture) {
-        test_util::panic_after(Duration::from_secs(2), move|| {
+    fn expect_encoded_block(fixture: &mut SourceEncoderFixture, expected_encoding: Vec<u8>) {
+        match fixture.source_encoder_rx.recv_timeout(Duration::from_secs(1)) {
+            Ok(encoding) => {
+                info!("Received SourceEncoding of {}", encoding);
+                let vec = encoding.block;
 
-            // define new encoding event, a type alias of vec u8?
-            // the loop below reads encodings and puts them in a vec for testing.
-            // then inject some keyings
-            let keyer_speed: KeyerSpeed = 20;
-            fixture.source_encoder.set_keyer_speed(keyer_speed);
-
-            // inject these keyings...
-            let keyings = vec![
-                KeyingEvent::Start(),
-                KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 210 }), // C
-                KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 72 }),
-                KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 73 }),
-                KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 64 }),
-                KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 250 }),
-                KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 65 }),
-                KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 61 }),
-                KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 298 }), // inter-letter gap
-                KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 234 }),  // Q
-                KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 45 }),
-                KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 208 }),
-                KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 77 }),
-                KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 78 }),
-                KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 56 }),
-                KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 323 }),
-                KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 596 }), // inter-word gap
-                KeyingEvent::End()
-            ];
-            for k in keyings {
-                fixture.keying_event_tx.broadcast(k);
+                assert_eq!(vec, expected_encoding);
             }
-            // Force the encoder to emit a frame
-            fixture.source_encoder.emit();
-            let result = fixture.source_encoder_rx.recv();
-            match result {
-                Ok(source_encoding) => {
-                    info!("encode_keying: isEnd {}", source_encoding.is_end);
-                    let hexdump = pretty_hex(&source_encoding.block);
-                    let hexdump_lines = hexdump.split("\n");
-                    for line in hexdump_lines {
-                        info!("encode_keying: Encoding {}", line);
-                    }
-                }
-                Err(err) => {
-                    panic!("encode_keying: error reading encoder bus {}", err);
-                }
+            Err(e) => {
+                panic!("Should have received a SourceEncoding, not an error of {}", e);
             }
-        })
+        }
     }
 }
