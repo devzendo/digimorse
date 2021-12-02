@@ -14,8 +14,8 @@ mod source_encoder_spec {
 
     use crate::libs::keyer_io::keyer_io::{KeyerSpeed, KeyingEvent, KeyingTimedEvent};
     use crate::libs::source_codec::source_encoder::{SourceEncoder, SourceEncoding};
-    use crate::libs::source_codec::source_encoding::SOURCE_ENCODER_BLOCK_SIZE_IN_BITS;
-    use crate::libs::source_codec::test_encoding_builder::{encoded, Frame};
+    use crate::libs::source_codec::source_encoding::{Frame, SOURCE_ENCODER_BLOCK_SIZE_IN_BITS};
+    use crate::libs::source_codec::test_encoding_builder::encoded;
     use crate::libs::util::test_util;
 
     #[ctor::ctor]

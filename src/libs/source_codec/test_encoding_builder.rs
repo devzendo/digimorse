@@ -1,29 +1,12 @@
 extern crate hamcrest2;
 
 use std::sync::{Arc, RwLock};
+
 use crate::libs::keyer_io::keyer_io::KeyerSpeed;
 use crate::libs::source_codec::bitvec_source_encoding_builder::BitvecSourceEncodingBuilder;
 use crate::libs::source_codec::keying_encoder::{DefaultKeyingEncoder, KeyingEncoder};
 use crate::libs::source_codec::metadata_codec::{encode_callsign, encode_locator};
-use crate::libs::source_codec::source_encoding::{Callsign, CallsignHash, EncoderFrameType, KeyingDelta, KeyingNaive, Locator, SourceEncodingBuilder};
-
-pub enum Frame {
-    Padding,
-    WPMPolarity { wpm: KeyerSpeed, polarity: bool },
-    CallsignMetadata { callsign: Callsign },
-    CallsignHashMetadata { hash: CallsignHash },
-    LocatorMetadata { locator: Locator },
-    KeyingPerfectDit,
-    KeyingPerfectDah,
-    KeyingPerfectWordgap,
-    KeyingEnd,
-    KeyingDeltaDit { delta: KeyingDelta },
-    KeyingDeltaDah { delta: KeyingDelta },
-    KeyingDeltaWordgap { delta: KeyingDelta },
-    KeyingNaive { duration: KeyingNaive },
-    Unused,
-    Extension,
-}
+use crate::libs::source_codec::source_encoding::{Callsign, CallsignHash, EncoderFrameType, Frame, KeyingDelta, KeyingNaive, Locator, SourceEncodingBuilder};
 
 /// Build a block of encoded data, not caring about overstuffing it since this
 /// will be used in a test, and the builder panics if there's too much data.
@@ -110,7 +93,9 @@ pub fn encoded(wpm: KeyerSpeed, frames: &[Frame]) -> Vec<u8> {
 #[cfg(test)]
 mod test_encoding_builder_spec {
     use log::debug;
-    use crate::libs::source_codec::test_encoding_builder::{encoded, Frame};
+
+    use crate::libs::source_codec::source_encoding::Frame;
+    use crate::libs::source_codec::test_encoding_builder::encoded;
     use crate::libs::util::util::dump_byte_vec;
 
     #[test]
