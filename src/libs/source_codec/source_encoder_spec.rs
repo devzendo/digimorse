@@ -8,7 +8,6 @@ mod source_encoder_spec {
     use bus::{Bus, BusReader};
     use log::{debug, info};
     use hamcrest2::prelude::*;
-    use pretty_hex::*;
     use rstest::*;
     use std::{env, thread};
     use std::sync::Arc;
