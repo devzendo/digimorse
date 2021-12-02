@@ -7,12 +7,6 @@ use crate::libs::source_codec::keying_encoder::{DefaultKeyingEncoder, KeyingEnco
 use crate::libs::source_codec::metadata_codec::{encode_callsign, encode_locator};
 use crate::libs::source_codec::source_encoding::{Callsign, CallsignHash, EncoderFrameType, KeyingDelta, KeyingNaive, Locator, SourceEncodingBuilder};
 
-#[derive(Clone, PartialEq)]
-pub struct WPMPolarity {
-    pub wpm: KeyerSpeed,
-    pub polarity: bool,
-}
-
 pub enum Frame {
     Padding,
     WPMPolarity { wpm: KeyerSpeed, polarity: bool },
