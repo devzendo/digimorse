@@ -1,5 +1,6 @@
 extern crate hamcrest2;
 
+use log::debug;
 use std::sync::{Arc, RwLock};
 
 use crate::libs::keyer_io::keyer_io::KeyerSpeed;
@@ -19,6 +20,7 @@ pub fn encoded(wpm: KeyerSpeed, frames: &[Frame]) -> Vec<u8> {
     let mut keying_encoder = DefaultKeyingEncoder::new(arc_locked_builder);
     keying_encoder.set_keyer_speed(wpm);
     for frame in frames {
+        debug!("Encoding {:?}", frame);
         match frame {
             Frame::Padding => {
                 // Frame type of Padding is 0000 so this'll look like padding
@@ -28,6 +30,9 @@ pub fn encoded(wpm: KeyerSpeed, frames: &[Frame]) -> Vec<u8> {
                 }
             }
             Frame::WPMPolarity { wpm, polarity } => {
+                // Track speed changes by recalculating (at least) delta encoding sizes.
+                keying_encoder.set_keyer_speed(*wpm);
+
                 let mut b = builder.write().unwrap();
                 b.add_8_bits(EncoderFrameType::WPMPolarity as u8, 4);
                 b.add_8_bits(*wpm as u8, 6);
@@ -201,6 +206,23 @@ mod test_encoding_builder_spec {
         assert_eq!(vec,
                    //     F:NE
                    vec![0b11010000, 0b00100000, 0, 0, 0, 0, 0, 0]);
+    }
+
+    #[test]
+    fn encode_tracks_speed_changes() {
+        let vec = encoded(5, &[
+            // These two speeds have different dah encoding sizes
+            Frame::WPMPolarity { wpm: 5, polarity: true },
+            Frame::KeyingDeltaDah { delta: 1 }, // 9 bits
+            Frame::WPMPolarity { wpm: 60, polarity: true },
+            Frame::KeyingDeltaDah { delta: -1 }, // 5 bits
+            Frame::Extension, // to see a 4 bit end marker
+        ]);
+        debug!("{}", dump_byte_vec(&vec));
+        assert_eq!(vec,
+                   //                    F:DD                  F:WPWPM    ---P              F:    EX
+                   //     F:WPWPM-    --P    S    DELTA---    -               F:DD    SDELTA
+                   vec![0b00010001, 0b01110110, 0b00000000, 0b10001111, 0b10011011, 0b11111111, 0b11000000, 0]);
     }
 }
 
