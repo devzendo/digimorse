@@ -28,8 +28,7 @@ mod keying_timing_spec {
     fn after_each() {}
 
     pub struct KeyingTimingFixture {
-        // TODO rename encoder to timing
-        encoder: Box<dyn KeyingTiming>,
+        timing: Box<dyn KeyingTiming>,
     }
 
     // impl KeyingEncoderFixture {
@@ -40,7 +39,7 @@ mod keying_timing_spec {
         let mut timing = Box::new(DefaultKeyingTiming::new());
         timing.set_keyer_speed(20);
         KeyingTimingFixture {
-            encoder: timing,
+            timing: timing,
         }
     }
 
@@ -49,64 +48,64 @@ mod keying_timing_spec {
     // For WPMs that don't yield integer durations...
     #[rstest]
     fn perfect_durations_floor_correctly(mut fixture: KeyingTimingFixture) {
-        fixture.encoder.set_keyer_speed(7);
-        assert_eq!(fixture.encoder.get_perfect_dit_ms(), 171);
-        assert_eq!(fixture.encoder.get_perfect_dah_ms(), 514);
-        assert_eq!(fixture.encoder.get_perfect_wordgap_ms(), 1200);
+        fixture.timing.set_keyer_speed(7);
+        assert_eq!(fixture.timing.get_perfect_dit_ms(), 171);
+        assert_eq!(fixture.timing.get_perfect_dah_ms(), 514);
+        assert_eq!(fixture.timing.get_perfect_wordgap_ms(), 1200);
 
-        fixture.encoder.set_keyer_speed(33);
-        assert_eq!(fixture.encoder.get_perfect_dit_ms(), 36);
-        assert_eq!(fixture.encoder.get_perfect_dah_ms(), 109);
-        assert_eq!(fixture.encoder.get_perfect_wordgap_ms(), 254);
+        fixture.timing.set_keyer_speed(33);
+        assert_eq!(fixture.timing.get_perfect_dit_ms(), 36);
+        assert_eq!(fixture.timing.get_perfect_dah_ms(), 109);
+        assert_eq!(fixture.timing.get_perfect_wordgap_ms(), 254);
 
-        fixture.encoder.set_keyer_speed(39);
-        assert_eq!(fixture.encoder.get_perfect_dit_ms(), 30);
-        assert_eq!(fixture.encoder.get_perfect_dah_ms(), 92);
-        assert_eq!(fixture.encoder.get_perfect_wordgap_ms(), 215);
+        fixture.timing.set_keyer_speed(39);
+        assert_eq!(fixture.timing.get_perfect_dit_ms(), 30);
+        assert_eq!(fixture.timing.get_perfect_dah_ms(), 92);
+        assert_eq!(fixture.timing.get_perfect_wordgap_ms(), 215);
     }
 
     // For WPMs that don't yield integer durations...
     #[rstest]
     fn delta_ranges_are_correct_for_the_wpm(mut fixture: KeyingTimingFixture) {
         // reset
-        fixture.encoder.set_keyer_speed(0);
-        assert_eq!(fixture.encoder.get_dit_delta_range(), (0, 0));
-        assert_eq!(fixture.encoder.get_dah_delta_range(), (0, 0));
-        assert_eq!(fixture.encoder.get_wordgap_delta_range(), (0, 0));
+        fixture.timing.set_keyer_speed(0);
+        assert_eq!(fixture.timing.get_dit_delta_range(), (0, 0));
+        assert_eq!(fixture.timing.get_dah_delta_range(), (0, 0));
+        assert_eq!(fixture.timing.get_wordgap_delta_range(), (0, 0));
 
         // range of speeds
-        fixture.encoder.set_keyer_speed(5);
-        assert_eq!(fixture.encoder.get_dit_delta_range(), (-240, 240));
-        assert_eq!(fixture.encoder.get_dah_delta_range(), (-239, 479));
-        assert_eq!(fixture.encoder.get_wordgap_delta_range(), (-480, 367));
+        fixture.timing.set_keyer_speed(5);
+        assert_eq!(fixture.timing.get_dit_delta_range(), (-240, 240));
+        assert_eq!(fixture.timing.get_dah_delta_range(), (-239, 479));
+        assert_eq!(fixture.timing.get_wordgap_delta_range(), (-480, 367));
 
-        fixture.encoder.set_keyer_speed(20);
-        assert_eq!(fixture.encoder.get_dit_delta_range(), (-60, 60));
-        assert_eq!(fixture.encoder.get_dah_delta_range(), (-59, 119));
-        assert_eq!(fixture.encoder.get_wordgap_delta_range(), (-120, 120));
+        fixture.timing.set_keyer_speed(20);
+        assert_eq!(fixture.timing.get_dit_delta_range(), (-60, 60));
+        assert_eq!(fixture.timing.get_dah_delta_range(), (-59, 119));
+        assert_eq!(fixture.timing.get_wordgap_delta_range(), (-120, 120));
 
-        fixture.encoder.set_keyer_speed(60);
-        assert_eq!(fixture.encoder.get_dit_delta_range(), (-20, 20));
-        assert_eq!(fixture.encoder.get_dah_delta_range(), (-19, 39));
-        assert_eq!(fixture.encoder.get_wordgap_delta_range(), (-40, 40));
+        fixture.timing.set_keyer_speed(60);
+        assert_eq!(fixture.timing.get_dit_delta_range(), (-20, 20));
+        assert_eq!(fixture.timing.get_dah_delta_range(), (-19, 39));
+        assert_eq!(fixture.timing.get_wordgap_delta_range(), (-40, 40));
     }
 
     #[rstest]
     fn delta_ranges_floor_correctly(mut fixture: KeyingTimingFixture) {
-        fixture.encoder.set_keyer_speed(7);
-        assert_eq!(fixture.encoder.get_dit_delta_range(), (-171, 171));
-        assert_eq!(fixture.encoder.get_dah_delta_range(), (-170, 341));
-        assert_eq!(fixture.encoder.get_wordgap_delta_range(), (-342, 342));
+        fixture.timing.set_keyer_speed(7);
+        assert_eq!(fixture.timing.get_dit_delta_range(), (-171, 171));
+        assert_eq!(fixture.timing.get_dah_delta_range(), (-170, 341));
+        assert_eq!(fixture.timing.get_wordgap_delta_range(), (-342, 342));
 
-        fixture.encoder.set_keyer_speed(33);
-        assert_eq!(fixture.encoder.get_dit_delta_range(), (-36, 36));
-        assert_eq!(fixture.encoder.get_dah_delta_range(), (-35, 71));
-        assert_eq!(fixture.encoder.get_wordgap_delta_range(), (-72, 72));
+        fixture.timing.set_keyer_speed(33);
+        assert_eq!(fixture.timing.get_dit_delta_range(), (-36, 36));
+        assert_eq!(fixture.timing.get_dah_delta_range(), (-35, 71));
+        assert_eq!(fixture.timing.get_wordgap_delta_range(), (-72, 72));
 
-        fixture.encoder.set_keyer_speed(39);
-        assert_eq!(fixture.encoder.get_dit_delta_range(), (-30, 30));
-        assert_eq!(fixture.encoder.get_dah_delta_range(), (-29, 60));
-        assert_eq!(fixture.encoder.get_wordgap_delta_range(), (-61, 61));
+        fixture.timing.set_keyer_speed(39);
+        assert_eq!(fixture.timing.get_dit_delta_range(), (-30, 30));
+        assert_eq!(fixture.timing.get_dah_delta_range(), (-29, 60));
+        assert_eq!(fixture.timing.get_wordgap_delta_range(), (-61, 61));
     }
 
     // Encoding ranges -----------------------------------------------------------------------------
