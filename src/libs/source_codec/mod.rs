@@ -1,4 +1,5 @@
 pub mod keying_encoder;
+pub mod keying_timing;
 pub mod metadata_codec;
 pub mod source_decoder;
 pub mod source_encoder;

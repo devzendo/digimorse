@@ -82,7 +82,7 @@ pub enum EncoderFrameType {
 }
 
 /// Decoded frames are of this type. It's also used to create encoded frames for test data.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Frame {
     Padding,
     WPMPolarity { wpm: KeyerSpeed, polarity: bool },

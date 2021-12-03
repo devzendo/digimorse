@@ -34,6 +34,21 @@ mod source_decoder_spec {
         should_decode_with_error(vec![0, 0]);
     }
 
+    //#[test]
+    pub fn decode_all_types_of_frame() {
+        let keying_frames = &[
+            Frame::WPMPolarity { wpm: 20, polarity: true },
+            Frame::KeyingPerfectDit,
+            Frame::KeyingPerfectDah,
+            Frame::KeyingPerfectWordgap,
+            Frame::KeyingDeltaDit { delta: 5 },
+            Frame::KeyingDeltaDah { delta: -5 },
+            Frame::KeyingDeltaWordgap { delta: 5 },
+        ];
+        let block = encoded(20, keying_frames);
+        assert_decoded_eq(block, keying_frames.to_vec());
+    }
+
     fn should_decode_with_error(block: Vec<u8>) {
         match source_decode(block) {
             Ok(frames) => {
