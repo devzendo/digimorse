@@ -52,6 +52,21 @@ pub trait SourceEncodingBuilder {
     fn build(&mut self) -> SourceEncoding;
 }
 
+/// Extract binary data from the left to the right in a Vec<u8>, considered as a bit stream.
+pub trait SourceEncodingExtractor {
+    /// Before calling the remove functions, remaining() tells you how many more bits you could
+    /// extract from this block.
+    fn remaining(&self) -> usize;
+    /// Extract a number of bits from the left-hand side of the bit stream, returning them at
+    /// the right-hand side (least significant bits) of a u8. Advance the position in the bit stream
+    /// by num_bits, and decrease remaining() by that.
+    fn extract_8_bits(&mut self, num_bits: usize) -> u8;
+    /// Extract a number of bits... returning a u16. See extract_8_bits().
+    fn extract_16_bits(&mut self, num_bits: usize) -> u16;
+    /// Extract a number of bits... returning a u32. See extract_8_bits().
+    fn extract_32_bits(&mut self, num_bits: usize) -> u32;
+}
+
 pub type Callsign = String;
 pub type CallsignHash = u16; // MAYBE?
 pub type Locator = String;
