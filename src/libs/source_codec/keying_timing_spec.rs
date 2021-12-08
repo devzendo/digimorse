@@ -1,22 +1,9 @@
-use crate::libs::keyer_io::keyer_io::KeyerEdgeDurationMs;
-
-const PERFECT_DIT_DURATION: KeyerEdgeDurationMs = 60;
-const PERFECT_DAH_DURATION: KeyerEdgeDurationMs = 180;
-const PERFECT_WORDGAP_DURATION: KeyerEdgeDurationMs = 420;
 
 #[cfg(test)]
 mod keying_timing_spec {
-    use log::{debug, info};
     use rstest::*;
     use std::env;
-    use std::sync::{Arc, RwLock};
-    use crate::libs::keyer_io::keyer_io::KeyingTimedEvent;
-    use crate::libs::source_codec::bitvec_source_encoding_builder::BitvecSourceEncodingBuilder;
-    use crate::libs::source_codec::keying_encoder::{decode_from_binary, DefaultKeyingEncoder, encode_to_binary, KeyingEncoder};
-    // use crate::libs::source_codec::keying_encoder::keying_timing_spec::{PERFECT_DAH_DURATION, PERFECT_DIT_DURATION, PERFECT_WORDGAP_DURATION};
     use crate::libs::source_codec::keying_timing::{dah_encoding_range, DefaultKeyingTiming, dit_encoding_range, KeyingTiming, wordgap_encoding_range};
-    use crate::libs::source_codec::source_encoding::SourceEncodingBuilder;
-    use crate::libs::util::util::dump_byte_vec;
 
     #[ctor::ctor]
     fn before_each() {
