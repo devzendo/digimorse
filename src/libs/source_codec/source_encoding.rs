@@ -57,6 +57,9 @@ pub trait SourceEncodingExtractor {
     /// Before calling the remove functions, remaining() tells you how many more bits you could
     /// extract from this block.
     fn remaining(&self) -> usize;
+    /// Extract a single bit from the left-hand side of the bit stream. Advance the position in the
+    /// bit stream by 1, decrease remaining() by that.
+    fn extract_bool(&mut self) -> bool;
     /// Extract a number of bits from the left-hand side of the bit stream, returning them at
     /// the right-hand side (least significant bits) of a u8. Advance the position in the bit stream
     /// by num_bits, and decrease remaining() by that.
