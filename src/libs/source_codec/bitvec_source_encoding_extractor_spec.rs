@@ -2,13 +2,10 @@ extern crate hamcrest2;
 
 #[cfg(test)]
 mod bitvec_source_encoding_extractor_spec {
-    use rstest::*;
-    use hamcrest2::prelude::*;
     use log::debug;
     use std::env;
     use crate::libs::source_codec::bitvec_source_encoding_extractor::BitvecSourceEncodingExtractor;
-    use crate::libs::source_codec::bitvec_source_encoding_builder::BitvecSourceEncodingBuilder;
-    use crate::libs::source_codec::source_encoding::{SOURCE_ENCODER_BLOCK_SIZE_IN_BITS, SourceEncodingBuilder, SourceEncodingExtractor};
+    use crate::libs::source_codec::source_encoding::{SOURCE_ENCODER_BLOCK_SIZE_IN_BITS, SourceEncodingExtractor};
 
     #[ctor::ctor]
     fn before_each() {
