@@ -1,4 +1,6 @@
+use std::mem;
 use bitvec::prelude::*;
+use log::debug;
 use crate::libs::source_codec::source_encoding::{SOURCE_ENCODER_BLOCK_SIZE_IN_BITS, SourceEncodingExtractor};
 
 /// A SourceDecodingExtractor using the bitvec crate.
@@ -16,15 +18,42 @@ impl BitvecSourceEncodingExtractor {
             bits: bit_vec,
         }
     }
+    fn drain(&mut self, num_bits: usize) -> BitVec {
+        let drained = self.bits.drain(0 .. num_bits);
+        let mut extracted: BitVec = drained.collect();
+        return extracted;
+    }
 }
 
 impl SourceEncodingExtractor for BitvecSourceEncodingExtractor {
     fn remaining(&self) -> usize {
-        todo!()
+        self.bits.len()
     }
 
     fn extract_8_bits(&mut self, num_bits: usize) -> u8 {
-        todo!()
+        // Code works without this optimisation
+        if num_bits == 0 {
+            return 0;
+        }
+        if num_bits > 8 {
+            panic!("Cannot extract more than 8 bits with extract_8_bits");
+        }
+        let remaining = self.bits.len();
+        if remaining < num_bits {
+            panic!("Cannot extract {} bits; {} bits remain", num_bits, remaining);
+        }
+        let mut extracted = self.drain(num_bits);
+        // debug!("extracted {:#010b}", extracted);
+
+        // Perhaps there's a quicker way to fill the vector with 8-num_bits 0's?
+        let mut out_bitvec = BitVec::<Msb0, u8>::new();
+        for _ in 0 .. (8 - num_bits) {
+            out_bitvec.push(false);
+        }
+        out_bitvec.append(&mut extracted);
+
+        // debug!("out_bitvec len {} {:#010b}", out_bitvec.len(), out_bitvec);
+        out_bitvec.as_raw_slice()[0]
     }
 
     fn extract_16_bits(&mut self, num_bits: usize) -> u16 {
