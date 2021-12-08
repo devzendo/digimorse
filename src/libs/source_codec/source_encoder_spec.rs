@@ -2,7 +2,7 @@ extern crate hamcrest2;
 
 #[cfg(test)]
 mod source_encoder_spec {
-    use std::{env, thread};
+    use std::env;
     use std::sync::Arc;
     use std::sync::atomic::{AtomicBool, Ordering};
     use std::time::Duration;
