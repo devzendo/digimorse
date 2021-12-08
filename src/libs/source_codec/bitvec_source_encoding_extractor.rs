@@ -108,21 +108,6 @@ impl SourceEncodingExtractor for BitvecSourceEncodingExtractor {
         out_bitvec.as_raw_slice()[0]
     }
 }
-/*
-    let mut bit_vec = BitVec::<Msb0, u8>::from_vec(encoded_block);
-    let bit_slice = bit_vec.as_bitslice();
-    loop {
-        bit_slice.
-        unsafe {
-            let data_slice = BitSlice::<Msb0, _>::get_unchecked(0);
-            let data_sub_slice = data_slice.get_unchecked_mut((max_bits - num_bits)..max_bits);
-            let mut data_sub_bit_vec = data_sub_slice.to_bitvec();
-            self.bits.append(&mut data_sub_bit_vec);
-        }
-
-    }
-
- */
 
 #[cfg(test)]
 #[path = "./bitvec_source_encoding_extractor_spec.rs"]
