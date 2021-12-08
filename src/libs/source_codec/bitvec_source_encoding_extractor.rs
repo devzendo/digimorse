@@ -48,6 +48,14 @@ impl SourceEncodingExtractor for BitvecSourceEncodingExtractor {
         self.bits.len()
     }
 
+    fn extract_bool(&mut self) -> bool {
+        let remaining = self.bits.len();
+        if remaining == 0 {
+            panic!("Cannot extract 1 bit; {} bits remain", remaining);
+        }
+        return self.bits.remove(0);
+    }
+
     fn extract_8_bits(&mut self, num_bits: usize) -> u8 {
         // Code works without this optimisation, but can't see how to move it into the generic
         // extract_n_bits function due to inability to express 0 as a generic unsigned type. ?!?!

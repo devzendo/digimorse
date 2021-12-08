@@ -44,6 +44,31 @@ mod bitvec_source_encoding_extractor_spec {
         assert_eq!(extractor.remaining(), SOURCE_ENCODER_BLOCK_SIZE_IN_BITS);
     }
 
+    // extract_bool --------------------------------------------------------------------------------
+
+    #[test]
+    pub fn extract_bool_reduces_remaining() {
+        let mut extractor = extractor(vec![0b10100000, 0, 0, 0, 0, 0, 0, 0]);
+        assert_eq!(extractor.extract_bool(), true);
+        assert_eq!(extractor.remaining(), SOURCE_ENCODER_BLOCK_SIZE_IN_BITS - 1);
+        assert_eq!(extractor.extract_bool(), false);
+        assert_eq!(extractor.remaining(), SOURCE_ENCODER_BLOCK_SIZE_IN_BITS - 2);
+        assert_eq!(extractor.extract_bool(), true);
+        assert_eq!(extractor.remaining(), SOURCE_ENCODER_BLOCK_SIZE_IN_BITS - 3);
+    }
+
+    #[test]
+    #[should_panic]
+    pub fn extract_bool_extract_too_much() {
+        let mut extractor = extractor(vec![0, 0, 0, 0, 0, 0, 0, 0]);
+        assert_eq!(extractor.remaining(), SOURCE_ENCODER_BLOCK_SIZE_IN_BITS);
+        extractor.extract_32_bits(32);
+        assert_eq!(extractor.remaining(), SOURCE_ENCODER_BLOCK_SIZE_IN_BITS - 32);
+        extractor.extract_32_bits(32);
+        assert_eq!(extractor.remaining(), 0);
+        extractor.extract_bool(); // boom
+    }
+
     // extract_8_bits ------------------------------------------------------------------------------
 
     #[test]
@@ -249,6 +274,6 @@ mod bitvec_source_encoding_extractor_spec {
         assert_eq!(extractor.remaining(), SOURCE_ENCODER_BLOCK_SIZE_IN_BITS - 32);
         extractor.extract_32_bits(32);
         assert_eq!(extractor.remaining(), 0);
-        extractor.extract_16_bits(1); // boom
+        extractor.extract_32_bits(1); // boom
     }
 }
