@@ -228,6 +228,14 @@ pub fn decode_from_binary(encoded: u16, bits: usize) -> i16 {
     }
     debug!("sign           {:#018b}", sign);
     let positive = encoded & sign == 0;
+    decode_from_binary_with_known_sign(encoded, bits, positive)
+}
+
+/// Inverse of encode_to_binary, for when we already know the sign (ie we've extracted it from the
+/// encoded parameter, or read the first bit from a bit stream) and the quantity of bits that
+/// encode the value. Given an encoded value, the number of bits of its value, and the sign,
+/// return the signed value encoded. The output will be truncated to the range [-480 .. 480].
+pub fn decode_from_binary_with_known_sign(encoded: u16, bits: usize, positive: bool) -> i16 {
     let mask = mask_n_bits(bits);
     debug!("encoded        {:#018b}", encoded);
     debug!("mask           {:#018b}", mask);
