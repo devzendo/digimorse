@@ -35,7 +35,7 @@ pub fn source_decode(encoded_block: Vec<u8>) -> Result<Vec<Frame>, Box<dyn Error
             }
             // Note: The source encoder ensures that frames are atomic, that is, you won't find a
             // frame header without its data. If the frame would not fit at the end of a block, it
-            // will be placed in the next block.
+            // would have been placed in the next block.
             Some(field_type) => {
                 debug!("Decoding field {:?}", field_type);
                 match field_type {
@@ -52,10 +52,18 @@ pub fn source_decode(encoded_block: Vec<u8>) -> Result<Vec<Frame>, Box<dyn Error
                         timing.set_keyer_speed(keying_speed);
                         frames.push(Frame::WPMPolarity { wpm: keying_speed, polarity: mark });
                     }
-                    EncoderFrameType::CallsignMetadata => {}
-                    EncoderFrameType::CallsignHashMetadata => {}
-                    EncoderFrameType::LocatorMetadata => {}
-                    EncoderFrameType::PowerMetadata => {}
+                    EncoderFrameType::CallsignMetadata => {
+                        todo!();
+                    }
+                    EncoderFrameType::CallsignHashMetadata => {
+                        todo!();
+                    }
+                    EncoderFrameType::LocatorMetadata => {
+                        todo!();
+                    }
+                    EncoderFrameType::PowerMetadata => {
+                        todo!();
+                    }
                     EncoderFrameType::KeyingPerfectDit => {
                         if !seen_wpm_polarity {
                             return no_wpm_polarity_err;
