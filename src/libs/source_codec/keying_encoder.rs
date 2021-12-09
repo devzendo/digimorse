@@ -222,16 +222,17 @@ pub fn decode_from_binary(encoded: u16, bits: usize) -> i16 {
     if bits < 5 || bits > 9 {
         panic!("Cannot decode with an out of range number of bits ({})", bits);
     }
-    let mask = mask_n_bits(bits);
     let mut sign = 1u16;
     for _ in 0..bits {
         sign <<= 1;
     }
-    debug!("encoded        {:#018b}", encoded);
     debug!("sign           {:#018b}", sign);
+    let positive = encoded & sign == 0;
+    let mask = mask_n_bits(bits);
+    debug!("encoded        {:#018b}", encoded);
     debug!("mask           {:#018b}", mask);
     let mut ret;
-    if encoded & sign == 0 {
+    if positive {
         ret = encoded as i16;
     } else {
         if encoded == 0 {
