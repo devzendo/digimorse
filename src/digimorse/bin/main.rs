@@ -193,13 +193,13 @@ fn run(arguments: ArgMatches, mode: Mode) -> Result<i32, Box<dyn Error>> {
     let source_encoder = SourceEncoder::new(source_encoder_keying_event_rx.unwrap(), source_encoder_tx, terminate.clone());
 
     if mode == Mode::SourceEncoderDiag {
-        info!("Initialising SourceEncooderDiag mode");
+        info!("Initialising SourceEncoderDiag mode");
         source_encoder_diag(source_encoder_rx, terminate.clone())?;
         keyer.terminate();
         mem::drop(tone_generator);
         pa.terminate()?;
         thread::sleep(Duration::from_secs(1));
-        info!("Finishing KeyerDiag mode");
+        info!("Finishing SourceEncoderDiag mode");
         return Ok(0);
     }
 
