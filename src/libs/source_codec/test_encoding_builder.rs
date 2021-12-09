@@ -57,12 +57,10 @@ pub fn encoded(wpm: KeyerSpeed, frames: &[Frame]) -> Vec<u8> {
                 keying_encoder.encode_perfect_dit();
             }
             Frame::KeyingPerfectDah => {
-                let mut b = builder.write().unwrap();
-                b.add_8_bits(EncoderFrameType::KeyingPerfectDah as u8, 4);
+                keying_encoder.encode_perfect_dah();
             }
             Frame::KeyingPerfectWordgap => {
-                let mut b = builder.write().unwrap();
-                b.add_8_bits(EncoderFrameType::KeyingPerfectWordgap as u8, 4);
+                keying_encoder.encode_perfect_wordgap();
             }
             Frame::KeyingEnd => {
                 let mut b = builder.write().unwrap();
