@@ -1,6 +1,7 @@
 pub mod audio;
 pub mod config_dir;
 pub mod config_file;
+pub mod delayed_bus;
 pub mod keyer_io;
 pub mod patterns;
 pub mod serial_io;
