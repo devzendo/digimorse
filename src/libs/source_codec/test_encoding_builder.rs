@@ -7,7 +7,7 @@ use crate::libs::keyer_io::keyer_io::KeyerSpeed;
 use crate::libs::source_codec::bitvec_source_encoding_builder::BitvecSourceEncodingBuilder;
 use crate::libs::source_codec::keying_encoder::{DefaultKeyingEncoder, KeyingEncoder};
 use crate::libs::source_codec::metadata_codec::{encode_callsign, encode_locator};
-use crate::libs::source_codec::source_encoding::{Callsign, CallsignHash, EncoderFrameType, Frame, KeyingDelta, KeyingNaive, Locator, SourceEncodingBuilder};
+use crate::libs::source_codec::source_encoding::{EncoderFrameType, Frame, SourceEncodingBuilder};
 
 /// Build a block of encoded data, not caring about overstuffing it since this
 /// will be used in a test, and the builder panics if there's too much data.
