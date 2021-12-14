@@ -6,7 +6,7 @@ mod delayed_bus_spec {
     use std::{env, thread};
     use std::sync::{Arc, Mutex};
     use std::sync::atomic::{AtomicBool, Ordering};
-    use std::time::{Duration, SystemTime, UNIX_EPOCH};
+    use std::time::Duration;
 
     use bus::{Bus, BusReader};
     use hamcrest2::prelude::*;
