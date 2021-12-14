@@ -129,6 +129,7 @@ mod arduino_keyer_io_spec {
     }
 
     #[test]
+    #[serial]
     fn get_version() {
         test_util::panic_after(Duration::from_secs(2), || {
             let keyer_will_send = "v\n"; // sent to the 'arduino' ie FakeSerialIO
@@ -165,6 +166,7 @@ mod arduino_keyer_io_spec {
     }
 
     #[test]
+    #[serial]
     fn receive_keying() {
         test_util::panic_after(Duration::from_secs(5), || {
             // at 12 wpm, a dit is 100ms, a dah is 300ms, pause between elements 100ms, between
@@ -277,6 +279,7 @@ mod arduino_keyer_io_spec {
     }
 
     #[test]
+    #[serial]
     fn ignore_comment() {
         test_util::panic_after(Duration::from_secs(4), || {
             const START: u8 = 0x53;
@@ -311,6 +314,7 @@ mod arduino_keyer_io_spec {
     }
 
     #[test]
+    #[serial]
     fn terminate() {
         test_util::panic_after(Duration::from_secs(4), || {
             let keyer_will_receive = "_________"; // cause the keyer to delay its thread a bit
