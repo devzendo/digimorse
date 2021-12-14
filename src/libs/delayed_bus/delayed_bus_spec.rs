@@ -15,7 +15,7 @@ mod delayed_bus_spec {
     use crate::libs::delayed_bus::delayed_bus::DelayedBus;
 
     use crate::libs::util::test_util;
-    use crate::libs::util::test_util::wait_n_ms;
+    use crate::libs::util::test_util::{get_epoch_ms, wait_n_ms};
 
     #[ctor::ctor]
     fn before_each() {
@@ -119,12 +119,4 @@ mod delayed_bus_spec {
             }
         }
     }
-
-    fn get_epoch_ms() -> u128 {
-        SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_millis()
-    }
-
 }
