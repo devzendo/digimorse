@@ -107,7 +107,7 @@ impl<T: Send + Debug + Clone + Sync + 'static> DelayedBusReadThread<T> {
                     debug!("Received item {:?}", item);
                     let item_later = self.delay.as_millis();
                     let arc_output_tx = self.output_tx.clone();
-                    let task = TimedOutput{ item: item, output_tx: arc_output_tx };
+                    let task = TimedOutput{ item, output_tx: arc_output_tx };
                     self.scheduled_thread_pool.schedule_ms(item_later as u32, task);
                 }
                 Err(_) => {
@@ -126,7 +126,7 @@ struct TimedOutput<T> {
 }
 
 impl<T: Debug + Send + Clone + Sync + 'static> Task for TimedOutput<T> {
-    fn run(mut self) {
+    fn run(self) {
         debug!("Broadcasting item {:?}", self.item);
         let mut output = self.output_tx.lock().unwrap();
         output.broadcast(self.item);

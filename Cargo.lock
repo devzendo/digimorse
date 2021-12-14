@@ -305,6 +305,7 @@ dependencies = [
  "num 0.4.0",
  "portaudio",
  "pretty-hex",
+ "rand",
  "readonly",
  "rstest",
  "rustfft",

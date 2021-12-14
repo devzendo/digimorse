@@ -23,5 +23,10 @@ pub fn panic_after<T, F>(d: Duration, f: F) -> T
 }
 
 pub fn wait_5_ms() {
-    thread::sleep(Duration::from_millis(5));
+    wait_n_ms(5);
 }
+
+pub fn wait_n_ms(n: u64) {
+    thread::sleep(Duration::from_millis(n));
+}
+
