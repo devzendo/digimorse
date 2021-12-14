@@ -167,8 +167,8 @@ mod arduino_keyer_io_spec {
     #[test]
     fn receive_keying() {
         test_util::panic_after(Duration::from_secs(5), || {
-            // at 12 wpm, a dit is 10ms, a dah is 30ms, pause between elements 10ms, between letters
-            // 30ms, between words 70ms.
+            // at 12 wpm, a dit is 100ms, a dah is 300ms, pause between elements 100ms, between
+            // letters 300ms, between words 700ms.
             const START: u8 = 0x53;
             const END: u8 = 0x45;
             const PL: u8 = 0x2b;
@@ -176,41 +176,41 @@ mod arduino_keyer_io_spec {
             let keyer_will_receive = vec![
                 START,     // start of keying
 
-                PL, 0, 10, // P
-                MI, 0, 10,
-                PL, 0, 30,
-                MI, 0, 10,
-                PL, 0, 30,
-                MI, 0, 10,
-                PL, 0, 10,
+                PL, 0, 100, // P
+                MI, 0, 100,
+                PL, 1, 44, // 300
+                MI, 0, 100,
+                PL, 1, 44,
+                MI, 0, 100,
+                PL, 0, 100,
 
-                MI, 0, 30, // pause between letters
+                MI, 1, 44, // pause between letters
 
-                PL, 0, 10, // A
-                MI, 0, 10,
-                PL, 0, 30,
+                PL, 0, 100, // A
+                MI, 0, 100,
+                PL, 1, 44,
 
-                MI, 0, 30, // pause between letters
+                MI, 1, 44, // pause between letters
 
-                PL, 0, 10, // R
-                MI, 0, 10,
-                PL, 0, 30,
-                MI, 0, 10,
-                PL, 0, 10,
+                PL, 0, 100, // R
+                MI, 0, 100,
+                PL, 1, 44,
+                MI, 0, 100,
+                PL, 0, 100,
 
-                MI, 0, 30, // pause between letters
+                MI, 1, 44, // pause between letters
 
-                PL, 0, 10, // I
-                MI, 0, 10,
-                PL, 0, 10,
+                PL, 0, 100, // I
+                MI, 0, 100,
+                PL, 0, 100,
 
-                MI, 0, 30, // pause between letters
+                MI, 1, 44, // pause between letters
 
-                PL, 0, 10, // S
-                MI, 0, 10,
-                PL, 0, 10,
-                MI, 0, 10,
-                PL, 0, 10,
+                PL, 0, 100, // S
+                MI, 0, 100,
+                PL, 0, 100,
+                MI, 0, 100,
+                PL, 0, 100,
 
                 END,       // end of keying
             ];
@@ -235,41 +235,42 @@ mod arduino_keyer_io_spec {
 
             assert_eq!(received_keying_events[0], KeyingEvent::Start());
 
-            assert_eq!(received_keying_events[1], KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 10 }));
-            assert_eq!(received_keying_events[2], KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 10 }));
-            assert_eq!(received_keying_events[3], KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 30 }));
-            assert_eq!(received_keying_events[4], KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 10 }));
-            assert_eq!(received_keying_events[5], KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 30 }));
-            assert_eq!(received_keying_events[6], KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 10 }));
-            assert_eq!(received_keying_events[7], KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 10 }));
+            // TODO these up/down polarities are wrong.
+            assert_eq!(received_keying_events[1], KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 100 }));
+            assert_eq!(received_keying_events[2], KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 100 }));
+            assert_eq!(received_keying_events[3], KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 300 }));
+            assert_eq!(received_keying_events[4], KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 100 }));
+            assert_eq!(received_keying_events[5], KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 300 }));
+            assert_eq!(received_keying_events[6], KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 100 }));
+            assert_eq!(received_keying_events[7], KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 100 }));
 
-            assert_eq!(received_keying_events[8], KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 30 }));
+            assert_eq!(received_keying_events[8], KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 300 }));
 
-            assert_eq!(received_keying_events[9], KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 10 }));
-            assert_eq!(received_keying_events[10], KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 10 }));
-            assert_eq!(received_keying_events[11], KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 30 }));
+            assert_eq!(received_keying_events[9], KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 100 }));
+            assert_eq!(received_keying_events[10], KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 100 }));
+            assert_eq!(received_keying_events[11], KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 300 }));
 
-            assert_eq!(received_keying_events[12], KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 30 }));
+            assert_eq!(received_keying_events[12], KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 300 }));
 
-            assert_eq!(received_keying_events[13], KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 10 }));
-            assert_eq!(received_keying_events[14], KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 10 }));
-            assert_eq!(received_keying_events[15], KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 30 }));
-            assert_eq!(received_keying_events[16], KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 10 }));
-            assert_eq!(received_keying_events[17], KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 10 }));
+            assert_eq!(received_keying_events[13], KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 100 }));
+            assert_eq!(received_keying_events[14], KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 100 }));
+            assert_eq!(received_keying_events[15], KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 300 }));
+            assert_eq!(received_keying_events[16], KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 100 }));
+            assert_eq!(received_keying_events[17], KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 100 }));
 
-            assert_eq!(received_keying_events[18], KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 30 }));
+            assert_eq!(received_keying_events[18], KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 300 }));
 
-            assert_eq!(received_keying_events[19], KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 10 }));
-            assert_eq!(received_keying_events[20], KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 10 }));
-            assert_eq!(received_keying_events[21], KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 10 }));
+            assert_eq!(received_keying_events[19], KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 100 }));
+            assert_eq!(received_keying_events[20], KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 100 }));
+            assert_eq!(received_keying_events[21], KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 100 }));
 
-            assert_eq!(received_keying_events[22], KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 30 }));
+            assert_eq!(received_keying_events[22], KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 300 }));
 
-            assert_eq!(received_keying_events[23], KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 10 }));
-            assert_eq!(received_keying_events[24], KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 10 }));
-            assert_eq!(received_keying_events[25], KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 10 }));
-            assert_eq!(received_keying_events[26], KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 10 }));
-            assert_eq!(received_keying_events[27], KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 10 }));
+            assert_eq!(received_keying_events[23], KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 100 }));
+            assert_eq!(received_keying_events[24], KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 100 }));
+            assert_eq!(received_keying_events[25], KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 100 }));
+            assert_eq!(received_keying_events[26], KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 100 }));
+            assert_eq!(received_keying_events[27], KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 100 }));
 
             assert_eq!(received_keying_events[28], KeyingEvent::End());
         });
