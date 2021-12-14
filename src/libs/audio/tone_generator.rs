@@ -21,6 +21,7 @@ use std::thread::JoinHandle;
 use std::thread;
 use std::sync::{Arc, RwLock};
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::time::Duration;
 use bus::BusReader;
 
 
@@ -80,7 +81,7 @@ impl ToneGenerator {
                         break;
                     }
 
-                    match keying_events.try_recv() { // should this be a timeout?
+                    match keying_events.recv_timeout(Duration::from_millis(50)) {
                         Ok(keying_event) => {
                             // info!("Tone generator got {}", keying_event);
                             let mut locked_callback_data = move_clone_callback_data.write().unwrap();
@@ -104,7 +105,6 @@ impl ToneGenerator {
                         Err(_) => {
                             // could timeout, or be disconnected?
                             // ignore for now...
-                            // TODO this is a busy loop, need to experiment with timeout above.
                         }
                     }
                 }
