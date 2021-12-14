@@ -74,7 +74,6 @@ impl ToneGenerator {
             audio_frequency,
             thread_handle: Some(thread::spawn(move || {
                 info!("Tone generator thread started");
-                // TODO until poisoned?
                 loop {
                     if terminate.load(Ordering::SeqCst) {
                         info!("Terminating tone generator thread");
@@ -105,11 +104,11 @@ impl ToneGenerator {
                         Err(_) => {
                             // could timeout, or be disconnected?
                             // ignore for now...
+                            // TODO this is a busy loop, need to experiment with timeout above.
                         }
                     }
                 }
-                // TODO when we swallow poison, exit here.
-                // debug!("Tone generator thread stopped");
+                debug!("Tone generator thread stopped");
             })),
             callback_data: arc_lock_callback_data,
             stream: None,
@@ -227,3 +226,9 @@ impl Drop for ToneGenerator {
         debug!("ToneGenerator ...joined thread handle");
     }
 }
+
+
+
+#[cfg(test)]
+#[path = "./tone_generator_spec.rs"]
+mod tone_generator_spec;
