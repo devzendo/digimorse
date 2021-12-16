@@ -65,6 +65,7 @@ impl fmt::Display for AmplitudeRamping {
 pub struct ToneGenerator {
     enabled_in_filter_bandpass: bool,
     audio_frequency: u16,
+    sample_rate: u32,
     thread_handle: Option<JoinHandle<()>>,
     stream: Option<Stream<NonBlocking, Output<f32>>>,
     callback_data: Arc<RwLock<CallbackData>>,
@@ -74,7 +75,6 @@ pub struct CallbackData {
     ramping: AmplitudeRamping,
     phase_accumulator: usize,
     timing_word_m: usize,
-    sample_rate: u32,
 }
 
 impl ToneGenerator {
@@ -85,7 +85,6 @@ impl ToneGenerator {
             ramping: AmplitudeRamping::Stable,
             phase_accumulator: 0,
             timing_word_m: 0,
-            sample_rate: 0, // will be initialised when the callback is initialised
         };
         // TODO replace this RwLock with atomics to reduce contention in the callback.
         let arc_lock_callback_data = Arc::new(RwLock::new(callback_data));
@@ -93,6 +92,7 @@ impl ToneGenerator {
         Self {
             enabled_in_filter_bandpass: true,
             audio_frequency,
+            sample_rate: 0, // will be initialised when the callback is initialised
             thread_handle: Some(thread::spawn(move || {
                 info!("Tone generator thread started");
                 loop {
@@ -140,7 +140,7 @@ impl ToneGenerator {
     // the correct type signature of a callback-returning function should be.
     pub fn start_callback(&mut self, pa: &PortAudio, mut output_settings: OutputStreamSettings<f32>) -> Result<(), Box<dyn Error>> {
         let sample_rate = output_settings.sample_rate as u32;
-        self.callback_data.write().unwrap().sample_rate = sample_rate;
+        self.sample_rate = sample_rate;
         debug!("sample rate is {}",sample_rate);
         self.set_timing_word();
 
@@ -229,14 +229,14 @@ impl ToneGenerator {
     }
 
     fn set_timing_word(&mut self) {
-        let mut locked_callback_data = self.callback_data.write().unwrap();
         // TODO ew this stinks
-        if locked_callback_data.sample_rate == 0 {
+        if self.sample_rate == 0 {
             debug!("Sample rate not yet set; will set frequency when this is known");
             return;
         }
-        locked_callback_data.timing_word_m = (TWO_TO_THIRTYTWO * (self.audio_frequency as usize) / locked_callback_data.sample_rate as usize) as usize;
-        debug!("Setting frequency to {}, timing_word_m {}, sample_rate {}", self.audio_frequency, locked_callback_data.timing_word_m, locked_callback_data.sample_rate);
+        let mut locked_callback_data = self.callback_data.write().unwrap();
+        locked_callback_data.timing_word_m = (TWO_TO_THIRTYTWO * (self.audio_frequency as usize) / self.sample_rate as usize) as usize;
+        debug!("Setting frequency to {}, timing_word_m {}, sample_rate {}", self.audio_frequency, locked_callback_data.timing_word_m, self.sample_rate);
     }
 
     pub fn set_in_filter_bandpass(&mut self, in_bandpass: bool) -> () {
