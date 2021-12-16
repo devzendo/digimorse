@@ -28,8 +28,10 @@ use portaudio::PortAudio;
 use digimorse::libs::config_file::config_file::ConfigurationStore;
 use digimorse::libs::audio::audio_devices::{list_audio_devices, output_audio_device_exists, input_audio_device_exists, open_output_audio_device};
 use digimorse::libs::audio::tone_generator::ToneGenerator;
+use digimorse::libs::delayed_bus::delayed_bus::DelayedBus;
+use digimorse::libs::source_codec::source_decoder::source_decode;
 use digimorse::libs::source_codec::source_encoder::SourceEncoder;
-use digimorse::libs::source_codec::source_encoding::SourceEncoding;
+use digimorse::libs::source_codec::source_encoding::{Frame, SourceEncoding};
 
 const VERSION: &'static str = env!("CARGO_PKG_VERSION");
 
@@ -402,11 +404,18 @@ fn keyer_diag(mut keying_event_rx: BusReader<KeyingEvent>, terminate: Arc<Atomic
 }
 
 fn source_encoder_diag(mut source_encoder_rx: BusReader<SourceEncoding>, terminate: Arc<AtomicBool>) -> Result<(), Box<dyn Error>> {
+    // Keying goes into the SourceEncoder, which emits SourceEncodings to source_encoder_tx. We have
+    // the other end of that bus here as source_encoder_rx. Patch this into the delayed_bus,
+    // which'll send these SourceEncodings to us on delayed_source_encoder_rx, below.
+    let mut output_tx = Bus::new(16);
+    let mut delayed_source_encoder_rx = output_tx.add_rx();
+    let delayed_bus = DelayedBus::new(source_encoder_rx, output_tx, terminate.clone(), Duration::from_secs(30));
+
     loop {
         if terminate.load(Ordering::SeqCst) {
             break;
         }
-        let result = source_encoder_rx.recv_timeout(Duration::from_millis(250));
+        let result = delayed_source_encoder_rx.recv_timeout(Duration::from_millis(250));
         match result {
             Ok(source_encoding) => {
                 info!("SourceEncodingDiag: isEnd {}", source_encoding.is_end);
@@ -414,6 +423,16 @@ fn source_encoder_diag(mut source_encoder_rx: BusReader<SourceEncoding>, termina
                 let hexdump_lines = hexdump.split("\n");
                 for line in hexdump_lines {
                     info!("SourceEncodingDiag: Encoding {}", line);
+                }
+                // The SourceEncoding can now be decoded...
+                match source_decode(source_encoding.block) {
+                    Ok(decoded_frames) => {
+
+
+                    }
+                    Err(err) => {
+                        warn!("Error from source decoder: {}", err);
+                    }
                 }
             }
             Err(_) => {
