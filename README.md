@@ -217,6 +217,8 @@ The authors of the Tufte-LaTeX package, from https://github.com/Tufte-LaTeX/tuft
 
 Wim Looman provided the initial LaTeX Makefile, from https://gist.github.com/Nemo157/539229
 
+Martin Nawrath for the Direct Digital Synthesis sine wave generator ported to Rust in ToneGenerator.rs.
+See http://interface.khm.de/index.php/lab/interfaces-advanced/arduino-dds-sinewave-generator/.
 
 
 Bibliography
