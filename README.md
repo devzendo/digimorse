@@ -135,12 +135,15 @@ You will need to configure your transceiver audio output and input devices so Di
 encoded Morse.
 
 To discover the names of the audio devices currently available on your system, use the ListAudioDevices mode:
+
+```
 $ digimorse ListAudioDevices
 [2021-09-17T07:49:11Z INFO  digimorse] Number of audio devices = 4
 [2021-09-17T07:49:11Z INFO  digimorse] 0: "Built-in Microphone" / IN:2 OUT:0 @ 96000Hz default; 48000Hz supported
 [2021-09-17T07:49:11Z INFO  digimorse] 1: "Built-in Output" / IN:0 OUT:2 @ 44100Hz default; 48000Hz supported
 [2021-09-17T07:49:11Z INFO  digimorse] 2: "USB AUDIO  CODEC" / IN:0 OUT:2 @ 48000Hz default; 48000Hz supported
 [2021-09-17T07:49:11Z INFO  digimorse] 3: "USB AUDIO  CODEC" / IN:2 OUT:0 @ 48000Hz default; 48000Hz supported
+```
 
 Please take care with the device names. Note in the above output, my transceiver is shown as "USB AUDIO  CODEC" - and
 has two spaces between AUDIO and CODEC. You must copy-and-paste these names precisely when setting the devices, as
@@ -150,6 +153,7 @@ Now, set the appropriate devices. This is a one-off operation, you don't need to
 settings you make here are saved in the software's configuration file. The following command should be given on one
 line; it is split for display in this guide:
 
+```
 $ digimorse --audioout "Built-in Output" --rigaudioout "USB AUDIO  CODEC" --rigaudioin "USB AUDIO  CODEC"
   --keyer /dev/tty.usbserial-1420
 [2021-09-17T07:50:13Z INFO  digimorse] Setting audio output device to 'Built-in Output'
@@ -159,6 +163,7 @@ $ digimorse --audioout "Built-in Output" --rigaudioout "USB AUDIO  CODEC" --riga
 [2021-09-17T07:50:13Z INFO  digimorse] Rig output device is 'USB AUDIO  CODEC'
 [2021-09-17T07:50:13Z INFO  digimorse] Rig input device is 'USB AUDIO  CODEC'
 [2021-09-17T07:50:13Z WARN  digimorse] No keyer serial port device has been configured; use the -k or --keyer options
+```
 
 Ok, now we have the audio devices set, we need to tell Digimorse which device the keyer is connected to.
 Currently there's no easy way to show which device this is. Basically, plug it in, and:
