@@ -64,7 +64,6 @@ impl fmt::Display for AmplitudeRamping {
 // the receiver playback system.
 pub struct ToneGenerator {
     enabled_in_filter_bandpass: bool,
-    audio_frequency: u16,
     sample_rate: u32,
     thread_handle: Option<JoinHandle<()>>,
     stream: Option<Stream<NonBlocking, Output<f32>>>,
@@ -76,6 +75,7 @@ pub struct CallbackData {
     phase_accumulator: usize,
     timing_word_m: usize,
     amplitude: f32, // used for ramping up/down output waveform for key click suppression
+    audio_frequency: u16,
 }
 
 impl ToneGenerator {
@@ -87,13 +87,13 @@ impl ToneGenerator {
             phase_accumulator: 0,
             timing_word_m: 0,
             amplitude: 0.0,
+            audio_frequency,
         };
         // TODO replace this RwLock with atomics to reduce contention in the callback.
         let arc_lock_callback_data = Arc::new(RwLock::new(callback_data));
         let move_clone_callback_data = arc_lock_callback_data.clone();
         Self {
             enabled_in_filter_bandpass: true,
-            audio_frequency,
             sample_rate: 0, // will be initialised when the callback is initialised
             thread_handle: Some(thread::spawn(move || {
                 info!("Tone generator thread started");
@@ -224,7 +224,10 @@ impl ToneGenerator {
     }
 
     pub fn set_audio_frequency(&mut self, freq: u16) -> () {
-        self.audio_frequency = freq;
+        {
+            let mut locked_callback_data = self.callback_data.write().unwrap();
+            locked_callback_data.audio_frequency = freq;
+        }
         self.set_timing_word();
     }
 
@@ -235,8 +238,8 @@ impl ToneGenerator {
             return;
         }
         let mut locked_callback_data = self.callback_data.write().unwrap();
-        locked_callback_data.timing_word_m = (TWO_TO_THIRTYTWO * (self.audio_frequency as usize) / self.sample_rate as usize) as usize;
-        debug!("Setting frequency to {}, timing_word_m {}, sample_rate {}", self.audio_frequency, locked_callback_data.timing_word_m, self.sample_rate);
+        locked_callback_data.timing_word_m = (TWO_TO_THIRTYTWO * (locked_callback_data.audio_frequency as usize) / self.sample_rate as usize) as usize;
+        debug!("Setting frequency to {}, timing_word_m {}, sample_rate {}", locked_callback_data.audio_frequency, locked_callback_data.timing_word_m, self.sample_rate);
     }
 
     pub fn set_in_filter_bandpass(&mut self, in_bandpass: bool) -> () {
