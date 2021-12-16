@@ -96,7 +96,7 @@ impl ToneGenerator {
             enabled_in_filter_bandpass: true,
             sample_rate: 0, // will be initialised when the callback is initialised
             thread_handle: Some(thread::spawn(move || {
-                info!("Tone generator thread started");
+                info!("Tone generator keying listener thread started");
                 loop {
                     if terminate.load(Ordering::SeqCst) {
                         info!("Terminating tone generator thread");
@@ -130,7 +130,7 @@ impl ToneGenerator {
                         }
                     }
                 }
-                debug!("Tone generator thread stopped");
+                debug!("Tone generator keying listener thread stopped");
             })),
             callback_data: arc_lock_callback_data,
             stream: None,
