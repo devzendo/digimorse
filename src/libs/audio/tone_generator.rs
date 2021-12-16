@@ -75,6 +75,7 @@ pub struct CallbackData {
     ramping: AmplitudeRamping,
     phase_accumulator: usize,
     timing_word_m: usize,
+    amplitude: f32, // used for ramping up/down output waveform for key click suppression
 }
 
 impl ToneGenerator {
@@ -85,6 +86,7 @@ impl ToneGenerator {
             ramping: AmplitudeRamping::Stable,
             phase_accumulator: 0,
             timing_word_m: 0,
+            amplitude: 0.0,
         };
         // TODO replace this RwLock with atomics to reduce contention in the callback.
         let arc_lock_callback_data = Arc::new(RwLock::new(callback_data));
@@ -144,7 +146,6 @@ impl ToneGenerator {
         debug!("sample rate is {}",sample_rate);
         self.set_timing_word();
 
-        let mut amplitude: f32 = 0.0; // used for ramping up/down output waveform for key click suppression
         let move_clone_callback_data = self.callback_data.clone();
         let callback = move |pa::OutputStreamCallbackArgs::<f32> { buffer, frames, .. }| {
             // info!("buffer length is {}, frames is {}", buffer.len(), frames);
@@ -161,19 +162,19 @@ impl ToneGenerator {
                 let mut locked_callback_data = move_clone_callback_data.write().unwrap();
                 match locked_callback_data.ramping {
                     AmplitudeRamping::RampingUp => {
-                        if amplitude == 0.0 {
+                        if locked_callback_data.amplitude == 0.0 {
                             locked_callback_data.phase_accumulator = 0;
                         }
-                        amplitude += AMPLITUDE_DELTA;
-                        if amplitude >= 0.95 {
-                            amplitude = 0.95;
+                        locked_callback_data.amplitude += AMPLITUDE_DELTA;
+                        if locked_callback_data.amplitude >= 0.95 {
+                            locked_callback_data.amplitude = 0.95;
                             locked_callback_data.ramping = AmplitudeRamping::Stable;
                         }
                     }
                     AmplitudeRamping::RampingDown => {
-                        amplitude -= AMPLITUDE_DELTA;
-                        if amplitude <= 0.0 {
-                            amplitude = 0.0;
+                        locked_callback_data.amplitude -= AMPLITUDE_DELTA;
+                        if locked_callback_data.amplitude <= 0.0 {
+                            locked_callback_data.amplitude = 0.0;
                             locked_callback_data.ramping = AmplitudeRamping::Stable;
                             locked_callback_data.phase_accumulator = 0;
                         }
@@ -187,14 +188,13 @@ impl ToneGenerator {
                 let icnt= (locked_callback_data.phase_accumulator >> 24) % TABLE_SIZE;
                 //debug!("phase accumulator {} icnt {}", locked_callback_data.phase_accumulator, icnt);
 
-
-                std::mem::drop(locked_callback_data);
-
-
                 // Original sine table was from [-1 .. 1], whereas SINE_256 is from [0 .. 255]
                 let sine_byte = SINE_256[icnt];
                 let sine_float = ((sine_byte as i16 - 127) as f32) / 127.0;
-                let sine_val = sine_float * amplitude;
+                let sine_val = sine_float * locked_callback_data.amplitude;
+
+                std::mem::drop(locked_callback_data);
+
                 // TODO MONO - if opening the stream with a single channel causes the same values to
                 // be written to both left and right outputs, this could be optimised..
                 buffer[idx] = sine_val;
