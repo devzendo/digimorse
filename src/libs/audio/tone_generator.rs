@@ -17,7 +17,7 @@ use portaudio as pa;
 use log::{debug, info, warn};
 use crate::libs::keyer_io::keyer_io::KeyingEvent;
 use std::thread::JoinHandle;
-use std::sync::{Arc, RwLock};
+use std::sync::{Arc, Mutex};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
 use std::time::Duration;
@@ -67,7 +67,7 @@ pub struct ToneGenerator {
     sample_rate: u32,
     thread_handle: Option<JoinHandle<()>>,
     stream: Option<Stream<NonBlocking, Output<f32>>>,
-    callback_data: Arc<RwLock<CallbackData>>,
+    callback_data: Arc<Mutex<CallbackData>>,
 }
 
 pub struct CallbackData {
@@ -89,8 +89,8 @@ impl ToneGenerator {
             amplitude: 0.0,
             audio_frequency,
         };
-        // TODO replace this RwLock with atomics to reduce contention in the callback.
-        let arc_lock_callback_data = Arc::new(RwLock::new(callback_data));
+        // TODO replace this Mutex with atomics to reduce contention in the callback.
+        let arc_lock_callback_data = Arc::new(Mutex::new(callback_data));
         let move_clone_callback_data = arc_lock_callback_data.clone();
         Self {
             enabled_in_filter_bandpass: true,
@@ -106,7 +106,7 @@ impl ToneGenerator {
                     match keying_events.recv_timeout(Duration::from_millis(50)) {
                         Ok(keying_event) => {
                             // info!("Tone generator got {}", keying_event);
-                            let mut locked_callback_data = move_clone_callback_data.write().unwrap();
+                            let mut locked_callback_data = move_clone_callback_data.lock().unwrap();
                             locked_callback_data.ramping = match keying_event {
                                 KeyingEvent::Timed(event) => {
                                     if event.up {
@@ -159,7 +159,7 @@ impl ToneGenerator {
 
             for _ in 0..frames {
                 // The processing of amplitude/phase/ramping needs to be done every frame.
-                let mut locked_callback_data = move_clone_callback_data.write().unwrap();
+                let mut locked_callback_data = move_clone_callback_data.lock().unwrap();
                 match locked_callback_data.ramping {
                     AmplitudeRamping::RampingUp => {
                         if locked_callback_data.amplitude == 0.0 {
@@ -225,7 +225,7 @@ impl ToneGenerator {
 
     pub fn set_audio_frequency(&mut self, freq: u16) -> () {
         {
-            let mut locked_callback_data = self.callback_data.write().unwrap();
+            let mut locked_callback_data = self.callback_data.lock().unwrap();
             locked_callback_data.audio_frequency = freq;
         }
         self.set_timing_word();
@@ -237,7 +237,7 @@ impl ToneGenerator {
             debug!("Sample rate not yet set; will set frequency when this is known");
             return;
         }
-        let mut locked_callback_data = self.callback_data.write().unwrap();
+        let mut locked_callback_data = self.callback_data.lock().unwrap();
         locked_callback_data.timing_word_m = (TWO_TO_THIRTYTWO * (locked_callback_data.audio_frequency as usize) / self.sample_rate as usize) as usize;
         debug!("Setting frequency to {}, timing_word_m {}, sample_rate {}", locked_callback_data.audio_frequency, locked_callback_data.timing_word_m, self.sample_rate);
     }
