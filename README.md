@@ -60,23 +60,29 @@ http://devzendo.github.io/digimorse
 Status
 ------
 Project started September 2020. Status: initial investigations, feasiblilty,
-thoughts.
+thoughts, working on demo/test facilities, reducing risk.
 
 What can it do at the moment?
 
 You can connect a straight Morse key to an Arduino running the digimorse-arduino-keyer,
 and key a message. This emits keying timing information via a compact binary protocol
 on a USB-Serial link. This is received and decoded by digimorse, and will generate a
-sidetone as you operate the key. That's all for now. It's all text-mode running in
+sidetone as you operate the key. There's also a loopback demo of the source encoder/
+decoder. That's all for now. It's all text-mode running in
 a console, no GUI yet. You can query the audio devices, and set them in configuration.
 Configuration is stored in a TOML file that you have to hand-edit.
-Next: Design the source encoder.
+Next: Finish the source encoder loopback demo.
 
 In active development:
 * Building the keyer - straight key is done; paddles are out of scope for now.
 * Reading the keyer output via the USB Serial link, and determining duration of
   on-off key timing from the USB stream. Done.
-* Sidetone generation. Done; frequency not yet configurable.
+* Sidetone generation. Done.
+* Source encoding and decoding. All keying-related encoding done; no metadata
+  (callsign, locator, power) yet.
+* Currently working on getting an end-to-end loopback demo working with keying
+  being encoded, pushed through a delay, then decoded and played back. No error
+  detection or correction, or modulation/demodulation yet. 
 * All development is in Rust, which is a new, difficult, but interesting
   language. It would be easier in C++, and quicker - but probably less provably
   correct, and portability would be painful.
