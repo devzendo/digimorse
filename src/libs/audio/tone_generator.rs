@@ -67,7 +67,7 @@ pub struct ToneGenerator {
     sample_rate: u32,
     thread_handle: Option<JoinHandle<()>>,
     stream: Option<Stream<NonBlocking, Output<f32>>>,
-    callback_data: Arc<Mutex<CallbackData>>,
+    callback_data: Arc<Vec<Mutex<CallbackData>>>,
 }
 
 pub struct CallbackData {
@@ -90,7 +90,7 @@ impl ToneGenerator {
             audio_frequency,
         };
         // TODO replace this Mutex with atomics to reduce contention in the callback.
-        let arc_lock_callback_data = Arc::new(Mutex::new(callback_data));
+        let arc_lock_callback_data = Arc::new(vec![Mutex::new(callback_data)]);
         let move_clone_callback_data = arc_lock_callback_data.clone();
         Self {
             enabled_in_filter_bandpass: true,
@@ -106,7 +106,7 @@ impl ToneGenerator {
                     match keying_events.recv_timeout(Duration::from_millis(50)) {
                         Ok(keying_event) => {
                             // info!("Tone generator got {}", keying_event);
-                            let mut locked_callback_data = move_clone_callback_data.lock().unwrap();
+                            let mut locked_callback_data =  move_clone_callback_data[0].lock().unwrap();
                             locked_callback_data.ramping = match keying_event {
                                 KeyingEvent::Timed(event) => {
                                     if event.up {
@@ -144,7 +144,7 @@ impl ToneGenerator {
         let sample_rate = output_settings.sample_rate as u32;
         self.sample_rate = sample_rate;
         debug!("sample rate is {}",sample_rate);
-        self.set_timing_word();
+        self.set_timing_word(0);
 
         let move_clone_callback_data = self.callback_data.clone();
         let callback = move |pa::OutputStreamCallbackArgs::<f32> { buffer, frames, .. }| {
@@ -159,46 +159,52 @@ impl ToneGenerator {
 
             for _ in 0..frames {
                 // The processing of amplitude/phase/ramping needs to be done every frame.
-                let mut locked_callback_data = move_clone_callback_data.lock().unwrap();
-                match locked_callback_data.ramping {
-                    AmplitudeRamping::RampingUp => {
-                        if locked_callback_data.amplitude == 0.0 {
-                            locked_callback_data.phase_accumulator = 0;
+                let mut total_sine_val = 0.0;
+                for tone in &*move_clone_callback_data {
+                    let mut locked_callback_data = tone.lock().unwrap();
+                    match locked_callback_data.ramping {
+                        AmplitudeRamping::RampingUp => {
+                            if locked_callback_data.amplitude == 0.0 {
+                                locked_callback_data.phase_accumulator = 0;
+                            }
+                            locked_callback_data.amplitude += AMPLITUDE_DELTA;
+                            if locked_callback_data.amplitude >= 0.95 {
+                                locked_callback_data.amplitude = 0.95;
+                                locked_callback_data.ramping = AmplitudeRamping::Stable;
+                            }
                         }
-                        locked_callback_data.amplitude += AMPLITUDE_DELTA;
-                        if locked_callback_data.amplitude >= 0.95 {
-                            locked_callback_data.amplitude = 0.95;
-                            locked_callback_data.ramping = AmplitudeRamping::Stable;
+                        AmplitudeRamping::RampingDown => {
+                            locked_callback_data.amplitude -= AMPLITUDE_DELTA;
+                            if locked_callback_data.amplitude <= 0.0 {
+                                locked_callback_data.amplitude = 0.0;
+                                locked_callback_data.ramping = AmplitudeRamping::Stable;
+                                locked_callback_data.phase_accumulator = 0;
+                            }
+                        }
+                        AmplitudeRamping::Stable => {
+                            // noop
                         }
                     }
-                    AmplitudeRamping::RampingDown => {
-                        locked_callback_data.amplitude -= AMPLITUDE_DELTA;
-                        if locked_callback_data.amplitude <= 0.0 {
-                            locked_callback_data.amplitude = 0.0;
-                            locked_callback_data.ramping = AmplitudeRamping::Stable;
-                            locked_callback_data.phase_accumulator = 0;
-                        }
-                    }
-                    AmplitudeRamping::Stable => {
-                        // noop
-                    }
+
+                    locked_callback_data.phase_accumulator += locked_callback_data.timing_word_m;
+                    let icnt= (locked_callback_data.phase_accumulator >> 24) % TABLE_SIZE;
+                    //debug!("phase accumulator {} icnt {}", locked_callback_data.phase_accumulator, icnt);
+
+                    // Original sine table was from [-1 .. 1], whereas SINE_256 is from [0 .. 255]
+                    let sine_byte = SINE_256[icnt];
+                    let sine_float = ((sine_byte as i16 - 127) as f32) / 127.0;
+                    let sine_val = sine_float * locked_callback_data.amplitude;
+
+                    std::mem::drop(locked_callback_data);
+
+                    total_sine_val += sine_val;
                 }
-
-                locked_callback_data.phase_accumulator += locked_callback_data.timing_word_m;
-                let icnt= (locked_callback_data.phase_accumulator >> 24) % TABLE_SIZE;
-                //debug!("phase accumulator {} icnt {}", locked_callback_data.phase_accumulator, icnt);
-
-                // Original sine table was from [-1 .. 1], whereas SINE_256 is from [0 .. 255]
-                let sine_byte = SINE_256[icnt];
-                let sine_float = ((sine_byte as i16 - 127) as f32) / 127.0;
-                let sine_val = sine_float * locked_callback_data.amplitude;
-
-                std::mem::drop(locked_callback_data);
+                total_sine_val /= move_clone_callback_data.len() as f32;
 
                 // TODO MONO - if opening the stream with a single channel causes the same values to
                 // be written to both left and right outputs, this could be optimised..
-                buffer[idx] = sine_val;
-                buffer[idx + 1] = sine_val;
+                buffer[idx] = total_sine_val;
+                buffer[idx + 1] = total_sine_val;
 
                 idx += 2;
             }
@@ -223,23 +229,29 @@ impl ToneGenerator {
         // Now it's playing...
     }
 
-    pub fn set_audio_frequency(&mut self, freq: u16) -> () {
+    pub fn set_audio_frequency(&mut self, tone_index: usize, freq: u16) -> () {
+        if tone_index >= self.callback_data.len() {
+            return;
+        }
         {
-            let mut locked_callback_data = self.callback_data.lock().unwrap();
+            let mut locked_callback_data = self.callback_data[tone_index].lock().unwrap();
             locked_callback_data.audio_frequency = freq;
         }
-        self.set_timing_word();
+        self.set_timing_word(tone_index);
     }
 
-    fn set_timing_word(&mut self) {
+    fn set_timing_word(&mut self, tone_index: usize) {
+        if tone_index >= self.callback_data.len() {
+            return;
+        }
         // TODO ew this stinks
         if self.sample_rate == 0 {
             debug!("Sample rate not yet set; will set frequency when this is known");
             return;
         }
-        let mut locked_callback_data = self.callback_data.lock().unwrap();
+        let mut locked_callback_data = self.callback_data[tone_index].lock().unwrap();
         locked_callback_data.timing_word_m = (TWO_TO_THIRTYTWO * (locked_callback_data.audio_frequency as usize) / self.sample_rate as usize) as usize;
-        debug!("Setting frequency to {}, timing_word_m {}, sample_rate {}", locked_callback_data.audio_frequency, locked_callback_data.timing_word_m, self.sample_rate);
+        debug!("Setting tone#{} frequency to {}, timing_word_m {}, sample_rate {}", tone_index, locked_callback_data.audio_frequency, locked_callback_data.timing_word_m, self.sample_rate);
     }
 
     pub fn set_in_filter_bandpass(&mut self, in_bandpass: bool) -> () {

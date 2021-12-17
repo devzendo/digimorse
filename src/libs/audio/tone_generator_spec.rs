@@ -50,7 +50,7 @@ mod tone_generator_spec {
         let mut tone_generator = ToneGenerator::new(sidetone_frequency,
                                                     keying_event_rx, terminate.clone());
         info!("Setting audio freqency...");
-        tone_generator.set_audio_frequency(600);
+        tone_generator.set_audio_frequency(0, 600);
         let mut fixture = ToneGeneratorFixture {
             terminate,
             keying_event_tx: fixture_keying_event_tx,
@@ -157,7 +157,7 @@ mod tone_generator_spec {
                     keying_bus_tx.lock().unwrap().broadcast(timed_k);
                 }
             }
-            tone_generator.set_audio_frequency(freq);
+            tone_generator.set_audio_frequency(0, freq);
             freq += 1;
         }
         debug!("Finished playing keying sequence");
