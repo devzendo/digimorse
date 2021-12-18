@@ -1,5 +1,5 @@
 use log::{debug, info};
-use std::fmt::Debug;
+use std::fmt::Display;
 use std::marker::PhantomData;
 use std::sync::{Arc, Mutex};
 use std::sync::atomic::AtomicBool;
@@ -9,13 +9,13 @@ use std::time::Duration;
 use bus::{Bus, BusReader};
 use syncbox::{ScheduledThreadPool, Task};
 
-pub struct DelayedBus<T> where T: 'static + Send + Debug + Clone + Sync {
+pub struct DelayedBus<T> where T: 'static + Send + Display + Clone + Sync {
     terminate_flag: Arc<AtomicBool>,
     read_thread_handle: Mutex<Option<JoinHandle<()>>>,
     spooky: PhantomData<T>,
 }
 
-impl<T: 'static + Send + Debug + Clone + Sync> DelayedBus<T> {
+impl<T: 'static + Send + Display + Clone + Sync> DelayedBus<T> {
     pub fn new(input_rx: BusReader<T>, output_tx: Bus<T>, terminate: Arc<AtomicBool>, delay: Duration) -> Self {
         let arc_terminate = terminate.clone();
         let arc_output_tx = Arc::new(Mutex::new(output_tx));
@@ -58,7 +58,7 @@ impl<T: 'static + Send + Debug + Clone + Sync> DelayedBus<T> {
     // }
 }
 
-impl<T: Send + Debug + Clone + Sync + 'static> Drop for DelayedBus<T> {
+impl<T: Send + Display + Clone + Sync + 'static> Drop for DelayedBus<T> {
     fn drop(&mut self) {
         debug!("DelayedBus signalling termination to thread on drop");
         self.terminate();
@@ -75,7 +75,7 @@ struct DelayedBusReadThread<T> {
 }
 
 
-impl<T: Send + Debug + Clone + Sync + 'static> DelayedBusReadThread<T> {
+impl<T: Send + Display + Clone + Sync + 'static> DelayedBusReadThread<T> {
     fn new(delay: Duration,
            input_rx: BusReader<T>,
            output_tx: Arc<Mutex<Bus<T>>>,
@@ -104,7 +104,7 @@ impl<T: Send + Debug + Clone + Sync + 'static> DelayedBusReadThread<T> {
 
             match self.input_rx.recv_timeout(Duration::from_millis(100)) {
                 Ok(item) => {
-                    debug!("Received item {:?}", item);
+                    debug!("Received item {}", item);
                     let item_later = self.delay.as_millis();
                     let arc_output_tx = self.output_tx.clone();
                     let task = TimedOutput{ item, output_tx: arc_output_tx };
@@ -125,9 +125,9 @@ struct TimedOutput<T> {
     output_tx: Arc<Mutex<Bus<T>>>,
 }
 
-impl<T: Debug + Send + Clone + Sync + 'static> Task for TimedOutput<T> {
+impl<T: Display + Send + Clone + Sync + 'static> Task for TimedOutput<T> {
     fn run(self) {
-        debug!("Broadcasting item {:?}", self.item);
+        debug!("Broadcasting item {}", self.item);
         let mut output = self.output_tx.lock().unwrap();
         output.broadcast(self.item);
     }
