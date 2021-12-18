@@ -11,7 +11,7 @@ use pretty_hex::*;
 
 use std::{env, thread};
 use std::error::Error;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use digimorse::libs::config_dir::config_dir;
@@ -27,11 +27,12 @@ use csv::Writer;
 use portaudio::PortAudio;
 use digimorse::libs::config_file::config_file::ConfigurationStore;
 use digimorse::libs::audio::audio_devices::{list_audio_devices, output_audio_device_exists, input_audio_device_exists, open_output_audio_device};
-use digimorse::libs::audio::tone_generator::ToneGenerator;
+use digimorse::libs::audio::tone_generator::{KeyingEventToneChannel, ToneGenerator};
 use digimorse::libs::delayed_bus::delayed_bus::DelayedBus;
 use digimorse::libs::source_codec::source_decoder::source_decode;
 use digimorse::libs::source_codec::source_encoder::SourceEncoder;
 use digimorse::libs::source_codec::source_encoding::{Frame, SourceEncoding};
+use digimorse::libs::transform_bus::transform_bus::TransformBus;
 
 const VERSION: &'static str = env!("CARGO_PKG_VERSION");
 
@@ -103,6 +104,10 @@ fn initialise_logging() {
     env_logger::init();
 }
 
+fn add_sidetone_channel_to_keying_event(keying_event: KeyingEvent) -> KeyingEventToneChannel {
+    return KeyingEventToneChannel { keying_event, tone_channel: 0 };
+}
+
 fn run(arguments: ArgMatches, mode: Mode) -> Result<i32, Box<dyn Error>> {
     let home_dir = dirs::home_dir();
     let config_path = config_dir::configuration_directory(home_dir)?;
@@ -165,12 +170,16 @@ fn run(arguments: ArgMatches, mode: Mode) -> Result<i32, Box<dyn Error>> {
         info!("... terminate flag set");
     }).expect("Error setting Ctrl-C handler");
 
+    let transform_bus = TransformBus::new(tone_generator_keying_event_rx, add_sidetone_channel_to_keying_event, terminate.clone());
+    let arc_transform_bus = Arc::new(Mutex::new(transform_bus));
+    let keying_event_tone_channel_rx = arc_transform_bus.lock().unwrap().add_reader();
+
     info!("Initialising audio callback...");
     let dev_string = config.get_audio_out_device();
     let dev = dev_string.as_str();
     let output_settings = open_output_audio_device(&pa, dev)?;
     let mut tone_generator = ToneGenerator::new(config.get_sidetone_frequency(),
-                                                tone_generator_keying_event_rx, terminate.clone());
+                                                keying_event_tone_channel_rx, terminate.clone());
     tone_generator.start_callback(&pa, output_settings)?;
 
     if mode == Mode::KeyerDiag {

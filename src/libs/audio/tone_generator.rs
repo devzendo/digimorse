@@ -12,6 +12,7 @@
 
 use core::fmt;
 use std::error::Error;
+use std::fmt::{Debug, Display, Formatter};
 use portaudio::{NonBlocking, Output, OutputStreamSettings, PortAudio, Stream};
 use portaudio as pa;
 use log::{debug, info, warn};
@@ -40,6 +41,31 @@ static SINE_256:[u8; TABLE_SIZE] = [
     76,73,70,67,64,62,59,56,54,51,49,46,44,42,39,37,35,33,31,29,27,25,23,21,20,18,16,15,14,12,11,10,9,7,6,5,5,4,3,2,2,1,1,1,0,0,0,0,0,0,0,1,1,1,2,2,3,4,5,5,6,7,9,10,11,12,14,15,16,18,20,21,23,25,27,29,31,
     33,35,37,39,42,44,46,49,51,54,56,59,62,64,67,70,73,76,78,81,84,87,90,93,96,99,102,105,108,111,115,118,121,124,
 ];
+
+/// A ToneChannel is an index into the ToneGenerator's tones - 0 is used for the sidetone; 1.. are
+/// used for decoded/played-back streams of keying.
+pub type ToneChannel = usize;
+
+/// Incoming KeyingEvents to the ToneGenerator are augmented with their ToneChannel. This will cause
+/// them to play at the frequency set for the sidetone (ToneChannel 0), or the audio offset of the
+/// decoded/played-back received stream of keying.
+#[derive(Clone, PartialEq)]
+pub struct KeyingEventToneChannel {
+    pub keying_event: KeyingEvent,
+    pub tone_channel: ToneChannel,
+}
+
+impl Display for KeyingEventToneChannel {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "{}: #{}", self.keying_event, self.tone_channel)
+    }
+}
+
+impl Debug for KeyingEventToneChannel {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "{}: #{}", self.keying_event, self.tone_channel)
+    }
+}
 
 #[derive(Clone)]
 enum AmplitudeRamping {
@@ -79,7 +105,7 @@ pub struct CallbackData {
 }
 
 impl ToneGenerator {
-    pub fn new(audio_frequency: u16, mut keying_events: BusReader<KeyingEvent>, terminate:
+    pub fn new(audio_frequency: u16, mut keying_events_with_tone_channels: BusReader<KeyingEventToneChannel>, terminate:
     Arc<AtomicBool>) -> Self {
         info!("Initialising Tone generator");
         let callback_data = CallbackData {
@@ -103,26 +129,30 @@ impl ToneGenerator {
                         break;
                     }
 
-                    match keying_events.recv_timeout(Duration::from_millis(50)) {
-                        Ok(keying_event) => {
-                            // info!("Tone generator got {}", keying_event);
-                            let mut locked_callback_data =  move_clone_callback_data[0].lock().unwrap();
-                            locked_callback_data.ramping = match keying_event {
-                                KeyingEvent::Timed(event) => {
-                                    if event.up {
-                                        AmplitudeRamping::RampingDown
-                                    } else {
+                    match keying_events_with_tone_channels.recv_timeout(Duration::from_millis(50)) {
+                        Ok(keying_event_tone_channel) => {
+                            info!("Tone generator got {:?}", keying_event_tone_channel);
+                            if keying_event_tone_channel.tone_channel >= move_clone_callback_data.len() {
+                                warn!("Incoming tone channel {} not in use", keying_event_tone_channel.tone_channel);
+                            } else {
+                                let mut locked_callback_data =  move_clone_callback_data[keying_event_tone_channel.tone_channel].lock().unwrap();
+                                locked_callback_data.ramping = match keying_event_tone_channel.keying_event {
+                                    KeyingEvent::Timed(event) => {
+                                        if event.up {
+                                            AmplitudeRamping::RampingDown
+                                        } else {
+                                            AmplitudeRamping::RampingUp
+                                        }
+                                    }
+                                    KeyingEvent::Start() => {
                                         AmplitudeRamping::RampingUp
                                     }
-                                }
-                                KeyingEvent::Start() => {
-                                    AmplitudeRamping::RampingUp
-                                }
-                                KeyingEvent::End() => {
-                                    AmplitudeRamping::RampingDown
-                                }
-                            };
-                            // info!("Set ramping to {}", locked_callback_data.ramping);
+                                    KeyingEvent::End() => {
+                                        AmplitudeRamping::RampingDown
+                                    }
+                                };
+                                // info!("Set ramping of tone channel {} to {}", keying_event.tone_channel, locked_callback_data.ramping);
+                            }
                         }
                         Err(_) => {
                             // could timeout, or be disconnected?

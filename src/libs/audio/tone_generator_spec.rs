@@ -12,8 +12,9 @@ mod tone_generator_spec {
     use std::sync::atomic::{AtomicBool, Ordering};
     use std::time::Duration;
     use crate::libs::audio::audio_devices::open_output_audio_device;
-    use crate::libs::audio::tone_generator::ToneGenerator;
+    use crate::libs::audio::tone_generator::{KeyingEventToneChannel, ToneGenerator};
     use crate::libs::keyer_io::keyer_io::{KeyingEvent, KeyingTimedEvent};
+    use crate::libs::transform_bus::transform_bus::TransformBus;
     use crate::libs::util::test_util;
     use portaudio as pa;
     use portaudio::PortAudio;
@@ -33,8 +34,14 @@ mod tone_generator_spec {
     pub struct ToneGeneratorFixture {
         terminate: Arc<AtomicBool>,
         keying_event_tx: Arc<Mutex<Bus<KeyingEvent>>>,
+        // Not read, but needs storing to maintain lifetime
+        _transform_bus: Arc<Mutex<TransformBus<KeyingEvent, KeyingEventToneChannel>>>,
         tone_generator: ToneGenerator,
         pa: Arc<PortAudio>,
+    }
+
+    fn add_sidetone_channel_to_keying_event(keying_event: KeyingEvent) -> KeyingEventToneChannel {
+        return KeyingEventToneChannel { keying_event, tone_channel: 0 };
     }
 
     #[fixture]
@@ -44,16 +51,21 @@ mod tone_generator_spec {
         let keying_event_rx = keying_event_tx.add_rx();
         let fixture_keying_event_tx = Arc::new(Mutex::new(keying_event_tx));
 
+        let transform_bus = TransformBus::new(keying_event_rx, add_sidetone_channel_to_keying_event, terminate.clone());
+        let arc_transform_bus = Arc::new(Mutex::new(transform_bus));
+        let keying_event_tone_channel_rx = arc_transform_bus.lock().unwrap().add_reader();
+
         let dev = "Built-in Output";
         let sidetone_frequency = 600 as u16;
         info!("Instantiating tone generator...");
         let mut tone_generator = ToneGenerator::new(sidetone_frequency,
-                                                    keying_event_rx, terminate.clone());
+                                                    keying_event_tone_channel_rx, terminate.clone());
         info!("Setting audio freqency...");
         tone_generator.set_audio_frequency(0, 600);
         let mut fixture = ToneGeneratorFixture {
             terminate,
             keying_event_tx: fixture_keying_event_tx,
+            _transform_bus: arc_transform_bus,
             tone_generator,
             pa: Arc::new(pa::PortAudio::new().unwrap()),
         };
