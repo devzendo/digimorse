@@ -7,7 +7,7 @@ use std::thread;
 use std::thread::JoinHandle;
 use std::time::Duration;
 
-struct TransformBus<I, O> where I: Clone + Sync + Send + 'static, O: Clone + Sync + Send + 'static {
+pub struct TransformBus<I, O> where I: Clone + Sync + Send + 'static, O: Clone + Sync + Send + 'static {
     terminate_flag: Arc<AtomicBool>,
     thread_handle: Option<JoinHandle<()>>,
     output_bus: Arc<Mutex<Bus<O>>>,
