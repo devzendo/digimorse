@@ -52,7 +52,7 @@ mod tone_generator_spec {
         let keying_event_rx = keying_event_tx.add_rx();
         let fixture_keying_event_tx = Arc::new(Mutex::new(keying_event_tx));
 
-        let mut keying_event_tone_channel_tx: Bus<KeyingEventToneChannel> = Bus::new(16);
+        let mut keying_event_tone_channel_tx: Arc<Mutex<Bus<KeyingEventToneChannel>>> = Arc::new(Mutex::new(Bus::new(16)));
         let transform_bus = TransformBus::new(keying_event_rx, keying_event_tone_channel_tx, add_sidetone_channel_to_keying_event, terminate.clone());
         let arc_transform_bus = Arc::new(Mutex::new(transform_bus));
         let keying_event_tone_channel_rx = arc_transform_bus.lock().unwrap().add_reader();
@@ -157,8 +157,8 @@ mod tone_generator_spec {
     }
 
 
-    #[rstest]
-    #[serial]
+    // #[rstest]
+    // #[serial]
     pub fn play_multiple_keyings(mut fixture: ToneGeneratorFixture) {
         let a_keying = text_to_keying(20, "CQ CQ CQ CQ DE M0CUV M0CUV PSE K");
         let b_keying = text_to_keying(12, "CQ TEST UR 599 QRZ?");

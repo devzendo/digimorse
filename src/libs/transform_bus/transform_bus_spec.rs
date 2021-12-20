@@ -27,6 +27,7 @@ mod transform_bus_spec {
     pub struct TransformBusFixture {
         terminate: Arc<AtomicBool>,
         input_tx: Bus<String>,
+        output_tx: Arc<Mutex<Bus<(String, usize)>>>,
         // Not read, but needs storing to maintain lifetime
         _transform_bus: Arc<Mutex<TransformBus<String, (String, usize)>>>,
         output_rx: BusReader<(String, usize)>,
@@ -46,10 +47,12 @@ mod transform_bus_spec {
         let terminate = Arc::new(AtomicBool::new(false));
         let mut input_tx: Bus<String> = Bus::new(16);
         let input_rx = input_tx.add_rx();
-        let output_tx: Bus<(String, usize)> = Bus::new(16); // TODO the output_tx is going to need to be shared with other writers, so will need to be Arc<Mutex<Bus<(String, usize)>>> or somesuch
-        let transform_bus = TransformBus::new(input_rx, output_tx, transform, terminate.clone());
-        let arc_transform_bus = Arc::new(Mutex::new(transform_bus));
-        let output_rx = arc_transform_bus.lock().unwrap().add_reader();
+        let output_tx: Bus<(String, usize)> = Bus::new(16);
+        let arc_mutex_output_tx = Arc::new(Mutex::new(output_tx));
+        let self_arc_mutex_output_tx = arc_mutex_output_tx.clone();
+        let transform_bus = TransformBus::new(input_rx, arc_mutex_output_tx, transform, terminate.clone());
+        let arc_mutex_transform_bus = Arc::new(Mutex::new(transform_bus));
+        let output_rx = arc_mutex_transform_bus.lock().unwrap().add_reader();
         info!("Fixture setup sleeping");
         test_util::wait_5_ms(); // give things time to start
         info!("Fixture setup out of sleep");
@@ -57,7 +60,8 @@ mod transform_bus_spec {
         TransformBusFixture {
             terminate,
             input_tx,
-            _transform_bus: arc_transform_bus,
+            output_tx: self_arc_mutex_output_tx,
+            _transform_bus: arc_mutex_transform_bus,
             output_rx,
         }
     }
