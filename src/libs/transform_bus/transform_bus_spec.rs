@@ -46,7 +46,8 @@ mod transform_bus_spec {
         let terminate = Arc::new(AtomicBool::new(false));
         let mut input_tx: Bus<String> = Bus::new(16);
         let input_rx = input_tx.add_rx();
-        let transform_bus = TransformBus::new(input_rx, transform, terminate.clone());
+        let output_tx: Bus<(String, usize)> = Bus::new(16); // TODO the output_tx is going to need to be shared with other writers, so will need to be Arc<Mutex<Bus<(String, usize)>>> or somesuch
+        let transform_bus = TransformBus::new(input_rx, output_tx, transform, terminate.clone());
         let arc_transform_bus = Arc::new(Mutex::new(transform_bus));
         let output_rx = arc_transform_bus.lock().unwrap().add_reader();
         info!("Fixture setup sleeping");

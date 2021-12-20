@@ -287,6 +287,10 @@ impl ToneGenerator {
     pub fn set_in_filter_bandpass(&mut self, in_bandpass: bool) -> () {
         self.enabled_in_filter_bandpass = in_bandpass;
     }
+
+    pub fn allocate_channel(&mut self, freq: u16) -> usize {
+        1
+    }
 }
 
 impl Drop for ToneGenerator {

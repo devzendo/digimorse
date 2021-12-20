@@ -16,11 +16,10 @@ pub struct TransformBus<I, O> where I: Clone + Sync + Send + 'static, O: Clone +
 }
 
 impl<I: Clone + Sync + Send + 'static, O: Clone + Sync + Send + 'static> TransformBus<I, O> {
-    pub fn new(mut input: BusReader<I>, transform: fn(I) -> O, terminate: Arc<AtomicBool>) -> Self {
+    pub fn new(mut input: BusReader<I>, output: Bus<O>, transform: fn(I) -> O, terminate: Arc<AtomicBool>) -> Self {
         let arc_terminate = terminate.clone();
         let self_arc_terminate = arc_terminate.clone();
-        let output_bus: Bus<O> = Bus::new(4);
-        let arc_output_bus = Arc::new(Mutex::new(output_bus));
+        let arc_output_bus = Arc::new(Mutex::new(output));
         let self_arc_output_bus = arc_output_bus.clone();
         Self {
             terminate_flag: self_arc_terminate,
