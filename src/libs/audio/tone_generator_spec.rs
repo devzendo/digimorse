@@ -3,6 +3,7 @@ extern crate portaudio;
 
 #[cfg(test)]
 mod tone_generator_spec {
+    use std::collections::{BTreeMap, HashMap};
     use bus::Bus;
     use log::{debug, info};
     use std::env;
@@ -185,30 +186,40 @@ mod tone_generator_spec {
         merged.add(5000, b_keying_tones);
         merged.add(100, c_keying_tones);
         let merged = merged.merge();
-        // TODO put merged into the keying_with_tone_channel bus, with delays.
         play_in_real_time_direct(merged, &fixture.keying_event_tone_channel_tx, &mut fixture.tone_generator);
     }
 
-
-
-
     struct KeyingToneMerger {
-
+        timing_map: BTreeMap<u32, Vec<KeyingEventToneChannel>>,
     }
 
     impl KeyingToneMerger {
         pub fn new() -> Self {
             Self {
-
+                timing_map: BTreeMap::new(),
             }
         }
 
-        pub fn add(&mut self, delay_ms: u16, keying_event_with_tones: Vec<KeyingEventToneChannel>) {
-
+        pub fn add(&mut self, delay_ms: u32, keying_event_with_tones: Vec<KeyingEventToneChannel>) {
+            let mut time = delay_ms;
+            for kevt in keying_event_with_tones {
+                self.timing_map.entry(time).or_insert(Vec::new()).push(kevt.clone());
+                match kevt.keying_event.clone() {
+                    KeyingEvent::Timed(timed) => {
+                        time += timed.duration as u32;
+                    }
+                    KeyingEvent::Start() => {}
+                    KeyingEvent::End() => {}
+                }
+            }
         }
 
-        pub fn merge(&mut self) -> Vec<KeyingEventToneChannel> {
-            vec![]
+        pub fn merge(&mut self) -> Vec<(u32, Vec<KeyingEventToneChannel>)> {
+            let mut out: Vec<(u32, Vec<KeyingEventToneChannel>)> = Vec::new();
+            for (time, vec_kevt) in &self.timing_map {
+                out.push((*time, (*vec_kevt).clone()));
+            }
+            out
         }
     }
 
@@ -232,25 +243,27 @@ mod tone_generator_spec {
         debug!("Finished playing keying sequence");
     }
 
-    fn play_in_real_time_direct(keying: Vec<KeyingEventToneChannel>, keying_bus_tx: &Arc<Mutex<Bus<KeyingEventToneChannel>>>, tone_generator: &mut ToneGenerator) {
+    fn play_in_real_time_direct(keying: Vec<(u32, Vec<KeyingEventToneChannel>)>, keying_bus_tx: &Arc<Mutex<Bus<KeyingEventToneChannel>>>, tone_generator: &mut ToneGenerator) {
         debug!("Playing keying sequence...");
-        // for ketc in keying {
-        //     match ketc {
-        //         KeyingEventToneChannel { keying_event, tone_channel } => {
-        //             let ketc_clone = ketc.clone();
-        //             let timed_keying_event = keying_event.clone();
-        //             match keying_event {
-        //                 KeyingEvent::Start() | KeyingEvent::End() => {
-        //                     keying_bus_tx.lock().unwrap().broadcast(ketc_clone);
-        //                 }
-        //                 KeyingEvent::Timed(timed) => {
-        //                     spin_sleep::sleep(Duration::from_millis(timed.duration as u64));
-        //                     keying_bus_tx.lock().unwrap().broadcast(timed_k);
-        //                 }
-        //             }
-        //         }
-        //     }
-        // }
+        let mut time = 0;
+        for timed_ketc in keying {
+            debug!("Time is {}, Keying time is {}, Keying: {:?}", time, timed_ketc.0, timed_ketc.1);
+            // match timed_ketc {
+            //     KeyingEventToneChannel { keying_event, tone_channel } => {
+            //         let ketc_clone = timed_ketc.clone();
+            //         let timed_keying_event = keying_event.clone();
+            //         match keying_event {
+            //             KeyingEvent::Start() | KeyingEvent::End() => {
+            //                 keying_bus_tx.lock().unwrap().broadcast(ketc_clone);
+            //             }
+            //             KeyingEvent::Timed(timed) => {
+            //                 spin_sleep::sleep(Duration::from_millis(timed.duration as u64));
+            //                 keying_bus_tx.lock().unwrap().broadcast(timed_k);
+            //             }
+            //         }
+            //     }
+            // }
+        }
         debug!("Finished playing keying sequence");
     }
 }
