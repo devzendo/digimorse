@@ -2,7 +2,6 @@ extern crate hamcrest2;
 
 #[cfg(test)]
 mod conversion_spec {
-    use log::{debug, info};
     use hamcrest2::prelude::*;
     use crate::libs::conversion::conversion::text_to_keying;
     use crate::libs::keyer_io::keyer_io::{KeyingEvent, KeyingTimedEvent};
