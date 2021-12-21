@@ -62,7 +62,6 @@ pub fn text_to_keying(wpm: u32, text: &str) -> Vec<KeyingEvent> {
     let dit = 1200 / wpm as KeyerEdgeDurationMs;
     let dah = dit * 3 as KeyerEdgeDurationMs;
     let wordgap = dit * 7 as KeyerEdgeDurationMs;
-    let text_len = text.len();
 
     let mut out: Vec<KeyingEvent> = Vec::new();
     out.push(KeyingEvent::Start());
