@@ -19,6 +19,7 @@ mod tone_generator_spec {
     use crate::libs::util::test_util;
     use portaudio as pa;
     use portaudio::PortAudio;
+    use crate::libs::conversion::conversion::text_to_keying;
 
 
     const TABLE_SIZE: usize = 200;
@@ -188,155 +189,8 @@ mod tone_generator_spec {
         play_in_real_time_direct(merged, &fixture.keying_event_tone_channel_tx, &mut fixture.tone_generator);
     }
 
-    #[rstest]
-    #[serial]
-    pub fn test_text_to_keying_no_space(fixture: ToneGeneratorFixture) {
-        let actual_keying = text_to_keying(12, "PARIS");
-        assert_that!(actual_keying, equal_to(fixture.paris_keying_12_wpm.clone()));
-    }
 
-    #[rstest]
-    #[serial]
-    pub fn test_text_to_keying_with_space(mut fixture: ToneGeneratorFixture) {
-        let expected_keying = vec![
-            KeyingEvent::Start(),
 
-            KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 300 }),
-            KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 100 }),
-            KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 100 }),
-            KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 100 }),
-            KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 300 }),
-            KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 100 }),
-            KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 100 }),
-
-            KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 700 }),
-
-            KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 300 }),
-            KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 100 }),
-            KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 300 }),
-            KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 100 }),
-            KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 100 }),
-            KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 100 }),
-            KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 300 }),
-
-            KeyingEvent::End(),
-        ];
-
-        play_in_real_time(expected_keying.clone(), &fixture.keying_event_tx, &mut fixture.tone_generator);
-
-        let actual_keying = text_to_keying(12, "C Q");
-        assert_that!(actual_keying, equal_to(expected_keying));
-    }
-
-    // Prosigns not supported
-    fn text_to_keying(wpm: u32, text: &str) -> Vec<KeyingEvent> {
-        let dit = 1200 / wpm as KeyerEdgeDurationMs;
-        let dah = dit * 3 as KeyerEdgeDurationMs;
-        let wordgap = dit * 7 as KeyerEdgeDurationMs;
-        let text_len = text.len();
-
-        let mut out: Vec<KeyingEvent> = Vec::new();
-        out.push(KeyingEvent::Start());
-
-        let mut up = true;
-        let mut previous_char = '~'; // should never occur in input
-        for (index, ch) in text.chars().enumerate() {
-            if previous_char == ' ' {
-                debug!("Adding word gap");
-                out.push(KeyingEvent::Timed(KeyingTimedEvent{ up, duration: wordgap }));
-                up = !up;
-            } else {
-                if ch != ' ' && index != 0 {
-                    debug!("Adding inter-character dah");
-                    out.push(KeyingEvent::Timed(KeyingTimedEvent{ up, duration: dah }));
-                    up = !up;
-                }
-            }
-            if ch != ' ' {
-                let morse_string = char_to_morse(ch);
-                debug!("Converted '{}' to '{}'", ch, morse_string);
-                for (dds_index, dot_dash_space) in morse_string.chars().enumerate() {
-                    let last_dds = dds_index == morse_string.len() - 1;
-                    debug!("Converting '{}'", dot_dash_space);
-                    match dot_dash_space {
-                        '.' => {
-                            out.push(KeyingEvent::Timed(KeyingTimedEvent{ up, duration: dit }));
-                        }
-                        '-' => {
-                            out.push(KeyingEvent::Timed(KeyingTimedEvent{ up, duration: dah }));
-                        }
-                        _ => { panic!("Won't get here") }
-                    }
-                    up = !up;
-                    if !last_dds {
-                        debug!("Adding inter-element dit");
-                        out.push(KeyingEvent::Timed(KeyingTimedEvent{ up, duration: dit }));
-                        up = !up;
-                    }
-                }
-            }
-            previous_char = ch;
-        }
-
-        out.push(KeyingEvent::End());
-        out
-    }
-
-    // Prosigns not supported
-    fn char_to_morse(ch: char) -> String {
-        let upper = ch.to_ascii_uppercase();
-        let str = match upper {
-            'A' => { ".-" }
-            'B' => { "-..." }
-            'C' => { "-.-." }
-            'D' => { "-.." }
-            'E' => { "." }
-            'F' => { "..-." }
-            'G' => { "--." }
-            'H' => { "...." }
-            'I' => { ".." }
-            'J' => { ".---" }
-            'K' => { "-.-" }
-            'L' => { ".-.." }
-            'M' => { "--" }
-            'N' => { "-." }
-            'O' => { "---" }
-            'P' => { ".--." }
-            'Q' => { "--.-" }
-            'R' => { ".-." }
-            'S' => { "..." }
-            'T' => { "-" }
-            'U' => { "..-" }
-            'V' => { "...-" }
-            'W' => { ".--" }
-            'X' => { "-..-" }
-            'Y' => { "-.--" }
-            'Z' => { "--.." }
-            '0' => { "-----" }
-            '1' => { ".----" }
-            '2' => { "..---" }
-            '3' => { "...--" }
-            '4' => { "....-" }
-            '5' => { "....." }
-            '6' => { "-...." }
-            '7' => { "--..." }
-            '8' => { "---.." }
-            '9' => { "----." }
-            '.' => { ".-.-.-" }
-            '/' => { "-..-." }
-            ',' => { "--..--" }
-            '?' => { "..--.." }
-            ' ' => { " " }
-            // My shorthand
-            '=' => { "-...-" }  // BT
-            '|' => { "...-.-" } // SK
-            '+' => { ".-.-." }  // AR
-            _ => {
-                panic!("Unknown character input '{}'", upper);
-            }
-        };
-        str.to_owned()
-    }
 
     struct KeyingToneMerger {
 
