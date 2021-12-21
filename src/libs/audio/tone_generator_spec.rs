@@ -14,7 +14,7 @@ mod tone_generator_spec {
     use hamcrest2::prelude::*;
     use crate::libs::audio::audio_devices::open_output_audio_device;
     use crate::libs::audio::tone_generator::{KeyingEventToneChannel, ToneGenerator};
-    use crate::libs::keyer_io::keyer_io::{KeyingEvent, KeyingTimedEvent};
+    use crate::libs::keyer_io::keyer_io::{KeyerEdgeDurationMs, KeyingEvent, KeyingTimedEvent};
     use crate::libs::transform_bus::transform_bus::TransformBus;
     use crate::libs::util::test_util;
     use portaudio as pa;
@@ -35,10 +35,12 @@ mod tone_generator_spec {
     pub struct ToneGeneratorFixture {
         terminate: Arc<AtomicBool>,
         keying_event_tx: Arc<Mutex<Bus<KeyingEvent>>>,
+        keying_event_tone_channel_tx: Arc<Mutex<Bus<KeyingEventToneChannel>>>,
         // Not read, but needs storing to maintain lifetime
         _transform_bus: Arc<Mutex<TransformBus<KeyingEvent, KeyingEventToneChannel>>>,
         tone_generator: ToneGenerator,
         pa: Arc<PortAudio>,
+        paris_keying_12_wpm: Vec<KeyingEvent>,
     }
 
     fn add_sidetone_channel_to_keying_event(keying_event: KeyingEvent) -> KeyingEventToneChannel {
@@ -53,6 +55,7 @@ mod tone_generator_spec {
         let fixture_keying_event_tx = Arc::new(Mutex::new(keying_event_tx));
 
         let mut keying_event_tone_channel_tx: Arc<Mutex<Bus<KeyingEventToneChannel>>> = Arc::new(Mutex::new(Bus::new(16)));
+        let fixture_keying_event_tone_channel_tx = keying_event_tone_channel_tx.clone();
         let transform_bus = TransformBus::new(keying_event_rx, keying_event_tone_channel_tx, add_sidetone_channel_to_keying_event, terminate.clone());
         let arc_transform_bus = Arc::new(Mutex::new(transform_bus));
         let keying_event_tone_channel_rx = arc_transform_bus.lock().unwrap().add_reader();
@@ -64,12 +67,57 @@ mod tone_generator_spec {
                                                     keying_event_tone_channel_rx, terminate.clone());
         info!("Setting audio freqency...");
         tone_generator.set_audio_frequency(0, 600);
+
+        let paris_keying_12_wpm = vec![
+            KeyingEvent::Start(),
+
+            KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 100 }),
+            KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 100 }),
+            KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 300 }),
+            KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 100 }),
+            KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 300 }),
+            KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 100 }),
+            KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 100 }),
+
+            KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 300 }),
+
+            KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 100 }),
+            KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 100 }),
+            KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 300 }),
+
+            KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 300 }),
+
+            KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 100 }),
+            KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 100 }),
+            KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 300 }),
+            KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 100 }),
+            KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 100 }),
+
+            KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 300 }),
+
+            KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 100 }),
+            KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 100 }),
+            KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 100 }),
+
+            KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 300 }),
+
+            KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 100 }),
+            KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 100 }),
+            KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 100 }),
+            KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 100 }),
+            KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 100 }),
+
+            KeyingEvent::End(),
+        ];
+
         let mut fixture = ToneGeneratorFixture {
             terminate,
             keying_event_tx: fixture_keying_event_tx,
+            keying_event_tone_channel_tx: fixture_keying_event_tone_channel_tx,
             _transform_bus: arc_transform_bus,
             tone_generator,
             pa: Arc::new(pa::PortAudio::new().unwrap()),
+            paris_keying_12_wpm,
         };
         let output_settings = open_output_audio_device(&fixture.pa, dev).unwrap();
         info!("Initialising audio callback...");
@@ -112,53 +160,12 @@ mod tone_generator_spec {
     #[rstest]
     #[serial]
     pub fn play_paris_at_12wpm(mut fixture: ToneGeneratorFixture) {
-        let paris_keying = vec![
-            KeyingEvent::Start(),
-
-            KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 100 }),
-            KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 100 }),
-            KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 300 }),
-            KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 100 }),
-            KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 300 }),
-            KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 100 }),
-            KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 100 }),
-
-            KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 300 }),
-
-            KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 100 }),
-            KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 100 }),
-            KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 300 }),
-
-            KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 300 }),
-
-            KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 100 }),
-            KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 100 }),
-            KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 300 }),
-            KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 100 }),
-            KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 100 }),
-
-            KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 300 }),
-
-            KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 100 }),
-            KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 100 }),
-            KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 100 }),
-
-            KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 300 }),
-
-            KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 100 }),
-            KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 100 }),
-            KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 100 }),
-            KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 100 }),
-            KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 100 }),
-
-            KeyingEvent::End(),
-        ];
-        play_in_real_time(paris_keying, &fixture.keying_event_tx, &mut fixture.tone_generator);
+        play_in_real_time(fixture.paris_keying_12_wpm.clone(), &fixture.keying_event_tx, &mut fixture.tone_generator);
     }
 
 
-    // #[rstest]
-    // #[serial]
+    #[rstest]
+    #[serial]
     pub fn play_multiple_keyings(mut fixture: ToneGeneratorFixture) {
         let a_keying = text_to_keying(20, "CQ CQ CQ CQ DE M0CUV M0CUV PSE K");
         let b_keying = text_to_keying(12, "CQ TEST UR 599 QRZ?");
@@ -172,16 +179,163 @@ mod tone_generator_spec {
         let a_keying_tones = a_keying.iter().map(|k| KeyingEventToneChannel{ keying_event: k.clone(), tone_channel: a_channel }).collect();
         let b_keying_tones = b_keying.iter().map(|k| KeyingEventToneChannel{ keying_event: k.clone(), tone_channel: b_channel }).collect();
         let c_keying_tones = c_keying.iter().map(|k| KeyingEventToneChannel{ keying_event: k.clone(), tone_channel: c_channel }).collect();
-        let mut interspersed = KeyingToneMerger::new();
-        interspersed.add(3000, a_keying_tones);
-        interspersed.add(5000, b_keying_tones);
-        interspersed.add(100, c_keying_tones);
-        let merged = interspersed.merge();
+        let mut merged = KeyingToneMerger::new();
+        merged.add(3000, a_keying_tones);
+        merged.add(5000, b_keying_tones);
+        merged.add(100, c_keying_tones);
+        let merged = merged.merge();
         // TODO put merged into the keying_with_tone_channel bus, with delays.
+        play_in_real_time_direct(merged, &fixture.keying_event_tone_channel_tx, &mut fixture.tone_generator);
     }
 
+    #[rstest]
+    #[serial]
+    pub fn test_text_to_keying_no_space(fixture: ToneGeneratorFixture) {
+        let actual_keying = text_to_keying(12, "PARIS");
+        assert_that!(actual_keying, equal_to(fixture.paris_keying_12_wpm.clone()));
+    }
+
+    #[rstest]
+    #[serial]
+    pub fn test_text_to_keying_with_space(mut fixture: ToneGeneratorFixture) {
+        let expected_keying = vec![
+            KeyingEvent::Start(),
+
+            KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 300 }),
+            KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 100 }),
+            KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 100 }),
+            KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 100 }),
+            KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 300 }),
+            KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 100 }),
+            KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 100 }),
+
+            KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 700 }),
+
+            KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 300 }),
+            KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 100 }),
+            KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 300 }),
+            KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 100 }),
+            KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 100 }),
+            KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 100 }),
+            KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 300 }),
+
+            KeyingEvent::End(),
+        ];
+
+        play_in_real_time(expected_keying.clone(), &fixture.keying_event_tx, &mut fixture.tone_generator);
+
+        let actual_keying = text_to_keying(12, "C Q");
+        assert_that!(actual_keying, equal_to(expected_keying));
+    }
+
+    // Prosigns not supported
     fn text_to_keying(wpm: u32, text: &str) -> Vec<KeyingEvent> {
-        vec![]
+        let dit = 1200 / wpm as KeyerEdgeDurationMs;
+        let dah = dit * 3 as KeyerEdgeDurationMs;
+        let wordgap = dit * 7 as KeyerEdgeDurationMs;
+        let text_len = text.len();
+
+        let mut out: Vec<KeyingEvent> = Vec::new();
+        out.push(KeyingEvent::Start());
+
+        let mut up = true;
+        let mut previous_char = '~'; // should never occur in input
+        for (index, ch) in text.chars().enumerate() {
+            if previous_char == ' ' {
+                debug!("Adding word gap");
+                out.push(KeyingEvent::Timed(KeyingTimedEvent{ up, duration: wordgap }));
+                up = !up;
+            } else {
+                if ch != ' ' && index != 0 {
+                    debug!("Adding inter-character dah");
+                    out.push(KeyingEvent::Timed(KeyingTimedEvent{ up, duration: dah }));
+                    up = !up;
+                }
+            }
+            if ch != ' ' {
+                let morse_string = char_to_morse(ch);
+                debug!("Converted '{}' to '{}'", ch, morse_string);
+                for (dds_index, dot_dash_space) in morse_string.chars().enumerate() {
+                    let last_dds = dds_index == morse_string.len() - 1;
+                    debug!("Converting '{}'", dot_dash_space);
+                    match dot_dash_space {
+                        '.' => {
+                            out.push(KeyingEvent::Timed(KeyingTimedEvent{ up, duration: dit }));
+                        }
+                        '-' => {
+                            out.push(KeyingEvent::Timed(KeyingTimedEvent{ up, duration: dah }));
+                        }
+                        _ => { panic!("Won't get here") }
+                    }
+                    up = !up;
+                    if !last_dds {
+                        debug!("Adding inter-element dit");
+                        out.push(KeyingEvent::Timed(KeyingTimedEvent{ up, duration: dit }));
+                        up = !up;
+                    }
+                }
+            }
+            previous_char = ch;
+        }
+
+        out.push(KeyingEvent::End());
+        out
+    }
+
+    // Prosigns not supported
+    fn char_to_morse(ch: char) -> String {
+        let upper = ch.to_ascii_uppercase();
+        let str = match upper {
+            'A' => { ".-" }
+            'B' => { "-..." }
+            'C' => { "-.-." }
+            'D' => { "-.." }
+            'E' => { "." }
+            'F' => { "..-." }
+            'G' => { "--." }
+            'H' => { "...." }
+            'I' => { ".." }
+            'J' => { ".---" }
+            'K' => { "-.-" }
+            'L' => { ".-.." }
+            'M' => { "--" }
+            'N' => { "-." }
+            'O' => { "---" }
+            'P' => { ".--." }
+            'Q' => { "--.-" }
+            'R' => { ".-." }
+            'S' => { "..." }
+            'T' => { "-" }
+            'U' => { "..-" }
+            'V' => { "...-" }
+            'W' => { ".--" }
+            'X' => { "-..-" }
+            'Y' => { "-.--" }
+            'Z' => { "--.." }
+            '0' => { "-----" }
+            '1' => { ".----" }
+            '2' => { "..---" }
+            '3' => { "...--" }
+            '4' => { "....-" }
+            '5' => { "....." }
+            '6' => { "-...." }
+            '7' => { "--..." }
+            '8' => { "---.." }
+            '9' => { "----." }
+            '.' => { ".-.-.-" }
+            '/' => { "-..-." }
+            ',' => { "--..--" }
+            '?' => { "..--.." }
+            ' ' => { " " }
+            // My shorthand
+            '=' => { "-...-" }  // BT
+            '|' => { "...-.-" } // SK
+            '+' => { ".-.-." }  // AR
+            _ => {
+                panic!("Unknown character input '{}'", upper);
+            }
+        };
+        str.to_owned()
     }
 
     struct KeyingToneMerger {
@@ -221,6 +375,28 @@ mod tone_generator_spec {
             tone_generator.set_audio_frequency(0, freq);
             freq += 1;
         }
+        debug!("Finished playing keying sequence");
+    }
+
+    fn play_in_real_time_direct(keying: Vec<KeyingEventToneChannel>, keying_bus_tx: &Arc<Mutex<Bus<KeyingEventToneChannel>>>, tone_generator: &mut ToneGenerator) {
+        debug!("Playing keying sequence...");
+        // for ketc in keying {
+        //     match ketc {
+        //         KeyingEventToneChannel { keying_event, tone_channel } => {
+        //             let ketc_clone = ketc.clone();
+        //             let timed_keying_event = keying_event.clone();
+        //             match keying_event {
+        //                 KeyingEvent::Start() | KeyingEvent::End() => {
+        //                     keying_bus_tx.lock().unwrap().broadcast(ketc_clone);
+        //                 }
+        //                 KeyingEvent::Timed(timed) => {
+        //                     spin_sleep::sleep(Duration::from_millis(timed.duration as u64));
+        //                     keying_bus_tx.lock().unwrap().broadcast(timed_k);
+        //                 }
+        //             }
+        //         }
+        //     }
+        // }
         debug!("Finished playing keying sequence");
     }
 }
