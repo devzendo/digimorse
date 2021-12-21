@@ -27,7 +27,7 @@ mod transform_bus_spec {
     pub struct TransformBusFixture {
         terminate: Arc<AtomicBool>,
         input_tx: Bus<String>,
-        output_tx: Arc<Mutex<Bus<(String, usize)>>>,
+        _output_tx: Arc<Mutex<Bus<(String, usize)>>>,
         // Not read, but needs storing to maintain lifetime
         _transform_bus: Arc<Mutex<TransformBus<String, (String, usize)>>>,
         output_rx: BusReader<(String, usize)>,
@@ -60,7 +60,7 @@ mod transform_bus_spec {
         TransformBusFixture {
             terminate,
             input_tx,
-            output_tx: self_arc_mutex_output_tx,
+            _output_tx: self_arc_mutex_output_tx,
             _transform_bus: arc_mutex_transform_bus,
             output_rx,
         }
