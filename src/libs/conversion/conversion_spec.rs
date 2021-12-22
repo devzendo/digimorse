@@ -4,44 +4,13 @@ extern crate hamcrest2;
 mod conversion_spec {
     use hamcrest2::prelude::*;
     use crate::libs::conversion::conversion::text_to_keying;
+    use crate::libs::conversion::paris::PARIS_KEYING_12WPM;
     use crate::libs::keyer_io::keyer_io::{KeyingEvent, KeyingTimedEvent};
 
     #[test]
     pub fn test_text_to_keying_no_space() {
-        let paris_keying_12_wpm = vec![
-            KeyingEvent::Start(),
-            KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 100 }),
-            KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 100 }),
-            KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 300 }),
-            KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 100 }),
-            KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 300 }),
-            KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 100 }),
-            KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 100 }),
-            KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 300 }),
-            KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 100 }),
-            KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 100 }),
-            KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 300 }),
-            KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 300 }),
-            KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 100 }),
-            KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 100 }),
-            KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 300 }),
-            KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 100 }),
-            KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 100 }),
-            KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 300 }),
-            KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 100 }),
-            KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 100 }),
-            KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 100 }),
-            KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 300 }),
-            KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 100 }),
-            KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 100 }),
-            KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 100 }),
-            KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 100 }),
-            KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 100 }),
-            KeyingEvent::End(),
-        ];
-
         let actual_keying = text_to_keying(12, "PARIS");
-        assert_that!(actual_keying, equal_to(paris_keying_12_wpm.clone()));
+        assert_that!(actual_keying, equal_to(PARIS_KEYING_12WPM.clone()));
     }
 
     #[test]

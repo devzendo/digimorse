@@ -18,9 +18,9 @@ use portaudio as pa;
 use log::{debug, info, warn};
 use crate::libs::keyer_io::keyer_io::KeyingEvent;
 use std::thread::JoinHandle;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, RwLock};
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::thread;
+use std::{mem, thread};
 use std::time::Duration;
 use bus::BusReader;
 
@@ -93,7 +93,7 @@ pub struct ToneGenerator {
     sample_rate: u32,
     thread_handle: Option<JoinHandle<()>>,
     stream: Option<Stream<NonBlocking, Output<f32>>>,
-    callback_data: Arc<Vec<Mutex<CallbackData>>>,
+    callback_data: Arc<RwLock<Vec<Mutex<CallbackData>>>>,
 }
 
 pub struct CallbackData {
@@ -105,19 +105,20 @@ pub struct CallbackData {
 }
 
 impl ToneGenerator {
-    pub fn new(audio_frequency: u16, mut keying_events_with_tone_channels: BusReader<KeyingEventToneChannel>, terminate:
-    Arc<AtomicBool>) -> Self {
+    pub fn new(sidetone_audio_frequency: u16,
+               mut keying_events_with_tone_channels: BusReader<KeyingEventToneChannel>,
+               terminate: Arc<AtomicBool>) -> Self {
         info!("Initialising Tone generator");
-        let callback_data = CallbackData {
+        let sidetone_callback_data = CallbackData {
             ramping: AmplitudeRamping::Stable,
             phase_accumulator: 0,
             timing_word_m: 0,
             amplitude: 0.0,
-            audio_frequency,
+            audio_frequency: sidetone_audio_frequency,
         };
         // TODO replace this Mutex with atomics to reduce contention in the callback.
-        let arc_lock_callback_data = Arc::new(vec![Mutex::new(callback_data)]);
-        let move_clone_callback_data = arc_lock_callback_data.clone();
+        let arc_lock_sidetone_callback_data = Arc::new(RwLock::new(vec![Mutex::new(sidetone_callback_data)]));
+        let move_clone_sidetone_callback_data = arc_lock_sidetone_callback_data.clone();
         Self {
             enabled_in_filter_bandpass: true,
             sample_rate: 0, // will be initialised when the callback is initialised
@@ -132,10 +133,11 @@ impl ToneGenerator {
                     match keying_events_with_tone_channels.recv_timeout(Duration::from_millis(50)) {
                         Ok(keying_event_tone_channel) => {
                             info!("Tone generator got {:?}", keying_event_tone_channel);
-                            if keying_event_tone_channel.tone_channel >= move_clone_callback_data.len() {
+                            if keying_event_tone_channel.tone_channel >= move_clone_sidetone_callback_data.read().unwrap().len() {
                                 warn!("Incoming tone channel {} not in use", keying_event_tone_channel.tone_channel);
                             } else {
-                                let mut locked_callback_data =  move_clone_callback_data[keying_event_tone_channel.tone_channel].lock().unwrap();
+                                let callback_datas = move_clone_sidetone_callback_data.read().unwrap();
+                                let mut locked_callback_data =  callback_datas[keying_event_tone_channel.tone_channel].lock().unwrap();
                                 locked_callback_data.ramping = match keying_event_tone_channel.keying_event {
                                     KeyingEvent::Timed(event) => {
                                         if event.up {
@@ -162,7 +164,7 @@ impl ToneGenerator {
                 }
                 debug!("Tone generator keying listener thread stopped");
             })),
-            callback_data: arc_lock_callback_data,
+            callback_data: arc_lock_sidetone_callback_data,
             stream: None,
         }
     }
@@ -190,7 +192,8 @@ impl ToneGenerator {
             for _ in 0..frames {
                 // The processing of amplitude/phase/ramping needs to be done every frame.
                 let mut total_sine_val = 0.0;
-                for tone in &*move_clone_callback_data {
+                let callback_datas = move_clone_callback_data.read().unwrap();
+                for tone in &*callback_datas {
                     let mut locked_callback_data = tone.lock().unwrap();
                     match locked_callback_data.ramping {
                         AmplitudeRamping::RampingUp => {
@@ -229,7 +232,7 @@ impl ToneGenerator {
 
                     total_sine_val += sine_val;
                 }
-                total_sine_val /= move_clone_callback_data.len() as f32;
+                total_sine_val /= callback_datas.len() as f32;
 
                 // TODO MONO - if opening the stream with a single channel causes the same values to
                 // be written to both left and right outputs, this could be optimised..
@@ -260,18 +263,20 @@ impl ToneGenerator {
     }
 
     pub fn set_audio_frequency(&mut self, tone_index: usize, freq: u16) -> () {
-        if tone_index >= self.callback_data.len() {
-            return;
-        }
         {
-            let mut locked_callback_data = self.callback_data[tone_index].lock().unwrap();
+            let callback_datas = self.callback_data.read().unwrap();
+            if tone_index >= callback_datas.len() {
+                return;
+            }
+            let mut locked_callback_data = callback_datas[tone_index].lock().unwrap();
             locked_callback_data.audio_frequency = freq;
         }
         self.set_timing_word(tone_index);
     }
 
     fn set_timing_word(&mut self, tone_index: usize) {
-        if tone_index >= self.callback_data.len() {
+        let callback_datas = self.callback_data.read().unwrap();
+        if tone_index >= callback_datas.len() {
             return;
         }
         // TODO ew this stinks
@@ -279,7 +284,7 @@ impl ToneGenerator {
             debug!("Sample rate not yet set; will set frequency when this is known");
             return;
         }
-        let mut locked_callback_data = self.callback_data[tone_index].lock().unwrap();
+        let mut locked_callback_data = callback_datas[tone_index].lock().unwrap();
         locked_callback_data.timing_word_m = (TWO_TO_THIRTYTWO * (locked_callback_data.audio_frequency as usize) / self.sample_rate as usize) as usize;
         debug!("Setting tone#{} frequency to {}, timing_word_m {}, sample_rate {}", tone_index, locked_callback_data.audio_frequency, locked_callback_data.timing_word_m, self.sample_rate);
     }
@@ -289,7 +294,22 @@ impl ToneGenerator {
     }
 
     pub fn allocate_channel(&mut self, freq: u16) -> usize {
-        1
+        let mut callback_datas = self.callback_data.write().unwrap();
+        let tone_index = callback_datas.len();
+        callback_datas.push(Mutex::new(CallbackData{
+            ramping: AmplitudeRamping::Stable,
+            phase_accumulator: 0,
+            timing_word_m: 0,
+            amplitude: 0.0,
+            audio_frequency: freq,
+        }));
+        mem::drop(callback_datas);
+        self.set_timing_word(tone_index);
+        tone_index
+    }
+
+    pub fn deallocate_channel(&mut self, _tone_index: usize) {
+        todo!()
     }
 }
 

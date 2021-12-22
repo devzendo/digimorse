@@ -1,9 +1,10 @@
 extern crate hamcrest2;
 extern crate portaudio;
 
+// These are all manually run (and aurally asserted correct).
 #[cfg(test)]
 mod tone_generator_spec {
-    use std::collections::{BTreeMap, HashMap};
+    use std::collections::BTreeMap;
     use bus::Bus;
     use log::{debug, info};
     use std::env;
@@ -15,13 +16,13 @@ mod tone_generator_spec {
     use hamcrest2::prelude::*;
     use crate::libs::audio::audio_devices::open_output_audio_device;
     use crate::libs::audio::tone_generator::{KeyingEventToneChannel, ToneGenerator};
-    use crate::libs::keyer_io::keyer_io::{KeyerEdgeDurationMs, KeyingEvent, KeyingTimedEvent};
+    use crate::libs::keyer_io::keyer_io::KeyingEvent;
     use crate::libs::transform_bus::transform_bus::TransformBus;
     use crate::libs::util::test_util;
     use portaudio as pa;
     use portaudio::PortAudio;
     use crate::libs::conversion::conversion::text_to_keying;
-
+    use crate::libs::conversion::paris::PARIS_KEYING_12WPM;
 
     const TABLE_SIZE: usize = 200;
 
@@ -56,7 +57,7 @@ mod tone_generator_spec {
         let keying_event_rx = keying_event_tx.add_rx();
         let fixture_keying_event_tx = Arc::new(Mutex::new(keying_event_tx));
 
-        let mut keying_event_tone_channel_tx: Arc<Mutex<Bus<KeyingEventToneChannel>>> = Arc::new(Mutex::new(Bus::new(16)));
+        let keying_event_tone_channel_tx: Arc<Mutex<Bus<KeyingEventToneChannel>>> = Arc::new(Mutex::new(Bus::new(16)));
         let fixture_keying_event_tone_channel_tx = keying_event_tone_channel_tx.clone();
         let transform_bus = TransformBus::new(keying_event_rx, keying_event_tone_channel_tx, add_sidetone_channel_to_keying_event, terminate.clone());
         let arc_transform_bus = Arc::new(Mutex::new(transform_bus));
@@ -70,48 +71,6 @@ mod tone_generator_spec {
         info!("Setting audio freqency...");
         tone_generator.set_audio_frequency(0, 600);
 
-        let paris_keying_12_wpm = vec![
-            KeyingEvent::Start(),
-
-            KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 100 }),
-            KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 100 }),
-            KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 300 }),
-            KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 100 }),
-            KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 300 }),
-            KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 100 }),
-            KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 100 }),
-
-            KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 300 }),
-
-            KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 100 }),
-            KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 100 }),
-            KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 300 }),
-
-            KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 300 }),
-
-            KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 100 }),
-            KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 100 }),
-            KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 300 }),
-            KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 100 }),
-            KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 100 }),
-
-            KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 300 }),
-
-            KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 100 }),
-            KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 100 }),
-            KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 100 }),
-
-            KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 300 }),
-
-            KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 100 }),
-            KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 100 }),
-            KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 100 }),
-            KeyingEvent::Timed(KeyingTimedEvent { up: false, duration: 100 }),
-            KeyingEvent::Timed(KeyingTimedEvent { up: true, duration: 100 }),
-
-            KeyingEvent::End(),
-        ];
-
         let mut fixture = ToneGeneratorFixture {
             terminate,
             keying_event_tx: fixture_keying_event_tx,
@@ -119,7 +78,7 @@ mod tone_generator_spec {
             _transform_bus: arc_transform_bus,
             tone_generator,
             pa: Arc::new(pa::PortAudio::new().unwrap()),
-            paris_keying_12_wpm,
+            paris_keying_12_wpm: PARIS_KEYING_12WPM.to_vec(),
         };
         let output_settings = open_output_audio_device(&fixture.pa, dev).unwrap();
         info!("Initialising audio callback...");
@@ -161,17 +120,48 @@ mod tone_generator_spec {
 
     #[rstest]
     #[serial]
-    pub fn play_paris_at_12wpm(mut fixture: ToneGeneratorFixture) {
-        play_in_real_time(fixture.paris_keying_12_wpm.clone(), &fixture.keying_event_tx, &mut fixture.tone_generator);
+    #[ignore]
+    pub fn play_paris_at_12wpm_as_sidetone(mut fixture: ToneGeneratorFixture) {
+        play_keying_events_in_real_time(fixture.paris_keying_12_wpm.clone(), &fixture.keying_event_tx, &mut fixture.tone_generator, 0);
     }
-
 
     #[rstest]
     #[serial]
-    pub fn play_multiple_keyings(mut fixture: ToneGeneratorFixture) {
+    #[ignore]
+    pub fn play_keying_as_sidetone(mut fixture: ToneGeneratorFixture) {
+        let keying = text_to_keying(20, "CQ DX");
+        play_keying_events_in_real_time(keying, &fixture.keying_event_tx, &mut fixture.tone_generator, 0);
+    }
+
+    #[rstest]
+    #[serial]
+    #[ignore]
+    pub fn play_keying_as_sidetone_increasing_frequency(mut fixture: ToneGeneratorFixture) {
+        let keying = text_to_keying(20, "CQ CQ CQ CQ DE M0CUV M0CUV PSE K");
+        play_keying_events_in_real_time(keying, &fixture.keying_event_tx, &mut fixture.tone_generator, 2);
+    }
+
+    #[rstest]
+    #[serial]
+    #[ignore]
+    pub fn play_single_keying_to_channel_with_merge(mut fixture: ToneGeneratorFixture) {
+        let a_keying = text_to_keying(40, "CQ CQ CQ CQ DE M0CUV M0CUV PSE K");
+        let a_channel = fixture.tone_generator.allocate_channel(600);
+        assert_that!(a_channel, equal_to(1));
+        let a_keying_tones = a_keying.iter().map(|k| KeyingEventToneChannel{ keying_event: k.clone(), tone_channel: a_channel }).collect();
+        let mut merged = KeyingToneMerger::new();
+        merged.add(3000, a_keying_tones);
+        let merged = merged.merge();
+        play_keying_events_with_tone_channel_in_real_time(merged, &fixture.keying_event_tone_channel_tx);
+    }
+
+    #[rstest]
+    #[serial]
+    #[ignore]
+    pub fn play_multiple_keyings_to_channels_with_merge(mut fixture: ToneGeneratorFixture) {
         let a_keying = text_to_keying(20, "CQ CQ CQ CQ DE M0CUV M0CUV PSE K");
         let b_keying = text_to_keying(12, "CQ TEST UR 599 QRZ?");
-        let c_keying = text_to_keying(16, "N9XYZ DE M0CUV = MNI TNX FER CALL = UR RST 489 489 = SO HW CPY? = N9XYZ DE M0CUV KN");
+        let c_keying = text_to_keying(35, "N9XYZ DE M0CUV = MNI TNX FER CALL = UR RST 489 489 = SO HW CPY? = N9XYZ DE M0CUV KN");
         let a_channel = fixture.tone_generator.allocate_channel(600);
         assert_that!(a_channel, equal_to(1));
         let b_channel = fixture.tone_generator.allocate_channel(800);
@@ -186,11 +176,15 @@ mod tone_generator_spec {
         merged.add(5000, b_keying_tones);
         merged.add(100, c_keying_tones);
         let merged = merged.merge();
-        play_in_real_time_direct(merged, &fixture.keying_event_tone_channel_tx, &mut fixture.tone_generator);
+        play_keying_events_with_tone_channel_in_real_time(merged, &fixture.keying_event_tone_channel_tx);
     }
 
+    // Utility object for merging multiple KeyingEventToneChannel streams --------------------------
+
+    pub type KeyerOffsetFromStartMs = u32;
+
     struct KeyingToneMerger {
-        timing_map: BTreeMap<u32, Vec<KeyingEventToneChannel>>,
+        timing_map: BTreeMap<KeyerOffsetFromStartMs, Vec<KeyingEventToneChannel>>,
     }
 
     impl KeyingToneMerger {
@@ -200,10 +194,9 @@ mod tone_generator_spec {
             }
         }
 
-        pub fn add(&mut self, delay_ms: u32, keying_event_with_tones: Vec<KeyingEventToneChannel>) {
+        pub fn add(&mut self, delay_ms: KeyerOffsetFromStartMs, keying_event_with_tones: Vec<KeyingEventToneChannel>) {
             let mut time = delay_ms;
             for kevt in keying_event_with_tones {
-                self.timing_map.entry(time).or_insert(Vec::new()).push(kevt.clone());
                 match kevt.keying_event.clone() {
                     KeyingEvent::Timed(timed) => {
                         time += timed.duration as u32;
@@ -211,11 +204,12 @@ mod tone_generator_spec {
                     KeyingEvent::Start() => {}
                     KeyingEvent::End() => {}
                 }
+                self.timing_map.entry(time).or_insert(Vec::new()).push(kevt.clone());
             }
         }
 
-        pub fn merge(&mut self) -> Vec<(u32, Vec<KeyingEventToneChannel>)> {
-            let mut out: Vec<(u32, Vec<KeyingEventToneChannel>)> = Vec::new();
+        pub fn merge(&mut self) -> Vec<(KeyerOffsetFromStartMs, Vec<KeyingEventToneChannel>)> {
+            let mut out: Vec<(KeyerOffsetFromStartMs, Vec<KeyingEventToneChannel>)> = Vec::new();
             for (time, vec_kevt) in &self.timing_map {
                 out.push((*time, (*vec_kevt).clone()));
             }
@@ -223,9 +217,11 @@ mod tone_generator_spec {
         }
     }
 
-    fn play_in_real_time(keying: Vec<KeyingEvent>, keying_bus_tx: &Arc<Mutex<Bus<KeyingEvent>>>, tone_generator: &mut ToneGenerator) {
+
+
+    fn play_keying_events_in_real_time(keying: Vec<KeyingEvent>, keying_bus_tx: &Arc<Mutex<Bus<KeyingEvent>>>, tone_generator: &mut ToneGenerator, freq_increase: u16) {
         debug!("Playing keying sequence...");
-        let mut freq = 400;
+        let mut freq = 600;
         for k in keying {
             let timed_k = k.clone();
             match k {
@@ -237,32 +233,30 @@ mod tone_generator_spec {
                     keying_bus_tx.lock().unwrap().broadcast(timed_k);
                 }
             }
-            tone_generator.set_audio_frequency(0, freq);
-            freq += 1;
+            if freq_increase != 0 {
+                tone_generator.set_audio_frequency(0, freq);
+                freq += freq_increase;
+            }
         }
         debug!("Finished playing keying sequence");
     }
 
-    fn play_in_real_time_direct(keying: Vec<(u32, Vec<KeyingEventToneChannel>)>, keying_bus_tx: &Arc<Mutex<Bus<KeyingEventToneChannel>>>, tone_generator: &mut ToneGenerator) {
+    fn play_keying_events_with_tone_channel_in_real_time(timed_ketcs: Vec<(KeyerOffsetFromStartMs, Vec<KeyingEventToneChannel>)>, keying_bus_tx: &Arc<Mutex<Bus<KeyingEventToneChannel>>>) {
         debug!("Playing keying sequence...");
         let mut time = 0;
-        for timed_ketc in keying {
-            debug!("Time is {}, Keying time is {}, Keying: {:?}", time, timed_ketc.0, timed_ketc.1);
-            // match timed_ketc {
-            //     KeyingEventToneChannel { keying_event, tone_channel } => {
-            //         let ketc_clone = timed_ketc.clone();
-            //         let timed_keying_event = keying_event.clone();
-            //         match keying_event {
-            //             KeyingEvent::Start() | KeyingEvent::End() => {
-            //                 keying_bus_tx.lock().unwrap().broadcast(ketc_clone);
-            //             }
-            //             KeyingEvent::Timed(timed) => {
-            //                 spin_sleep::sleep(Duration::from_millis(timed.duration as u64));
-            //                 keying_bus_tx.lock().unwrap().broadcast(timed_k);
-            //             }
-            //         }
-            //     }
-            // }
+        for timed_ketc in timed_ketcs {
+            let (keying_time, these_keyings) = (timed_ketc.0, timed_ketc.1);
+            debug!("Time is {}, Keying time is {}, Keyings for now: {:?}", time, keying_time, these_keyings);
+            let delay = keying_time - time;
+            if delay > 0 {
+                debug!("Delaying for {}ms", delay);
+                spin_sleep::sleep(Duration::from_millis(delay as u64));
+                time += delay;
+            }
+            for this_keying in these_keyings {
+                debug!("Broadcasting {}", this_keying);
+                keying_bus_tx.lock().unwrap().broadcast(this_keying);
+            }
         }
         debug!("Finished playing keying sequence");
     }
