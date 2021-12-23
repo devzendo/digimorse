@@ -300,6 +300,7 @@ dependencies = [
  "env_logger",
  "fltk",
  "hamcrest2",
+ "lazy_static",
  "log 0.4.11",
  "mockall",
  "num 0.4.0",
