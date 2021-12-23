@@ -16,13 +16,14 @@ pub struct DelayedBus<T> where T: 'static + Send + Display + Clone + Sync {
 }
 
 impl<T: 'static + Send + Display + Clone + Sync> DelayedBus<T> {
-    pub fn new(input_rx: BusReader<T>, output_tx: Bus<T>, terminate: Arc<AtomicBool>, delay: Duration) -> Self {
+    pub fn new(input_rx: BusReader<T>, output_tx: Bus<T>, terminate: Arc<AtomicBool>, arc_scheduled_thread_pool: Arc<ScheduledThreadPool>, delay: Duration) -> Self {
         let arc_terminate = terminate.clone();
         let arc_output_tx = Arc::new(Mutex::new(output_tx));
         let read_thread_handle = thread::spawn(move || {
             let mut read_thread = DelayedBusReadThread::new(delay, input_rx,
                                                             arc_output_tx,
-                                                            arc_terminate);
+                                                            arc_terminate,
+                                                            arc_scheduled_thread_pool);
             read_thread.thread_runner();
         });
 
@@ -71,7 +72,7 @@ struct DelayedBusReadThread<T> {
     terminate: Arc<AtomicBool>,
     input_rx: BusReader<T>,
     output_tx: Arc<Mutex<Bus<T>>>,
-    scheduled_thread_pool: ScheduledThreadPool,
+    scheduled_thread_pool: Arc<ScheduledThreadPool>,
 }
 
 
@@ -80,9 +81,9 @@ impl<T: Send + Display + Clone + Sync + 'static> DelayedBusReadThread<T> {
            input_rx: BusReader<T>,
            output_tx: Arc<Mutex<Bus<T>>>,
            terminate: Arc<AtomicBool>,
+           scheduled_thread_pool: Arc<ScheduledThreadPool>,
     ) -> Self {
         debug!("Constructing DelayedBusReadThread");
-        let scheduled_thread_pool = syncbox::ScheduledThreadPool::single_thread();
 
         Self {
             delay,

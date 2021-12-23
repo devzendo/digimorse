@@ -42,7 +42,9 @@ mod delayed_bus_spec {
         let input_rx = input_tx.lock().unwrap().add_rx();
         let mut output_tx = Bus::new(16);
         let output_rx = output_tx.add_rx();
-        let delayed_bus = DelayedBus::new(input_rx, output_tx, terminate.clone(), Duration::from_millis(DELAY_MILLIS));
+        let scheduled_thread_pool = Arc::new(syncbox::ScheduledThreadPool::single_thread());
+
+        let delayed_bus = DelayedBus::new(input_rx, output_tx, terminate.clone(), scheduled_thread_pool, Duration::from_millis(DELAY_MILLIS));
 
         info!("Fixture setup sleeping");
         test_util::wait_5_ms(); // give things time to start

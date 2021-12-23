@@ -170,7 +170,8 @@ fn run(arguments: ArgMatches, mode: Mode) -> Result<i32, Box<dyn Error>> {
         info!("... terminate flag set");
     }).expect("Error setting Ctrl-C handler");
 
-    let transform_bus = TransformBus::new(tone_generator_keying_event_rx, add_sidetone_channel_to_keying_event, terminate.clone());
+    let arc_mutex_keying_event_tone_channel_tx = Arc::new(Mutex::new(Bus::new(16)));
+    let transform_bus = TransformBus::new(tone_generator_keying_event_rx, arc_mutex_keying_event_tone_channel_tx, add_sidetone_channel_to_keying_event, terminate.clone());
     let arc_transform_bus = Arc::new(Mutex::new(transform_bus));
     let keying_event_tone_channel_rx = arc_transform_bus.lock().unwrap().add_reader();
 
@@ -418,7 +419,9 @@ fn source_encoder_diag(mut source_encoder_rx: BusReader<SourceEncoding>, termina
     // which'll send these SourceEncodings to us on delayed_source_encoder_rx, below.
     let mut output_tx = Bus::new(16);
     let mut delayed_source_encoder_rx = output_tx.add_rx();
-    let delayed_bus = DelayedBus::new(source_encoder_rx, output_tx, terminate.clone(), Duration::from_secs(30));
+    let scheduled_thread_pool = Arc::new(syncbox::ScheduledThreadPool::single_thread());
+
+    let delayed_bus = DelayedBus::new(source_encoder_rx, output_tx, terminate.clone(), scheduled_thread_pool, Duration::from_secs(30));
 
     loop {
         if terminate.load(Ordering::SeqCst) {
@@ -436,8 +439,9 @@ fn source_encoder_diag(mut source_encoder_rx: BusReader<SourceEncoding>, termina
                 // The SourceEncoding can now be decoded...
                 match source_decode(source_encoding.block) {
                     Ok(decoded_frames) => {
-
-
+                        // The decoded frames can now be played back (using another tone generator
+                        // channel, at a different audio frequency).
+                        // TODO implement playback
                     }
                     Err(err) => {
                         warn!("Error from source decoder: {}", err);
