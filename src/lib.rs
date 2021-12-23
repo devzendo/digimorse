@@ -1,5 +1,7 @@
 #[macro_use]
 extern crate enum_primitive;
+extern crate lazy_static;
+
 pub mod libs;
 
 #[cfg(test)]
