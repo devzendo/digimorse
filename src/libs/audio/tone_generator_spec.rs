@@ -69,7 +69,7 @@ mod tone_generator_spec {
         let mut tone_generator = ToneGenerator::new(sidetone_frequency,
                                                     keying_event_tone_channel_rx, terminate.clone());
         info!("Setting audio freqency...");
-        tone_generator.set_audio_frequency(0, 600);
+        tone_generator.set_audio_frequency(0, sidetone_frequency);
 
         let mut fixture = ToneGeneratorFixture {
             terminate,
