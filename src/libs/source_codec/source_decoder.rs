@@ -9,7 +9,7 @@ use crate::libs::util::util::dump_byte_vec;
 
 /// Decode an encoded block. This is either error-free or has been extracted from an error-corrected
 /// block; i.e. no decode errors should occur. Just in case there's a decode error, this returns a
-/// Result.
+/// Result (which may result in white noise being played, to indicate this to the user).
 pub fn source_decode(encoded_block: Vec<u8>) -> Result<Vec<Frame>, Box<dyn Error>> {
     if encoded_block.len() != (SOURCE_ENCODER_BLOCK_SIZE_IN_BITS >> 3) {
         return Err(Box::<dyn Error + Send + Sync>::from(format!("Cannot decode a block of the wrong size")));
