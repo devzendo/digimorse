@@ -1,3 +1,5 @@
+extern crate lazy_static;
+use lazy_static::lazy_static;
 use crate::libs::keyer_io::keyer_io::{KeyingEvent, KeyingTimedEvent};
 
 lazy_static! {
