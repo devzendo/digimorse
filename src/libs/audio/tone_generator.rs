@@ -31,7 +31,12 @@ use bus::BusReader;
 // (MT-085: Fundamentals of Direct Digital Synthesis (DDS))
 
 const TABLE_SIZE: usize = 256;
-const AMPLITUDE_DELTA: f32 = 0.005;
+// The "Radio Today guide to the Yaesu FTDX10" by Andrew Barron ZL3DW says, p. 139:
+// "CW wave shape sets the shape of the CW waveform (keying envelopen rise and fall timefs). The
+// default setting is 6ms. Selecting a slower rise time will make your signal sound softer. Choosing
+// the faster 4ms rise time will make your signal sound a little harsher. It should only be selected
+// if you are using high-speed CW."
+const AMPLITUDE_DELTA: f32 = 0.005; // TODO What does this delta represent, as a rise time?
 const TWO_TO_THIRTYTWO: usize = 2u64.pow(32) as usize;
 
 static SINE_256:[u8; TABLE_SIZE] = [
