@@ -1,4 +1,6 @@
 use std::cmp::min;
+use std::fmt;
+use std::fmt::{Debug, Formatter};
 use log::debug;
 use crate::libs::keyer_io::keyer_io::{KeyerEdgeDurationMs, KeyerSpeed};
 
@@ -33,6 +35,12 @@ pub trait KeyingTiming {
     fn dit_encoding_range(&self) -> (usize, usize);
     fn dah_encoding_range(&self) -> (usize, usize);
     fn wordgap_encoding_range(&self) -> (usize, usize);
+}
+
+impl Debug for dyn KeyingTiming {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "Timing for {} WPM", self.get_keyer_speed())
+    }
 }
 
 pub struct DefaultKeyingTiming {
