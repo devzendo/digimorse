@@ -108,15 +108,60 @@ impl Playback {
                                         }
                                     }
                                 }
-                                Frame::KeyingPerfectWordgap => {}
+                                Frame::KeyingPerfectWordgap => {
+                                    match &details.timing {
+                                        None => { warn!("No KeyingTiming set before {:?}", frame) }
+                                        Some(timing) => {
+                                            let duration_ms = timing.get_perfect_wordgap_ms();
+                                            let whom = details.value_mut();
+                                            self.schedule_tone(whom, duration_ms);
+                                        }
+                                    }
+                                }
                                 Frame::KeyingEnd => {
                                     let whom = details.value_mut();
                                     self.schedule_end(whom);
                                 }
-                                Frame::KeyingDeltaDit { .. } => {}
-                                Frame::KeyingDeltaDah { .. } => {}
-                                Frame::KeyingDeltaWordgap { .. } => {}
-                                Frame::KeyingNaive { .. } => {}
+                                Frame::KeyingDeltaDit { delta } => {
+                                    match &details.timing {
+                                        None => { warn!("No KeyingTiming set before {:?}", frame) }
+                                        Some(timing) => {
+                                            let duration_ms = timing.get_perfect_dit_ms() as i16 + delta;
+                                            let whom = details.value_mut();
+                                            self.schedule_tone(whom, duration_ms as u16);
+                                        }
+                                    }
+                                }
+                                Frame::KeyingDeltaDah { delta } => {
+                                    match &details.timing {
+                                        None => { warn!("No KeyingTiming set before {:?}", frame) }
+                                        Some(timing) => {
+                                            let duration_ms = timing.get_perfect_dah_ms() as i16 + delta;
+                                            let whom = details.value_mut();
+                                            self.schedule_tone(whom, duration_ms as u16);
+                                        }
+                                    }
+                                }
+                                Frame::KeyingDeltaWordgap { delta } => {
+                                    match &details.timing {
+                                        None => { warn!("No KeyingTiming set before {:?}", frame) }
+                                        Some(timing) => {
+                                            let duration_ms = timing.get_perfect_wordgap_ms() as i16 + delta;
+                                            let whom = details.value_mut();
+                                            self.schedule_tone(whom, duration_ms as u16);
+                                        }
+                                    }
+                                }
+                                Frame::KeyingNaive { duration } => {
+                                    match &details.timing {
+                                        None => { warn!("No KeyingTiming set before {:?}", frame) }
+                                        Some(timing) => {
+                                            let duration_ms = duration ;
+                                            let whom = details.value_mut();
+                                            self.schedule_tone(whom, duration_ms);
+                                        }
+                                    }
+                                }
                                 Frame::Unused => {}
                                 Frame::Extension => {}
                             }

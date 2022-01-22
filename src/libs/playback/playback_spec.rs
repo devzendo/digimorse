@@ -84,7 +84,7 @@ mod playback_spec {
     const AUDIO_OFFSET: u16 = 700;
 
     #[rstest]
-    pub fn playback_one_user(mut fixture: PlaybackFixture) {
+    pub fn playback_one_user_two_frames_perfects(mut fixture: PlaybackFixture) {
         info!("Sending a message in...");
         let first_cq_frame = vec![
             Frame::WPMPolarity { wpm: 20, polarity: true }, // 60 / 180 / 420
@@ -121,6 +121,74 @@ mod playback_spec {
             Frame::KeyingEnd,
         ];
         fixture.playback.play(Ok(second_cq_frame), CALLSIGN_HASH, AUDIO_OFFSET);
+        info!("Waiting for playback to end...");
+        test_util::wait_n_ms(2500);
+        info!("End of test")
+    }
+
+    #[rstest]
+    pub fn playback_deltas(mut fixture: PlaybackFixture) {
+        info!("Sending a message in...");
+        let first_cq_frame = vec![
+            Frame::WPMPolarity { wpm: 20, polarity: true }, // 60 / 180 / 420
+            Frame::KeyingDeltaDah { delta: 1 }, // - 180
+            Frame::KeyingDeltaDit { delta: -1 }, //    60
+            Frame::KeyingDeltaDit { delta: -1 }, // .  60
+            Frame::KeyingDeltaDit { delta: 1 }, //    60
+            Frame::KeyingDeltaDah { delta: 1 }, // - 180
+            Frame::KeyingDeltaDit { delta: -1 }, //    60
+            Frame::KeyingDeltaDit { delta: -1 }, // .  60
+            Frame::KeyingDeltaDah { delta: 1 }, // chargap 180
+            Frame::KeyingDeltaDah { delta: 1 }, // - 180
+            Frame::KeyingDeltaDit { delta: -1 }, //    60
+            Frame::KeyingDeltaDah { delta: -1 }, // - 180
+            Frame::KeyingDeltaDit { delta: 1 }, //    60
+            Frame::KeyingDeltaDit { delta: 1 }, // .  60
+        ];                           // =1380
+        fixture.playback.play(Ok(first_cq_frame), CALLSIGN_HASH, AUDIO_OFFSET);
+
+        let second_cq_frame = vec![
+            Frame::WPMPolarity { wpm: 20, polarity: false },
+            Frame::KeyingDeltaDit { delta: -1 },
+            Frame::KeyingDeltaDah { delta: -1 }, // -
+            Frame::KeyingEnd,
+        ];
+        fixture.playback.play(Ok(second_cq_frame), CALLSIGN_HASH, AUDIO_OFFSET);
+
+        info!("Waiting for playback to end...");
+        test_util::wait_n_ms(2500);
+        info!("End of test")
+    }
+
+    #[rstest]
+    pub fn playback_naives(mut fixture: PlaybackFixture) {
+        info!("Sending a message in...");
+        let first_cq_frame = vec![
+            Frame::WPMPolarity { wpm: 20, polarity: true }, // 60 / 180 / 420
+            Frame::KeyingNaive { duration: 180 }, // - 180
+            Frame::KeyingNaive { duration: 60 }, //    60
+            Frame::KeyingNaive { duration: 60 }, // .  60
+            Frame::KeyingNaive { duration: 60 }, //    60
+            Frame::KeyingNaive { duration: 180 }, // - 180
+            Frame::KeyingNaive { duration: 60 }, //    60
+            Frame::KeyingNaive { duration: 60 }, // .  60
+            Frame::KeyingNaive { duration: 180 }, // chargap 180
+            Frame::KeyingNaive { duration: 180 }, // - 180
+            Frame::KeyingNaive { duration: 60 }, //    60
+            Frame::KeyingNaive { duration: 180 }, // - 180
+            Frame::KeyingNaive { duration: 60 }, //    60
+            Frame::KeyingNaive { duration: 60 }, // .  60
+        ];                           // =1380
+        fixture.playback.play(Ok(first_cq_frame), CALLSIGN_HASH, AUDIO_OFFSET);
+
+        let second_cq_frame = vec![
+            Frame::WPMPolarity { wpm: 20, polarity: false },
+            Frame::KeyingNaive { duration: 60 },
+            Frame::KeyingNaive { duration: 180 }, // -
+            Frame::KeyingEnd,
+        ];
+        fixture.playback.play(Ok(second_cq_frame), CALLSIGN_HASH, AUDIO_OFFSET);
+
         info!("Waiting for playback to end...");
         test_util::wait_n_ms(2500);
         info!("End of test")
