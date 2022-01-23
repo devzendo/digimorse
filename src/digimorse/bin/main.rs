@@ -188,12 +188,13 @@ fn run(arguments: ArgMatches, mode: Mode) -> Result<i32, Box<dyn Error>> {
     let mut tone_generator = ToneGenerator::new(config.get_sidetone_frequency(),
                                                 keying_event_tone_channel_rx, terminate.clone());
     tone_generator.start_callback(&pa, output_settings)?;
+    let playback_arc_tone_generator = Arc::new(tone_generator);
 
     if mode == Mode::KeyerDiag {
         info!("Initialising KeyerDiag mode");
         keyer_diag(keyer_diag_keying_event_rx.unwrap(), terminate.clone())?;
         keyer.terminate();
-        mem::drop(tone_generator);
+        mem::drop(playback_arc_tone_generator);
         pa.terminate()?;
         thread::sleep(Duration::from_secs(1));
         info!("Finishing KeyerDiag mode");
@@ -212,9 +213,9 @@ fn run(arguments: ArgMatches, mode: Mode) -> Result<i32, Box<dyn Error>> {
 
     if mode == Mode::SourceEncoderDiag {
         info!("Initialising SourceEncoderDiag mode");
-        source_encoder_diag(source_encoder_rx, terminate.clone(), Arc::new(tone_generator), playback_arc_mutex_keying_event_tone_channel.unwrap())?;
+        source_encoder_diag(source_encoder_rx, terminate.clone(), playback_arc_tone_generator.clone(), playback_arc_mutex_keying_event_tone_channel.unwrap())?;
         keyer.terminate();
-        mem::drop(tone_generator); //
+        mem::drop(playback_arc_tone_generator);
         pa.terminate()?;
         thread::sleep(Duration::from_secs(1));
         info!("Finishing SourceEncoderDiag mode");
