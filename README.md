@@ -51,7 +51,7 @@ What do I need to try it?
   Arduino Nano-based Morse key/paddle <-> USB Serial interface and simple keyer.
 
 
-(C) 2020-2021 Matt J. Gumbley
+(C) 2020-2022 Matt J. Gumbley
 matt.gumbley@devzendo.org
 @mattgumbley @devzendo
 http://devzendo.github.io/digimorse
@@ -71,7 +71,8 @@ sidetone as you operate the key. There's also a loopback demo of the source enco
 decoder. That's all for now. It's all text-mode running in
 a console, no GUI yet. You can query the audio devices, and set them in configuration.
 Configuration is stored in a TOML file that you have to hand-edit.
-Next: Finish the source encoder loopback demo.
+
+Currently: Finishing the source encoder loopback demo.
 
 In active development:
 * Building the keyer - straight key is done; paddles are out of scope for now.
@@ -83,9 +84,10 @@ In active development:
 * Currently working on getting an end-to-end loopback demo working with keying
   being encoded, pushed through a delay, then decoded and played back. No error
   detection or correction, or modulation/demodulation yet. 
-* All development is in Rust, which is a new, difficult, but interesting
-  language. It would be easier in C++, and quicker - but probably less provably
-  correct, and portability would be painful.
+ 
+All development is in Rust, which is a new, difficult, but interesting
+language. It would be easier in C++, and quicker - but probably less provably
+correct, and portability would be painful.
 
 
 Downloads
