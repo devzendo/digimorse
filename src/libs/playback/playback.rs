@@ -153,14 +153,9 @@ impl Playback {
                                     }
                                 }
                                 Frame::KeyingNaive { duration } => {
-                                    match &details.timing {
-                                        None => { warn!("No KeyingTiming set before {:?}", frame) }
-                                        Some(timing) => {
-                                            let duration_ms = duration ;
-                                            let whom = details.value_mut();
-                                            self.schedule_tone(whom, duration_ms);
-                                        }
-                                    }
+                                    let duration_ms = duration ;
+                                    let whom = details.value_mut();
+                                    self.schedule_tone(whom, duration_ms);
                                 }
                                 Frame::Unused => {}
                                 Frame::Extension => {}
