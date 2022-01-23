@@ -171,6 +171,12 @@ fn run(arguments: ArgMatches, mode: Mode) -> Result<i32, Box<dyn Error>> {
     }).expect("Error setting Ctrl-C handler");
 
     let arc_mutex_keying_event_tone_channel_tx = Arc::new(Mutex::new(Bus::new(16)));
+    let playback_arc_mutex_keying_event_tone_channel: Option<Arc<Mutex<Bus<KeyingEventToneChannel>>>> = if mode == Mode::SourceEncoderDiag {
+        Some(arc_mutex_keying_event_tone_channel_tx.clone())
+    } else {
+        None
+    };
+
     let transform_bus = TransformBus::new(tone_generator_keying_event_rx, arc_mutex_keying_event_tone_channel_tx, add_sidetone_channel_to_keying_event, terminate.clone());
     let arc_transform_bus = Arc::new(Mutex::new(transform_bus));
     let keying_event_tone_channel_rx = arc_transform_bus.lock().unwrap().add_reader();
@@ -206,7 +212,7 @@ fn run(arguments: ArgMatches, mode: Mode) -> Result<i32, Box<dyn Error>> {
 
     if mode == Mode::SourceEncoderDiag {
         info!("Initialising SourceEncoderDiag mode");
-        source_encoder_diag(source_encoder_rx, terminate.clone())?;
+        source_encoder_diag(source_encoder_rx, terminate.clone(), Arc::new(tone_generator), playback_arc_mutex_keying_event_tone_channel.unwrap())?;
         keyer.terminate();
         mem::drop(tone_generator);
         pa.terminate()?;
@@ -413,7 +419,7 @@ fn keyer_diag(mut keying_event_rx: BusReader<KeyingEvent>, terminate: Arc<Atomic
     return Ok(());
 }
 
-fn source_encoder_diag(mut source_encoder_rx: BusReader<SourceEncoding>, terminate: Arc<AtomicBool>) -> Result<(), Box<dyn Error>> {
+fn source_encoder_diag(mut source_encoder_rx: BusReader<SourceEncoding>, terminate: Arc<AtomicBool>, arc_tone_generator: Arc<ToneGenerator>, playback_tone_channel_bus_tx: Arc<Mutex<Bus<KeyingEventToneChannel>>>) -> Result<(), Box<dyn Error>> {
     // Keying goes into the SourceEncoder, which emits SourceEncodings to source_encoder_tx. We have
     // the other end of that bus here as source_encoder_rx. Patch this into the delayed_bus,
     // which'll send these SourceEncodings to us on delayed_source_encoder_rx, below.
