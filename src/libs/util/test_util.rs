@@ -1,6 +1,6 @@
 use std::sync::mpsc;
 use std::thread;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::Duration;
 
 // Thanks to Shepmaster, https://github.com/rust-lang/rfcs/issues/2798
 pub fn panic_after<T, F>(d: Duration, f: F) -> T
@@ -28,13 +28,6 @@ pub fn wait_5_ms() {
 
 pub fn wait_n_ms(n: u64) {
     thread::sleep(Duration::from_millis(n));
-}
-
-pub fn get_epoch_ms() -> u128 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap()
-        .as_millis()
 }
 
 
