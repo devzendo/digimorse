@@ -214,7 +214,7 @@ fn run(arguments: ArgMatches, mode: Mode) -> Result<i32, Box<dyn Error>> {
         info!("Initialising SourceEncoderDiag mode");
         source_encoder_diag(source_encoder_rx, terminate.clone(), Arc::new(tone_generator), playback_arc_mutex_keying_event_tone_channel.unwrap())?;
         keyer.terminate();
-        mem::drop(tone_generator);
+        mem::drop(tone_generator); //
         pa.terminate()?;
         thread::sleep(Duration::from_secs(1));
         info!("Finishing SourceEncoderDiag mode");
