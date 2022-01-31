@@ -101,15 +101,19 @@ pub struct ToneGenerator {
     callback_data: Arc<RwLock<Vec<Mutex<CallbackData>>>>,
 }
 
+#[derive(Clone)]
 pub struct CallbackData {
     ramping: AmplitudeRamping,
     phase_accumulator: usize,
     timing_word_m: usize,
     amplitude: f32, // used for ramping up/down output waveform for key click suppression
     audio_frequency: u16,
+    enabled: bool,
 }
 
 impl ToneGenerator {
+    // TODO the sidetone_audio_frequency passed into the constructor sets the callback data, but the
+    // timing_word_m isn't set. You have to call set_audio_frequency.
     pub fn new(sidetone_audio_frequency: u16,
                mut keying_events_with_tone_channels: BusReader<KeyingEventToneChannel>,
                terminate: Arc<AtomicBool>) -> Self {
@@ -120,6 +124,7 @@ impl ToneGenerator {
             timing_word_m: 0,
             amplitude: 0.0,
             audio_frequency: sidetone_audio_frequency,
+            enabled: true, // cannot be disabled
         };
         // TODO replace this Mutex with atomics to reduce contention in the callback.
         let arc_lock_sidetone_callback_data = Arc::new(RwLock::new(vec![Mutex::new(sidetone_callback_data)]));
@@ -298,23 +303,55 @@ impl ToneGenerator {
         self.enabled_in_filter_bandpass = in_bandpass;
     }
 
+    // Allocate the first disabled channel, or extend if there isn't one.
     pub fn allocate_channel(&mut self, freq: u16) -> usize {
-        let mut callback_datas = self.callback_data.write().unwrap();
-        let tone_index = callback_datas.len();
-        callback_datas.push(Mutex::new(CallbackData{
+        let callback_data = CallbackData {
             ramping: AmplitudeRamping::Stable,
             phase_accumulator: 0,
             timing_word_m: 0,
             amplitude: 0.0,
             audio_frequency: freq,
-        }));
+            enabled: true, // well if you're allocating it, it's enabled!
+        };
+        let mut callback_datas = self.callback_data.write().unwrap();
+        // Ignore channel 0, the sidetone
+        let mut tone_index = 0;
+        for i in 1..callback_datas.len() {
+            if callback_datas[i].lock().unwrap().enabled == false {
+                callback_datas[i] = Mutex::new(callback_data.clone());
+                debug!("Allocating disabled channel {}", i);
+                tone_index = i;
+                break
+            }
+        }
+        if tone_index == 0 {
+            tone_index = callback_datas.len();
+            debug!("Allocating new channel {}", tone_index);
+            callback_datas.push(Mutex::new(callback_data.clone()));
+        }
+        // Nothing disabled, so add..
         mem::drop(callback_datas);
         self.set_timing_word(tone_index);
         tone_index
     }
 
-    pub fn deallocate_channel(&mut self, _tone_index: usize) {
-        todo!()
+    // Set a channel to disabled; if it is the last channel, pop it (and all disabled at the end)
+    pub fn deallocate_channel(&mut self, tone_index: usize) {
+        // Tone index 0 is for the sidetone; it cannot be deallocated.
+        if tone_index > 0 {
+
+        }
+    }
+
+    // Used by tests to check allocate/deallocate functions.
+    fn test_get_enabled_states(&mut self) -> Vec<bool> {
+        let callback_datas = self.callback_data.write().unwrap();
+        let mut out = Vec::with_capacity(callback_datas.len());
+        for callback_data in &*callback_datas {
+            let locked_callback_data = callback_data.lock().unwrap();
+            out.push(locked_callback_data.enabled);
+        }
+        out
     }
 }
 
@@ -333,3 +370,5 @@ impl Drop for ToneGenerator {
 #[cfg(test)]
 #[path = "./tone_generator_spec.rs"]
 mod tone_generator_spec;
+#[path = "./tone_generator_channel_alloc_spec.rs"]
+mod tone_generator_channel_alloc_spec;

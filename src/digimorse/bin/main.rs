@@ -29,6 +29,7 @@ use digimorse::libs::config_file::config_file::ConfigurationStore;
 use digimorse::libs::audio::audio_devices::{list_audio_devices, output_audio_device_exists, input_audio_device_exists, open_output_audio_device};
 use digimorse::libs::audio::tone_generator::{KeyingEventToneChannel, ToneGenerator};
 use digimorse::libs::delayed_bus::delayed_bus::DelayedBus;
+use digimorse::libs::playback::playback::Playback;
 use digimorse::libs::source_codec::source_decoder::source_decode;
 use digimorse::libs::source_codec::source_encoder::SourceEncoder;
 use digimorse::libs::source_codec::source_encoding::{Frame, SourceEncoding};
@@ -429,6 +430,8 @@ fn source_encoder_diag(mut source_encoder_rx: BusReader<SourceEncoding>, termina
     let scheduled_thread_pool = Arc::new(syncbox::ScheduledThreadPool::single_thread());
 
     let delayed_bus = DelayedBus::new(source_encoder_rx, output_tx, terminate.clone(), scheduled_thread_pool, Duration::from_secs(30));
+
+    //let playback = Playback::new(terminate.clone(), scheduled_thread_pool, arc_tone_generator, keying_event_tone_channel_tx.clone());
 
     loop {
         if terminate.load(Ordering::SeqCst) {
