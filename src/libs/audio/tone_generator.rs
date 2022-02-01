@@ -370,5 +370,6 @@ impl Drop for ToneGenerator {
 #[cfg(test)]
 #[path = "./tone_generator_spec.rs"]
 mod tone_generator_spec;
+#[cfg(test)]
 #[path = "./tone_generator_channel_alloc_spec.rs"]
 mod tone_generator_channel_alloc_spec;
