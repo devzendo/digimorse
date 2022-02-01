@@ -23,6 +23,7 @@ pub struct StationDetails {
     timing: Option<Box<dyn KeyingTiming>>,
     last_playback_schedule_time: u32,
     current_polarity: bool,
+    tone_generator_channel: usize,
 }
 
 pub struct Playback {
@@ -53,6 +54,8 @@ impl Playback {
         debug!("Playback terminated");
     }
 
+    // The decoder will have taken a pass through the (possibly error-corrected) decode to find the
+    // callsign hash (or computed it from a callsign), and already knows the audio offset.
     pub fn play(&mut self, decode: Result<Vec<Frame>, Box<dyn Error>>, callsign_hash: CallsignHash, audio_offset: u16) {
         let decode_ok_type = if decode.is_ok() { "frames" } else { "decode error" };
         debug!("Playing {} for callsign hash {} offset {} Hz", decode_ok_type, callsign_hash, audio_offset);
@@ -64,6 +67,7 @@ impl Playback {
                 timing: None,
                 last_playback_schedule_time: 0,
                 current_polarity: true,
+                tone_generator_channel: self.tone_generator.lock().unwrap().allocate_channel(audio_offset),
             };
             self.playback_state.insert(key.clone(), new_details);
         } else {
@@ -175,13 +179,10 @@ impl Playback {
     fn schedule_tone(&self, details: &mut StationDetails, duration_ms: KeyerEdgeDurationMs) {
         let chan = self.keying_event_tone_channel_tx.clone();
 
-        // TODO obvs, allocate a channel and store it in the details
-        let bodged_sidetone_channel = 0;
-
         details.current_polarity = !details.current_polarity;
         let ke = KeyingEvent::Timed(KeyingTimedEvent { up: details.current_polarity, duration: duration_ms });
-        let task = TimedPlayback { item: KeyingEventToneChannel { keying_event: ke, tone_channel: bodged_sidetone_channel }, output_tx: chan };
-        debug!("Scheduling tone channel {} for {}ms at time {}", bodged_sidetone_channel, duration_ms, details.last_playback_schedule_time);
+        let task = TimedPlayback { item: KeyingEventToneChannel { keying_event: ke, tone_channel: details.tone_generator_channel }, output_tx: chan };
+        debug!("Scheduling tone channel {} for {}ms at time {}", details.tone_generator_channel, duration_ms, details.last_playback_schedule_time);
         self.scheduled_thread_pool.schedule_ms(details.last_playback_schedule_time, task);
         details.last_playback_schedule_time += duration_ms as u32;
     }
@@ -189,13 +190,10 @@ impl Playback {
     fn schedule_end(&self, details: &mut StationDetails) {
         let chan = self.keying_event_tone_channel_tx.clone();
 
-        // TODO obvs, allocate a channel and store it in the details
-        let bodged_sidetone_channel = 0;
-
         details.current_polarity = true;
         let ke = KeyingEvent::Timed(KeyingTimedEvent { up: details.current_polarity, duration: 0 });
-        let task = TimedPlayback { item: KeyingEventToneChannel { keying_event: ke, tone_channel: bodged_sidetone_channel }, output_tx: chan };
-        debug!("Scheduling end on tone channel {} at time {}", bodged_sidetone_channel, details.last_playback_schedule_time);
+        let task = TimedPlayback { item: KeyingEventToneChannel { keying_event: ke, tone_channel: details.tone_generator_channel }, output_tx: chan };
+        debug!("Scheduling end on tone channel {} at time {}", details.tone_generator_channel, details.last_playback_schedule_time);
         self.scheduled_thread_pool.schedule_ms(details.last_playback_schedule_time, task);
     }
 

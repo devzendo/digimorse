@@ -355,7 +355,7 @@ impl ToneGenerator {
 
     // Used by tests to check allocate/deallocate functions.
     #[cfg(test)]
-    fn test_get_enabled_states(&mut self) -> Vec<bool> {
+    pub fn test_get_enabled_states(&mut self) -> Vec<bool> {
         let callback_datas = self.callback_data.write().unwrap();
         let mut out = Vec::with_capacity(callback_datas.len());
         for callback_data in &*callback_datas {

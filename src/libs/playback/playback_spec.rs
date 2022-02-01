@@ -196,5 +196,24 @@ mod playback_spec {
         test_util::wait_n_ms(2500);
         info!("End of test")
     }
+
+    #[rstest]
+    #[serial]
+    pub fn playback_allocates_tone_generator_channels(mut fixture: PlaybackFixture) {
+        assert_eq!(fixture.tone_generator.lock().unwrap().test_get_enabled_states(), vec![true]);
+        let frame = vec![
+            Frame::WPMPolarity { wpm: 20, polarity: true }, // 60 / 180 / 420
+            Frame::KeyingNaive { duration: 180 }, // - 180
+            Frame::KeyingNaive { duration: 60 }, //    60
+            Frame::KeyingEnd,
+        ];                           // =1380
+        fixture.playback.play(Ok(frame), CALLSIGN_HASH, AUDIO_OFFSET);
+        assert_eq!(fixture.tone_generator.lock().unwrap().test_get_enabled_states(), vec![true, true]);
+
+        info!("Waiting for playback to end...");
+        test_util::wait_n_ms(200);
+        info!("End of test")
+    }
+
 }
 
