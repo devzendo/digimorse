@@ -43,7 +43,7 @@ mod playback_spec {
         let keying_event_tone_channel_tx: Arc<Mutex<Bus<KeyingEventToneChannel>>> = Arc::new(Mutex::new(Bus::new(16)));
         let keying_event_tone_channel_rx = keying_event_tone_channel_tx.lock().unwrap().add_rx();
 
-        let dev = "Built-in Output";
+        let dev = "MacBook Pro Speakers";
         let sidetone_frequency = 600 as u16;
         info!("Instantiating tone generator...");
         let mut tone_generator = ToneGenerator::new(sidetone_frequency,
@@ -84,6 +84,7 @@ mod playback_spec {
     const AUDIO_OFFSET: u16 = 700;
 
     #[rstest]
+    #[serial]
     pub fn playback_one_user_two_frames_perfects(mut fixture: PlaybackFixture) {
         info!("Sending a message in...");
         let first_cq_frame = vec![
@@ -127,6 +128,7 @@ mod playback_spec {
     }
 
     #[rstest]
+    #[serial]
     pub fn playback_deltas(mut fixture: PlaybackFixture) {
         info!("Sending a message in...");
         let first_cq_frame = vec![
@@ -161,6 +163,7 @@ mod playback_spec {
     }
 
     #[rstest]
+    #[serial]
     pub fn playback_naives(mut fixture: PlaybackFixture) {
         info!("Sending a message in...");
         let first_cq_frame = vec![
