@@ -11,6 +11,8 @@ use crate::libs::source_codec::keying_timing::{DefaultKeyingTiming, KeyingTiming
 use crate::libs::source_codec::source_encoding::{CallsignHash, Frame};
 use crate::libs::util::util::get_epoch_ms;
 
+const CHANNEL_LIFETIME_MS: u128 = 20000; // 20s enough?
+
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub struct StationIdentifier {
     callsign_hash: CallsignHash,
@@ -24,6 +26,7 @@ pub struct StationDetails {
     last_playback_schedule_time: u32,
     current_polarity: bool,
     tone_generator_channel: usize,
+    last_play_call_epoch_ms: u128,
 }
 
 pub struct Playback {
@@ -68,6 +71,7 @@ impl Playback {
                 last_playback_schedule_time: 0,
                 current_polarity: true,
                 tone_generator_channel: self.tone_generator.lock().unwrap().allocate_channel(audio_offset),
+                last_play_call_epoch_ms: 0, // will be updated below...
             };
             self.playback_state.insert(key.clone(), new_details);
         } else {
@@ -77,6 +81,9 @@ impl Playback {
             None => { panic!("StationDetails are present; shouldn't get here") }
             Some(mut details) => {
                 let start_time = get_epoch_ms();
+                // Store 'now' for the expiry handler.
+                details.last_play_call_epoch_ms = start_time;
+
                 match decode {
                     Ok(frames) => {
                         for frame in frames {
@@ -174,6 +181,21 @@ impl Playback {
                 debug!("Frame playback took {}ms", end_time - start_time);
             }
         }
+
+        self.expire();
+    }
+
+    pub fn expire(&mut self) {
+        let oldest_activity_retained = get_epoch_ms() - CHANNEL_LIFETIME_MS;
+
+        self.playback_state.retain(|key, value| {
+            if value.last_play_call_epoch_ms <= oldest_activity_retained {
+                debug!("Expiring {:?}", key);
+                self.tone_generator.lock().unwrap().deallocate_channel(value.tone_generator_channel);
+                return false;
+            }
+            return true;
+        });
     }
 
     fn schedule_tone(&self, details: &mut StationDetails, duration_ms: KeyerEdgeDurationMs) {
