@@ -338,12 +338,23 @@ impl ToneGenerator {
     // Set a channel to disabled; if it is the last channel, pop it (and all disabled at the end)
     pub fn deallocate_channel(&mut self, tone_index: usize) {
         // Tone index 0 is for the sidetone; it cannot be deallocated.
-        if tone_index > 0 {
-
+        if tone_index == 0 {
+            return;
+        }
+        let mut callback_datas = self.callback_data.write().unwrap();
+        if tone_index >= callback_datas.len() {
+            return;
+        }
+        {
+            callback_datas[tone_index].lock().unwrap().enabled = false;
+        }
+        while callback_datas.len() > 1 && callback_datas.last().unwrap().lock().unwrap().enabled == false {
+            callback_datas.pop();
         }
     }
 
     // Used by tests to check allocate/deallocate functions.
+    #[cfg(test)]
     fn test_get_enabled_states(&mut self) -> Vec<bool> {
         let callback_datas = self.callback_data.write().unwrap();
         let mut out = Vec::with_capacity(callback_datas.len());

@@ -86,7 +86,6 @@ mod tone_generator_channel_alloc_spec {
     #[rstest]
     #[serial]
     pub fn deallocate_end_truncates(mut fixture: ToneGeneratorFixture) {
-        fixture.tone_generator.allocate_channel(800);
         fixture.tone_generator.allocate_channel(1000); // if we disable the last, the array should be truncated
         assert_eq!(fixture.tone_generator.test_get_enabled_states(), vec![true, true]);
         fixture.tone_generator.deallocate_channel(1);
@@ -96,10 +95,9 @@ mod tone_generator_channel_alloc_spec {
     #[rstest]
     #[serial]
     pub fn deallocate_past_end(mut fixture: ToneGeneratorFixture) {
-        fixture.tone_generator.allocate_channel(800);
         fixture.tone_generator.allocate_channel(1000); // if we disable the last, the array should be truncated
         assert_eq!(fixture.tone_generator.test_get_enabled_states(), vec![true, true]);
-        fixture.tone_generator.deallocate_channel(3); // does nothing
+        fixture.tone_generator.deallocate_channel(2); // does nothing
         assert_eq!(fixture.tone_generator.test_get_enabled_states(), vec![true, true]);
     }
 
