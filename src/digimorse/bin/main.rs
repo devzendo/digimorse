@@ -144,7 +144,8 @@ fn run(arguments: ArgMatches, mode: Mode) -> Result<i32, Box<dyn Error>> {
     let terminate = Arc::new(AtomicBool::new(false));
     let scheduled_thread_pool = Arc::new(syncbox::ScheduledThreadPool::single_thread());
     info!("Initialising Application...");
-    let application = Application::new(terminate.clone(), scheduled_thread_pool.clone());
+    let mut application = Application::new(terminate.clone(), scheduled_thread_pool.clone());
+    application.set_mode(mode.clone());
 
     info!("Initialising keyer...");
     let mut keying_event_tx = Bus::new(16);
