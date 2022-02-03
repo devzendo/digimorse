@@ -24,6 +24,27 @@ impl Application {
         }
     }
 
+    // Setting the terminate AtomicBool will allow the thread to stop on its own.
+    pub fn terminate(&mut self) {
+        debug!("Terminating Application");
+        self.terminate_flag.store(true, core::sync::atomic::Ordering::SeqCst);
+        debug!("Terminated Application");
+    }
+
+    // Has the Application been terminated
+    pub fn terminated(&self) -> bool {
+        debug!("Is Application terminated?");
+        let ret = self.terminate_flag.load(core::sync::atomic::Ordering::SeqCst);
+        debug!("Termination state is {}", ret);
+        ret
+    }
+}
+
+impl Drop for Application {
+    fn drop(&mut self) {
+        debug!("Application signalling termination on drop");
+        self.terminate();
+    }
 }
 
 #[cfg(test)]

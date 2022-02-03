@@ -29,6 +29,7 @@ mod application_spec {
     pub struct ApplicationFixture {
         terminate: Arc<AtomicBool>,
         scheduled_thread_pool: Arc<ScheduledThreadPool>,
+        application: Application,
     }
 
     #[fixture]
@@ -45,6 +46,7 @@ mod application_spec {
         ApplicationFixture {
             terminate,
             scheduled_thread_pool,
+            application,
         }
     }
 
@@ -58,6 +60,12 @@ mod application_spec {
     }
 
     #[rstest]
-    pub fn something(fixture: ApplicationFixture) {
+    pub fn termination(mut fixture: ApplicationFixture) {
+        assert_eq!(fixture.application.terminated(), false);
+        test_util::wait_5_ms();
+        fixture.application.terminate();
+        test_util::wait_5_ms();
+        assert_eq!(fixture.application.terminated(), true);
+        assert_eq!(fixture.terminate.load(Ordering::SeqCst), true);
     }
 }
