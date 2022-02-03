@@ -1,7 +1,22 @@
+#[macro_use]
+
 use log::debug;
 use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
+use clap::arg_enum;
 use syncbox::ScheduledThreadPool;
+
+arg_enum! {
+    #[derive(Debug, Clone, PartialEq)]
+    pub enum Mode {
+        GUI,
+        ListAudioDevices,
+        SerialDiag,
+        KeyerDiag,
+        SourceEncoderDiag
+    }
+}
+
 
 // The Application handles all the wiring between the active components of the system. The wiring
 // 'loom' is different depending on the mode enum.
@@ -10,6 +25,18 @@ use syncbox::ScheduledThreadPool;
 pub struct Application {
     terminate_flag: Arc<AtomicBool>,
     scheduled_thread_pool: Arc<ScheduledThreadPool>,
+    mode: Option<Mode>,
+}
+
+impl Application {
+    pub fn set_mode(&mut self, mode: Mode) {
+        self.mode = Some(mode);
+        // TODO far more to do here, set up wiring for each Mode
+    }
+
+    pub fn get_mode(&self) -> Option<Mode> {
+        return self.mode.clone();
+    }
 }
 
 impl Application {
@@ -21,6 +48,7 @@ impl Application {
         Self {
             terminate_flag,
             scheduled_thread_pool,
+            mode: None,
         }
     }
 

@@ -24,6 +24,7 @@ use digimorse::libs::util::util::printable;
 use std::time::Duration;
 use bus::{Bus, BusReader};
 use csv::Writer;
+use fltk::enums::Mode;
 use portaudio::PortAudio;
 use digimorse::libs::config_file::config_file::ConfigurationStore;
 use digimorse::libs::audio::audio_devices::{list_audio_devices, output_audio_device_exists, input_audio_device_exists, open_output_audio_device};
@@ -51,17 +52,6 @@ const KEYER_PORT_DEVICE: &'static str = "keyer-port-device";
 const AUDIO_OUT_DEVICE: &'static str = "audio-out-device";
 const RIG_OUT_DEVICE: &'static str = "rig-out-device";
 const RIG_IN_DEVICE: &'static str = "rig-in-device";
-
-arg_enum! {
-    #[derive(Debug, Clone, PartialEq)]
-    enum Mode {
-        GUI,
-        ListAudioDevices,
-        SerialDiag,
-        KeyerDiag,
-        SourceEncoderDiag
-    }
-}
 
 fn parse_command_line<'a>() -> (ArgMatches<'a>, Mode) {
     let result = App::new("digimorse")

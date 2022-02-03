@@ -10,8 +10,9 @@ mod application_spec {
     use hamcrest2::prelude::*;
     use log::{debug, info};
     use rstest::*;
+    use hamcrest2::prelude::*;
     use syncbox::ScheduledThreadPool;
-    use crate::libs::application::application::Application;
+    use crate::libs::application::application::{Application, Mode};
 
     use crate::libs::util::test_util;
     use crate::libs::util::test_util::wait_n_ms;
@@ -68,4 +69,16 @@ mod application_spec {
         assert_eq!(fixture.application.terminated(), true);
         assert_eq!(fixture.terminate.load(Ordering::SeqCst), true);
     }
+
+    #[rstest]
+    pub fn initial_mode(fixture: ApplicationFixture) {
+        assert_that!(fixture.application.get_mode(), none());
+    }
+
+    #[rstest]
+    pub fn mode_keyer_diag(mut fixture: ApplicationFixture) {
+        fixture.application.set_mode(Mode::KeyerDiag);
+        assert_that!(fixture.application.get_mode(), has(Mode::KeyerDiag));
+    }
+
 }
