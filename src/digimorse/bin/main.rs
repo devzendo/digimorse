@@ -4,6 +4,7 @@ extern crate portaudio;
 
 use core::mem;
 use clap::{App, Arg, ArgMatches};
+use clap::arg_enum;
 use fltk::app;
 use log::{debug, error, info, warn};
 use portaudio as pa;
@@ -24,8 +25,9 @@ use digimorse::libs::util::util::printable;
 use std::time::Duration;
 use bus::{Bus, BusReader};
 use csv::Writer;
-use fltk::enums::Mode;
 use portaudio::PortAudio;
+use syncbox::ScheduledThreadPool;
+use digimorse::libs::application::application::{Application, Mode};
 use digimorse::libs::config_file::config_file::ConfigurationStore;
 use digimorse::libs::audio::audio_devices::{list_audio_devices, output_audio_device_exists, input_audio_device_exists, open_output_audio_device};
 use digimorse::libs::audio::tone_generator::{KeyingEventToneChannel, ToneGenerator};
@@ -135,6 +137,15 @@ fn run(arguments: ArgMatches, mode: Mode) -> Result<i32, Box<dyn Error>> {
         return Ok(0)
     }
 
+    // From here, we need wiring, so, an Application that handles the 'wiring loom' for the given
+    // mode makes sense. The major components (depending on the mode) are instantiated, and set in
+    // the Application, which wires them up correctly.
+
+    let terminate = Arc::new(AtomicBool::new(false));
+    let scheduled_thread_pool = Arc::new(syncbox::ScheduledThreadPool::single_thread());
+    info!("Initialising Application...");
+    let application = Application::new(terminate.clone(), scheduled_thread_pool.clone());
+
     info!("Initialising keyer...");
     let mut keying_event_tx = Bus::new(16);
     let tone_generator_keying_event_rx = keying_event_tx.add_rx();
@@ -149,7 +160,6 @@ fn run(arguments: ArgMatches, mode: Mode) -> Result<i32, Box<dyn Error>> {
         Some(keying_event_tx.add_rx())
     };
 
-    let terminate = Arc::new(AtomicBool::new(false));
     let mut keyer = ArduinoKeyer::new(Box::new(serial_io), keying_event_tx, terminate.clone());
     let keyer_speed: KeyerSpeed = config.get_wpm() as KeyerSpeed;
     keyer.set_speed(keyer_speed)?;
@@ -204,7 +214,7 @@ fn run(arguments: ArgMatches, mode: Mode) -> Result<i32, Box<dyn Error>> {
 
     if mode == Mode::SourceEncoderDiag {
         info!("Initialising SourceEncoderDiag mode");
-        source_encoder_diag(source_encoder_rx, terminate.clone(), playback_arc_tone_generator.clone(), playback_arc_mutex_keying_event_tone_channel.unwrap())?;
+        source_encoder_diag(source_encoder_rx, terminate.clone(), playback_arc_tone_generator.clone(), playback_arc_mutex_keying_event_tone_channel.unwrap(), scheduled_thread_pool)?;
         keyer.terminate();
         mem::drop(playback_arc_tone_generator);
         pa.terminate()?;
@@ -353,7 +363,7 @@ fn check_keyer_device(config: &mut ConfigurationStore) -> Result<(), Box<dyn Err
 }
 
 fn port_exists(dev_name: &str) -> Result<bool, Box<dyn Error>> {
-    // Might have to do something funky on Windows to check whether COMx: exists? Would this suffice?
+    // TODO Will have to do something funky on Windows to check whether COMx: exists.
     Ok(std::path::Path::new(dev_name).exists())
 }
 
@@ -411,13 +421,12 @@ fn keyer_diag(mut keying_event_rx: BusReader<KeyingEvent>, terminate: Arc<Atomic
     return Ok(());
 }
 
-fn source_encoder_diag(mut source_encoder_rx: BusReader<SourceEncoding>, terminate: Arc<AtomicBool>, arc_tone_generator: Arc<ToneGenerator>, playback_tone_channel_bus_tx: Arc<Mutex<Bus<KeyingEventToneChannel>>>) -> Result<(), Box<dyn Error>> {
+fn source_encoder_diag(mut source_encoder_rx: BusReader<SourceEncoding>, terminate: Arc<AtomicBool>, arc_tone_generator: Arc<ToneGenerator>, playback_tone_channel_bus_tx: Arc<Mutex<Bus<KeyingEventToneChannel>>>, scheduled_thread_pool: Arc<ScheduledThreadPool>) -> Result<(), Box<dyn Error>> {
     // Keying goes into the SourceEncoder, which emits SourceEncodings to source_encoder_tx. We have
     // the other end of that bus here as source_encoder_rx. Patch this into the delayed_bus,
     // which'll send these SourceEncodings to us on delayed_source_encoder_rx, below.
     let mut output_tx = Bus::new(16);
     let mut delayed_source_encoder_rx = output_tx.add_rx();
-    let scheduled_thread_pool = Arc::new(syncbox::ScheduledThreadPool::single_thread());
 
     let delayed_bus = DelayedBus::new(source_encoder_rx, output_tx, terminate.clone(), scheduled_thread_pool, Duration::from_secs(30));
 

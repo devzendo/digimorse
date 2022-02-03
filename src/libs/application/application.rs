@@ -40,8 +40,8 @@ impl Application {
 }
 
 impl Application {
-    fn new(terminate_flag: Arc<AtomicBool>,
-           scheduled_thread_pool: Arc<ScheduledThreadPool>,
+    pub fn new(terminate_flag: Arc<AtomicBool>,
+               scheduled_thread_pool: Arc<ScheduledThreadPool>,
     ) -> Self {
         debug!("Constructing Application");
 

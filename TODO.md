@@ -12,3 +12,6 @@
 
 * Sidetone output via bluetooth headphones has appalling latency - investigate whether dropping the output sample 
   rate to 8000Hz would improve matters.
+
+* Checking for serial port existence in main - needs implementing correctly for Windows.
+* 
