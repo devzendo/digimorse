@@ -1,3 +1,4 @@
+pub mod application;
 pub mod audio;
 pub mod config_dir;
 pub mod config_file;
