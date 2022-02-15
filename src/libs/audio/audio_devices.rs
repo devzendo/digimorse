@@ -1,4 +1,4 @@
-use portaudio::{OutputStreamSettings, PortAudio};
+use portaudio::{InputStreamSettings, OutputStreamSettings, PortAudio};
 use portaudio as pa;
 use std::error::Error;
 use log::info;
@@ -74,5 +74,21 @@ pub fn open_output_audio_device(pa: &PortAudio, dev_name: &str) -> Result<Output
             return Ok(settings);
         }
     }
-    Err(Box::<dyn Error + Send + Sync>::from(format!("Can't find settings for device '{}'", dev_name)))
+    Err(Box::<dyn Error + Send + Sync>::from(format!("Can't find output settings for device '{}'", dev_name)))
+}
+
+pub fn open_input_audio_device(pa: &PortAudio, dev_name: &str) -> Result<InputStreamSettings<f32>, Box<dyn Error>> {
+    for device in pa.devices()? {
+        let (idx, info) = device?;
+
+        let in_channels = info.max_input_channels;
+        let input_params =
+            pa::StreamParameters::<f32>::new(idx, in_channels, INTERLEAVED, LATENCY);
+        let in_48k_supported = pa.is_input_format_supported(input_params, SAMPLE_RATE).is_ok();
+        if info.name == dev_name && in_channels > 0 && in_48k_supported {
+            let settings = InputStreamSettings::new(input_params, SAMPLE_RATE, FRAMES_PER_BUFFER);
+            return Ok(settings);
+        }
+    }
+    Err(Box::<dyn Error + Send + Sync>::from(format!("Can't find input settings for device '{}'", dev_name)))
 }
