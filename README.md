@@ -1,7 +1,8 @@
 digimorse
 =========
 There's currently not much to see here, except the idea and some very early
-code... perhaps come back later?
+code... there's no graphical user interface, it's all command line tools and
+experiments... perhaps come back later?
 
 
 This is an EXPERIMENT in taking Morse code, in real-time, encoding it, wrapping
@@ -10,23 +11,30 @@ connected amateur radio transceiver as a narrow-bandwidth signal.
 
 The intention is to take our historic mode of communication, and be able to
 receive it and decode it (with your brain) whilst removing the effects of
-natural or man-made interference and fading. Visualise all the transmissions in
-a waterfall display, making it easy to see and select transmissions of interest.
-Filter out some or all stations so you can hone in on the one you want - and
+natural or man-made interference and fading. The operator will be able to
+visualise all the transmissions in a waterfall display, making it easy to
+see and select transmissions of interest. There will be the facility to
+filter out some or all stations so you can hone in on the one you want - and
 reply to it in digitally encoded Morse. By adding error correction, and
 carefully designing the encoding and modulation, it is hoped that the weak
 signal characteristic enjoyed by users of FT8, JT9 etc. can be added to Morse.
 
 What digimorse is not:
-* It doesn't decode the Morse for you. That's cheating! It is a beautiful skill
-  to master, like a language or musical instrument; mastering Morse is a fine
-  human achievement. digimorse seeks to add another dimension to it!
+* Computer-generated or computer-decoded Morse. It doesn't decode the Morse for
+  you. That's cheating! It is a beautiful skill to master, like a language or
+  musical instrument; mastering Morse is a fine human achievement. digimorse
+  seeks to add another dimension to it!
 * The death of CW or Amateur Radio As We Know It(tm). You don't have to use it!
 * Completely automated, just macro-key-pressing. No, you use your normal Morse
   key or paddle. Macros will come later perhaps.
 * Quantized. If you have a unique rhythm to your keying, digimorse won't correct
   it. The timing of your keying goes out verbatim. You can use our keyer with a
   paddle which will give good timing (later).
+
+There are arguments that adding a keyboard entry facility (instead of key/paddle)
+and an auto-decoder (instead of human decode) might be warranted: in the case of
+disabilities. I'm happy to discuss these and maybe implement them; they're not my
+current priority.
 
 What you'll find different to usual CW:
 * No noise! QRN, QRM, QSB, gone!
