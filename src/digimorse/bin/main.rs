@@ -210,11 +210,12 @@ fn run(arguments: ArgMatches, mode: Mode) -> Result<i32, Box<dyn Error>> {
 
     let mut source_encoder_tx = Bus::new(16);
     let source_encoder_rx = source_encoder_tx.add_rx();
-    let _source_encoder = SourceEncoder::new(source_encoder_keying_event_rx.unwrap(), source_encoder_tx, terminate.clone());
+    let mut source_encoder = SourceEncoder::new(source_encoder_keying_event_rx.unwrap(), source_encoder_tx, terminate.clone());
 
     if mode == Mode::SourceEncoderDiag {
         info!("Initialising SourceEncoderDiag mode");
         source_encoder_diag(source_encoder_rx, terminate.clone(), playback_arc_mutex_tone_generator.clone(), playback_arc_mutex_keying_event_tone_channel.unwrap(), scheduled_thread_pool, config.get_sidetone_frequency() + 50)?;
+        source_encoder.terminate();
         keyer.terminate();
         mem::drop(playback_arc_mutex_tone_generator);
         pa.terminate()?;
