@@ -1,13 +1,13 @@
-#[macro_use]
-
 use log::debug;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::sync::atomic::AtomicBool;
+use bus::Bus;
 use clap::arg_enum;
 use syncbox::ScheduledThreadPool;
+use crate::libs::keyer_io::keyer_io::KeyingEvent;
 
 arg_enum! {
-    #[derive(Debug, Clone, PartialEq)]
+    #[derive(Debug, Clone, Copy, PartialEq)]
     pub enum Mode {
         GUI,
         ListAudioDevices,
@@ -17,6 +17,10 @@ arg_enum! {
     }
 }
 
+pub trait BusOutput<T> {
+    fn clear_output_tx(&mut self);
+    fn set_output_tx(&mut self, output_tx: Arc<Mutex<Bus<T>>>);
+}
 
 // The Application handles all the wiring between the active components of the system. The wiring
 // 'loom' is different depending on the mode enum.
@@ -26,12 +30,21 @@ pub struct Application {
     terminate_flag: Arc<AtomicBool>,
     scheduled_thread_pool: Arc<ScheduledThreadPool>,
     mode: Option<Mode>,
+
+    keying_event_bus: Option<Bus<KeyingEvent>>,
 }
 
 impl Application {
     pub fn set_mode(&mut self, mode: Mode) {
         self.mode = Some(mode);
         // TODO far more to do here, set up wiring for each Mode
+        match mode {
+            Mode::KeyerDiag => {
+                self.keying_event_bus = Some(Bus::new(16));
+            }
+            Mode::SourceEncoderDiag => {}
+            _ => {}
+        }
     }
 
     pub fn get_mode(&self) -> Option<Mode> {
@@ -49,6 +62,8 @@ impl Application {
             terminate_flag,
             scheduled_thread_pool,
             mode: None,
+
+            keying_event_bus: None,
         }
     }
 

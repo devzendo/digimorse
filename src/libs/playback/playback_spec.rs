@@ -43,7 +43,7 @@ mod playback_spec {
         let keying_event_tone_channel_tx: Arc<Mutex<Bus<KeyingEventToneChannel>>> = Arc::new(Mutex::new(Bus::new(16)));
         let keying_event_tone_channel_rx = keying_event_tone_channel_tx.lock().unwrap().add_rx();
 
-        let dev = "MacBook Pro Speakers";
+        let dev = "Built-in Output"; // "MacBook Pro Speakers";
         let sidetone_frequency = 600 as u16;
         info!("Instantiating tone generator...");
         let mut tone_generator = ToneGenerator::new(sidetone_frequency,

@@ -102,7 +102,7 @@ impl SourceEncoder {
 
     // The SourceEncoder needs to know the keyer speed to build keying frames into their most
     // compact form; a minimal delta from the three timing elements.
-    fn set_keyer_speed(&mut self, speed: KeyerSpeed) {
+    pub fn set_keyer_speed(&mut self, speed: KeyerSpeed) {
         self.keyer_speed = speed;
         // TODO pass on to CQ detector
         self.shared.lock().unwrap().set_keyer_speed(speed);

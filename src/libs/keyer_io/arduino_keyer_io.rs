@@ -12,35 +12,58 @@ use std::sync::{Arc, mpsc, Mutex};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 use bus::Bus;
+use crate::libs::application::application::BusOutput;
 use crate::libs::keyer_io::keyer_io::KeyingEvent::{Timed, Start, End};
 
-pub struct ArduinoKeyer {
+pub struct ArduinoKeyer  {
     // Command channel to/from the thread. Sender is guarded by a Mutex to ensure a single command
     // in flight at a time.
     command_request_tx: Mutex<Sender<String>>,
     command_response_rx: Receiver<Result<String, String>>,
+    // TODO only need a single channel for communicating commands and output-bus-setting between the
+    // main thread and the keyer thread.
+    keying_event_tx_request_tx: Sender<Arc<Mutex<Bus<KeyingEvent>>>>,
 
     terminate: Arc<AtomicBool>,
     thread_handle: Mutex<Option<JoinHandle<()>>>,
 }
 
+impl BusOutput<KeyingEvent> for ArduinoKeyer {
+    fn clear_output_tx(&mut self) {
+        todo!()
+    }
+
+    fn set_output_tx(&mut self, output_tx: Arc<Mutex<Bus<KeyingEvent>>>) {
+        match self.keying_event_tx_request_tx.send(output_tx) {
+            Ok(_) => {
+                // ok, no problem
+            }
+            Err(err) => {
+                warn!("Could not send keying event bus to ArduinoKeyerThread: {}", err);
+            }
+        }
+    }
+}
+
 impl ArduinoKeyer {
-    pub fn new(serial_io: Box<dyn SerialIO>, keying_event_tx: Bus<KeyingEvent>, terminate: Arc<AtomicBool>) -> Self {
+    pub fn new(serial_io: Box<dyn SerialIO>, terminate: Arc<AtomicBool>) -> Self {
         // Channels have two endpoints: the `Sender<T>` and the `Receiver<T>`,
         // where `T` is the type of the message to be transferred
         // (type annotation is superfluous)
         let (command_request_tx, command_request_rx): (Sender<String>, Receiver<String>) = mpsc::channel();
         let (command_response_tx, command_response_rx): (Sender<Result<String, String>>, Receiver<Result<String, String>>) = mpsc::channel();
+        let (keying_event_tx_request_tx, keying_event_tx_request_rx): (Sender<Arc<Mutex<Bus<KeyingEvent>>>>, Receiver<Arc<Mutex<Bus<KeyingEvent>>>>) = mpsc::channel();
         let mutex_command_request_tx = Mutex::new(command_request_tx);
 
         let arc_terminate = terminate.clone();
         let thread_handle = thread::spawn(move || {
-            let mut arduino_keyer_thread = ArduinoKeyerThread::new(serial_io, command_request_rx, command_response_tx, keying_event_tx, arc_terminate);
+            let mut arduino_keyer_thread = ArduinoKeyerThread::new(serial_io, command_request_rx, command_response_tx, arc_terminate, keying_event_tx_request_rx);
             arduino_keyer_thread.thread_runner();
         });
         Self {
             command_request_tx: mutex_command_request_tx,
             command_response_rx,
+            keying_event_tx_request_tx,
             terminate,
             thread_handle: Mutex::new(Some(thread_handle)),
         }
@@ -140,9 +163,10 @@ struct ArduinoKeyerThread {
     // Command channels
     command_request_rx: Receiver<String>,
     command_response_tx: Sender<Result<String, String>>,
+    keying_event_tx_request_rx: Receiver<Arc<Mutex<Bus<KeyingEvent>>>>,
 
     // Keying channel
-    keying_event_tx: Bus<KeyingEvent>,
+    keying_event_tx: Option<Arc<Mutex<Bus<KeyingEvent>>>>,
 
     // State machine data
     state: KeyerState,
@@ -155,9 +179,9 @@ struct ArduinoKeyerThread {
 impl ArduinoKeyerThread {
     fn new(serial_io: Box<dyn SerialIO>,
         command_request_rx: Receiver<String>,
-           command_response_tx: Sender<Result<String, String>>,
-        keying_event_tx: Bus<KeyingEvent>,
-        terminate: Arc<AtomicBool>
+        command_response_tx: Sender<Result<String, String>>,
+        terminate: Arc<AtomicBool>,
+        keying_event_tx_request_rx: Receiver<Arc<Mutex<Bus<KeyingEvent>>>>
     ) -> Self {
         debug!("Constructing ArduinoKeyerThread");
         Self {
@@ -165,7 +189,8 @@ impl ArduinoKeyerThread {
             terminate,
             command_request_rx,
             command_response_tx,
-            keying_event_tx,
+            keying_event_tx_request_rx,
+            keying_event_tx: None,
             state: Initial,
             up: false,
             duration: 0,
@@ -182,6 +207,14 @@ impl ArduinoKeyerThread {
             if self.terminate.load(Ordering::SeqCst) {
                 info!("Terminating keyer I/O thread");
                 break;
+            }
+            match self.keying_event_tx_request_rx.try_recv() {
+                Ok(bus) => {
+                    self.keying_event_tx = Some(bus);
+                }
+                Err(_) => {
+                    // ignore for now
+                }
             }
             // Any incoming commands?
             match self.command_request_rx.try_recv() {
@@ -268,6 +301,15 @@ impl ArduinoKeyerThread {
         self.state = new_state;
     }
 
+    fn send(&mut self, event: KeyingEvent) {
+        if self.keying_event_tx.is_none() {
+            warn!("Cannot send event {} as there is no current output bus", event);
+            return;
+        }
+        let ref_opt_bus = &mut self.keying_event_tx;
+        ref_opt_bus.as_mut().map( |bus| bus.lock().unwrap().broadcast(event));
+    }
+
     fn initial(&mut self, ch: u8) -> Option<Result<String, String>> {
         match ch {
             b'#' => {
@@ -281,12 +323,12 @@ impl ArduinoKeyerThread {
             b'S' => {
                 let event = Start();
                 debug!("Keying: {}", event);
-                self.keying_event_tx.broadcast(event);
+                self.send(event);
             }
             b'E' => {
                 let event = End();
                 debug!("Keying: {}", event);
-                self.keying_event_tx.broadcast(event);
+                self.send(event);
             }
             b'+' => {
                 self.up = false;
@@ -313,7 +355,7 @@ impl ArduinoKeyerThread {
         self.duration |= (ch as KeyerEdgeDurationMs) & 0x00FF;
         let event = Timed(KeyingTimedEvent { up: self.up, duration: self.duration });
         debug!("Keying: {}", event);
-        self.keying_event_tx.broadcast(event);
+        self.send(event);
         self.set_state(Initial);
         None
     }

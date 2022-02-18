@@ -11,6 +11,7 @@ use pretty_hex::*;
 
 use std::{env, thread};
 use std::error::Error;
+use std::num::ParseIntError;
 use std::sync::{Arc, Mutex};
 use std::sync::atomic::{AtomicBool, Ordering};
 
@@ -26,7 +27,7 @@ use bus::{Bus, BusReader};
 use csv::Writer;
 use portaudio::PortAudio;
 use syncbox::ScheduledThreadPool;
-use digimorse::libs::application::application::{Application, Mode};
+use digimorse::libs::application::application::{Application, BusOutput, Mode};
 use digimorse::libs::config_file::config_file::ConfigurationStore;
 use digimorse::libs::audio::audio_devices::{list_audio_devices, output_audio_device_exists, input_audio_device_exists, open_output_audio_device, open_input_audio_device};
 use digimorse::libs::audio::tone_generator::{KeyingEventToneChannel, ToneGenerator};
@@ -53,6 +54,7 @@ const KEYER_PORT_DEVICE: &'static str = "keyer-port-device";
 const AUDIO_OUT_DEVICE: &'static str = "audio-out-device";
 const RIG_OUT_DEVICE: &'static str = "rig-out-device";
 const RIG_IN_DEVICE: &'static str = "rig-in-device";
+const KEYER_SPEED_WPM: &'static str = "keyer-speed-wpm";
 
 fn parse_command_line<'a>() -> (ArgMatches<'a>, Mode) {
     let result = App::new("digimorse")
@@ -80,6 +82,10 @@ fn parse_command_line<'a>() -> (ArgMatches<'a>, Mode) {
         .arg(Arg::with_name(RIG_IN_DEVICE)
             .short("r").long("rigaudioin").help("Sets the audio device name to use for input from the transceiver")
             .value_name("transceiver audio input device name").takes_value(true))
+
+        .arg(Arg::with_name(KEYER_SPEED_WPM)
+            .short("w").long("keyerwpm").help("Sets the typical keying speed in words per minute")
+            .value_name("keyer speed in WPM").takes_value(true))
 
         .get_matches();
 
@@ -114,10 +120,10 @@ fn run(arguments: ArgMatches, mode: Mode) -> Result<i32, Box<dyn Error>> {
         return Ok(0)
     }
 
-    // Eventually device configuration will be via a nice GUI. Until then, have options on the
-    // command line that will set the various devices in the configuration file, and then pick the
-    // values from config to initialise the system, after checking that these configured values are
-    // still valid.
+    // Eventually device and settings configuration will be via a nice GUI. Until then, have options
+    // on the command line that will set the various devices in the configuration file, and then
+    // pick the values from config to initialise the system, after checking that these configured
+    // values are still valid.
     configure_audio_and_keyer_devices(&arguments, &mut config, &pa)?;
 
     // Examine configured audio and keyer devices (may be repeating checks just made if they're
@@ -160,7 +166,11 @@ fn run(arguments: ArgMatches, mode: Mode) -> Result<i32, Box<dyn Error>> {
         Some(keying_event_tx.add_rx())
     };
 
-    let mut keyer = ArduinoKeyer::new(Box::new(serial_io), keying_event_tx, terminate.clone());
+    let mut keyer = ArduinoKeyer::new(Box::new(serial_io), terminate.clone());
+    let keyer_keying_event_tx = Arc::new(Mutex::new(keying_event_tx));
+    keyer.set_output_tx(keyer_keying_event_tx);
+    // TODO ^^ The Application will eventually do this.
+
     let keyer_speed: KeyerSpeed = config.get_wpm() as KeyerSpeed;
     keyer.set_speed(keyer_speed)?;
 
@@ -211,6 +221,7 @@ fn run(arguments: ArgMatches, mode: Mode) -> Result<i32, Box<dyn Error>> {
     let mut source_encoder_tx = Bus::new(16);
     let source_encoder_rx = source_encoder_tx.add_rx();
     let mut source_encoder = SourceEncoder::new(source_encoder_keying_event_rx.unwrap(), source_encoder_tx, terminate.clone());
+    source_encoder.set_keyer_speed(config.get_wpm() as KeyerSpeed);
 
     if mode == Mode::SourceEncoderDiag {
         info!("Initialising SourceEncoderDiag mode");
@@ -288,6 +299,26 @@ fn configure_audio_and_keyer_devices(arguments: &ArgMatches, config: &mut Config
         } else {
             warn!("Setting {}: No keyer serial port device named '{}' is present in your system.", KEYER_PORT_DEVICE, dev);
             return Err("Configuration error in keyer device.".into());
+        }
+    }
+
+    // Set the keyer speed in the configuration file, if present.
+    if arguments.is_present(KEYER_SPEED_WPM) {
+        let wpm_str = arguments.value_of(KEYER_SPEED_WPM).unwrap();
+        match wpm_str.parse::<usize>() {
+            Ok(wpm) => {
+                if wpm >= 5 && wpm <= 60 {
+                    info!("Setting keyer speed to {} WPM", wpm);
+                    config.set_wpm(wpm)?;
+                } else {
+                    warn!("Setting {}: Keyer speed of {} is out of the range [5..60] WPM", KEYER_SPEED_WPM, wpm);
+                    return Err("Configuration error in keyer speed.".into());
+                }
+            }
+            Err(e) => {
+                warn!("Setting {}: Could not set keyer speed in WPM to '{}' - not an integer", KEYER_SPEED_WPM, wpm_str);
+                return Err("Configuration error in keyer speed.".into());
+            }
         }
     }
 
