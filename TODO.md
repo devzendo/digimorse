@@ -11,7 +11,6 @@
   emit after it is encoded.
 
 # Known problems
-* Not emitting a source encoder frame on Keyer End. Fixed in code, need to test for this.
 * Playback is locking something while it's scheduling. Tone gen only starts when it finishes a frame.
 * Playback algorithm is greatly improved; now needs tests.
 * 
