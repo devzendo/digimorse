@@ -146,7 +146,7 @@ impl SourceEncoderShared {
         }
         self.sent_wpm_polarity = false;
         let encoding = self.storage.write().unwrap().build();
-        debug!("Emitting {}", encoding);
+        info!("Emitting {}", encoding);
         self.source_encoder_tx.broadcast(encoding);
     }
 
@@ -163,7 +163,7 @@ impl SourceEncoderShared {
             KeyingEvent::Start() => {
                 // Don't add anything to storage, but reset the polarity to Mark
                 self.is_mark = true;
-                debug!("Polarity is now MARK");
+                debug!("Start: Polarity is now MARK (true)");
             }
             KeyingEvent::Timed(timed) => {
                 loop {
@@ -180,7 +180,7 @@ impl SourceEncoderShared {
                             } else {
                                 // The polarity emitted is that of the current element.
                                 let frame_type = EncoderFrameType::WPMPolarity;
-                                debug!("Adding {:?} {} WPM, polarity {} ", frame_type, self.keying_speed, if self.is_mark { "MARK" } else {"SPACE" });
+                                debug!("Timed: Adding {:?} {} WPM, polarity {} ({})", frame_type, self.keying_speed, if self.is_mark { "MARK" } else { "SPACE" }, self.is_mark);
                                 storage.add_8_bits(frame_type as u8, 4);
                                 storage.add_8_bits(self.keying_speed, 6);
                                 storage.add_bool(self.is_mark);
@@ -196,7 +196,7 @@ impl SourceEncoderShared {
                     // encoding this keying.
                     if self.keying_encoder.encode_keying(&timed) {
                         self.is_mark = !timed.up; // up == false => MARK, up == true => SPACE.
-                        debug!("Polarity after encoding is {}", if self.is_mark { "MARK" } else { "SPACE"});
+                        debug!("Polarity after encoding is {} ({})", if self.is_mark { "MARK" } else { "SPACE"}, self.is_mark);
                         break;
                     } else {
                         // TODO write access needed?
@@ -220,10 +220,12 @@ impl SourceEncoderShared {
                         // Go round the loop again...
                     } else {
                         let frame_type = EncoderFrameType::KeyingEnd;
-                        debug!("Adding {:?} ", frame_type);
+                        debug!("End: Adding {:?} ", frame_type);
                         storage.add_8_bits(frame_type as u8, 4);
                         // Set the end of the storage
                         storage.set_end();
+                        mem::drop(storage);
+                        self.emit();
                         break;
                     }
                 }

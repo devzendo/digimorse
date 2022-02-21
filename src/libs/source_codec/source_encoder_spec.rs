@@ -473,9 +473,6 @@ mod source_encoder_spec {
             fixture.keying_event_tx.broadcast(KeyingEvent::End());
             test_util::wait_5_ms();
 
-            fixture.source_encoder.emit();
-            test_util::wait_5_ms();
-
             match fixture.source_encoder_rx.recv_timeout(Duration::from_secs(1)) {
                 Ok(encoding) => {
                     info!("Received SourceEncoding of {}", encoding);
