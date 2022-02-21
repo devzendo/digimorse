@@ -1,4 +1,4 @@
-use log::debug;
+use log::{debug, info};
 use std::error::Error;
 use crate::enum_primitive::FromPrimitive;
 use crate::libs::source_codec::bitvec_source_encoding_extractor::BitvecSourceEncodingExtractor;
@@ -126,7 +126,7 @@ pub fn source_decode(encoded_block: Vec<u8>) -> Result<Vec<Frame>, Box<dyn Error
             }
         }
     }
-    debug!("Decoded {:?}", frames);
+    info!("Decoded {:?}", frames);
     Ok(frames)
 }
 
