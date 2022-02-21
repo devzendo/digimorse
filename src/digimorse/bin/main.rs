@@ -473,7 +473,7 @@ fn source_encoder_diag(source_encoder_rx: BusReader<SourceEncoding>, terminate: 
     let mut delayed_source_encoder_rx = delayed_source_encoder_tx.add_rx();
 
     let delayed_bus_scheduled_thread_pool = scheduled_thread_pool.clone();
-    let _delayed_bus = DelayedBus::new(source_encoder_rx, delayed_source_encoder_tx, terminate.clone(), delayed_bus_scheduled_thread_pool, Duration::from_secs(30));
+    let _delayed_bus = DelayedBus::new(source_encoder_rx, delayed_source_encoder_tx, terminate.clone(), delayed_bus_scheduled_thread_pool, Duration::from_secs(10));
 
     let playback_scheduled_thread_pool = scheduled_thread_pool.clone();
     let mut playback = Playback::new(terminate.clone(), playback_scheduled_thread_pool, tone_generator, playback_tone_channel_bus_tx.clone());
@@ -487,11 +487,11 @@ fn source_encoder_diag(source_encoder_rx: BusReader<SourceEncoding>, terminate: 
         let result = delayed_source_encoder_rx.recv_timeout(Duration::from_millis(250));
         match result {
             Ok(source_encoding) => {
-                info!("SourceEncodingDiag: isEnd {}", source_encoding.is_end);
+                debug!("SourceEncodingDiag: isEnd {}", source_encoding.is_end);
                 let hexdump = pretty_hex(&source_encoding.block);
                 let hexdump_lines = hexdump.split("\n");
                 for line in hexdump_lines {
-                    info!("SourceEncodingDiag: Encoding {}", line);
+                    debug!("SourceEncodingDiag: Encoding {}", line);
                 }
                 // The SourceEncoding can now be decoded...
                 let source_decode_result = source_decode(source_encoding.block);
