@@ -11,8 +11,11 @@
   emit after it is encoded.
 
 # Known problems
-* Polarity inversion fault in SourceEncoderDiag.
-
+* Not emitting a source encoder frame on Keyer End. Fixed in code, need to test for this.
+* Playback is locking something while it's scheduling. Tone gen only starts when it finishes a frame.
+* Playback algorithm is greatly improved; now needs tests.
+* 
+* 
 * Tone generation has a faint artifact. Is this due to the waveform, should be able to regenerate it as floats?
 
 * Sidetone output via bluetooth headphones has appalling latency - investigate whether dropping the output sample 
