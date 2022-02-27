@@ -3,6 +3,8 @@
 * Back-to-back Source Encoder diagnostic mode - keying is encoded into frames, placed into blocks, then sent to a
   delay bus, after a short delay, the blocks are emitted, decoded into frames, and their keying played back.
 
+* Application wiring.
+
 * Playback improvements:
 ** Split the play method into a scan through the frame to extract timings of keyings into a Vec, and then a pass 
    through that list to schedule the tone generations. Separate the use of a ToneGenerator/ScheduledThreadPool from the
