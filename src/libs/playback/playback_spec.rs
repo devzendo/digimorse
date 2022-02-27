@@ -111,7 +111,7 @@ mod playback_spec {
 
         let maybe_last_schedule_time = fixture.playback.get_last_playback_schedule_time(CALLSIGN_HASH, AUDIO_OFFSET);
         if let Some(last_schedule_time) = maybe_last_schedule_time {
-            assert_that!( last_schedule_time, equal_to(1380));
+            assert_that!( last_schedule_time, equal_to(1379));
         } else {
             panic!("Should have stored station details");
         }
@@ -123,7 +123,7 @@ mod playback_spec {
         ];
         fixture.playback.play(Ok(second_cq_frame), CALLSIGN_HASH, AUDIO_OFFSET);
         info!("Waiting for playback to end...");
-        test_util::wait_n_ms(2500);
+        test_util::wait_n_ms(3000);
         info!("End of test")
     }
 
@@ -158,7 +158,7 @@ mod playback_spec {
         fixture.playback.play(Ok(second_cq_frame), CALLSIGN_HASH, AUDIO_OFFSET);
 
         info!("Waiting for playback to end...");
-        test_util::wait_n_ms(2500);
+        test_util::wait_n_ms(3000);
         info!("End of test")
     }
 
@@ -193,7 +193,7 @@ mod playback_spec {
         fixture.playback.play(Ok(second_cq_frame), CALLSIGN_HASH, AUDIO_OFFSET);
 
         info!("Waiting for playback to end...");
-        test_util::wait_n_ms(2500);
+        test_util::wait_n_ms(3000);
         info!("End of test")
     }
 
