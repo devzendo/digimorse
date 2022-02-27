@@ -287,6 +287,7 @@ impl Playback {
         self.scheduled_thread_pool.schedule_ms(details.next_playback_schedule_time, task);
     }
 
+    #[cfg(test)]
     fn get_last_playback_schedule_time(&self, callsign_hash: CallsignHash, audio_offset: u16) -> Option<u32> {
         let key = StationIdentifier { callsign_hash, audio_offset };
         match self.playback_state.get(&key) {

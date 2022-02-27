@@ -11,7 +11,6 @@ use pretty_hex::*;
 
 use std::{env, thread};
 use std::error::Error;
-use std::num::ParseIntError;
 use std::sync::{Arc, Mutex};
 use std::sync::atomic::{AtomicBool, Ordering};
 
@@ -315,7 +314,7 @@ fn configure_audio_and_keyer_devices(arguments: &ArgMatches, config: &mut Config
                     return Err("Configuration error in keyer speed.".into());
                 }
             }
-            Err(e) => {
+            Err(_) => {
                 warn!("Setting {}: Could not set keyer speed in WPM to '{}' - not an integer", KEYER_SPEED_WPM, wpm_str);
                 return Err("Configuration error in keyer speed.".into());
             }
