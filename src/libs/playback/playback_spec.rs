@@ -111,7 +111,7 @@ mod playback_spec {
 
         let maybe_last_schedule_time = fixture.playback.get_last_playback_schedule_time(CALLSIGN_HASH, AUDIO_OFFSET);
         if let Some(last_schedule_time) = maybe_last_schedule_time {
-            assert_that!( last_schedule_time, equal_to(1379));
+            assert_that!( last_schedule_time, equal_to(2379));
         } else {
             panic!("Should have stored station details");
         }

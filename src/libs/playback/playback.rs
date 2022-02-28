@@ -39,6 +39,8 @@ pub struct Playback {
     keying_event_tone_channel_tx: Arc<Mutex<Bus<KeyingEventToneChannel>>>,
 }
 
+const BODGE_HACK_FIRST_FRAME_PLAYBACK_DELAY_MS: u32 = 1000;
+
 impl Playback {
     pub fn new(terminate: Arc<AtomicBool>, arc_scheduled_thread_pool: Arc<ScheduledThreadPool>, arc_tone_generator: Arc<Mutex<ToneGenerator>>, keying_event_tone_channel_tx: Arc<Mutex<Bus<KeyingEventToneChannel>>>) -> Self {
         Self {
@@ -216,7 +218,7 @@ impl Playback {
         let last_playback_finished = now >= details.last_playback_end_epoch_ms;
         details.next_playback_schedule_time = if last_playback_finished {
             // If last playback has finished, this tone can start now at delta 0.
-            0 // TODO improve this BODGE / HACK
+            BODGE_HACK_FIRST_FRAME_PLAYBACK_DELAY_MS // TODO improve this BODGE / HACK
             // However, if playback has finished and we're still in a transmission of tones, the
             // duration between details.last_playback_end_epoch_ms and now
             // needs to be factored into a playback delay feedback loop, otherwise we'll have gaps
