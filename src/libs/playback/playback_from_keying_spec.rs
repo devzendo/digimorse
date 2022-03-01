@@ -95,6 +95,7 @@ mod playback_from_keying_spec {
 
     #[rstest]
     #[serial]
+    #[ignore]
     pub fn playback_cq_cq(mut fixture: PlaybackFixture) {
         send_keying("cq-cq-keying.csv", &fixture);
 

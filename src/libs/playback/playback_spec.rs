@@ -85,6 +85,7 @@ mod playback_spec {
 
     #[rstest]
     #[serial]
+    #[ignore]
     pub fn playback_one_user_two_frames_perfects(mut fixture: PlaybackFixture) {
         info!("Sending a message in...");
         let first_cq_frame = vec![
@@ -129,6 +130,7 @@ mod playback_spec {
 
     #[rstest]
     #[serial]
+    #[ignore]
     pub fn playback_deltas(mut fixture: PlaybackFixture) {
         info!("Sending a message in...");
         let first_cq_frame = vec![
@@ -164,6 +166,7 @@ mod playback_spec {
 
     #[rstest]
     #[serial]
+    #[ignore]
     pub fn playback_naives(mut fixture: PlaybackFixture) {
         info!("Sending a message in...");
         let first_cq_frame = vec![
@@ -199,6 +202,7 @@ mod playback_spec {
 
     #[rstest]
     #[serial]
+    #[ignore]
     pub fn playback_allocates_tone_generator_channels(mut fixture: PlaybackFixture) {
         assert_eq!(fixture.tone_generator.lock().unwrap().test_get_enabled_states(), vec![true]);
         let frame = vec![
@@ -217,6 +221,7 @@ mod playback_spec {
 
     #[rstest]
     #[serial]
+    #[ignore]
     pub fn playback_deallocates_tone_generator_channels(mut fixture: PlaybackFixture) {
         let frame = vec![
             Frame::WPMPolarity { wpm: 20, polarity: true }, // 60 / 180 / 420
