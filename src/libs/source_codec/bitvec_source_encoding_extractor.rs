@@ -1,5 +1,5 @@
 use bitvec::prelude::*;
-use crate::libs::source_codec::source_encoding::{SOURCE_ENCODER_BLOCK_SIZE_IN_BITS, SourceEncodingExtractor};
+use crate::libs::source_codec::source_encoding::SourceEncodingExtractor;
 
 /// A SourceDecodingExtractor using the bitvec crate.
 pub struct BitvecSourceEncodingExtractor {
@@ -7,8 +7,8 @@ pub struct BitvecSourceEncodingExtractor {
 }
 
 impl BitvecSourceEncodingExtractor {
-    pub fn new(source: Vec<u8>) -> Self {
-        if source.len() != (SOURCE_ENCODER_BLOCK_SIZE_IN_BITS >> 3) {
+    pub fn new(block_size_in_bits: usize, source: Vec<u8>) -> Self {
+        if source.len() != (block_size_in_bits >> 3) {
             panic!("Extractor will not extract from incorrect block sized data ({} bits)", source.len() << 3);
         }
         let bit_vec = BitVec::<Msb0, u8>::from_vec(source);

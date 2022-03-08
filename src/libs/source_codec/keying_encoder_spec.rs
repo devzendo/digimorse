@@ -4,6 +4,8 @@ const PERFECT_DIT_DURATION: KeyerEdgeDurationMs = 60;
 const PERFECT_DAH_DURATION: KeyerEdgeDurationMs = 180;
 const PERFECT_WORDGAP_DURATION: KeyerEdgeDurationMs = 420;
 
+const TEST_SOURCE_ENCODER_BLOCK_SIZE_IN_BITS: usize = 64;
+
 #[cfg(test)]
 mod keying_encoder_spec {
     use log::{debug, info};
@@ -13,7 +15,7 @@ mod keying_encoder_spec {
     use crate::libs::keyer_io::keyer_io::KeyingTimedEvent;
     use crate::libs::source_codec::bitvec_source_encoding_builder::BitvecSourceEncodingBuilder;
     use crate::libs::source_codec::keying_encoder::{decode_from_binary, DefaultKeyingEncoder, encode_to_binary, KeyingEncoder};
-    use crate::libs::source_codec::keying_encoder::keying_encoder_spec::{PERFECT_DAH_DURATION, PERFECT_DIT_DURATION, PERFECT_WORDGAP_DURATION};
+    use crate::libs::source_codec::keying_encoder::keying_encoder_spec::{PERFECT_DAH_DURATION, PERFECT_DIT_DURATION, PERFECT_WORDGAP_DURATION, TEST_SOURCE_ENCODER_BLOCK_SIZE_IN_BITS};
     use crate::libs::source_codec::source_encoding::SourceEncodingBuilder;
     use crate::libs::util::util::dump_byte_vec;
 
@@ -40,7 +42,7 @@ mod keying_encoder_spec {
     #[fixture]
     fn fixture() -> KeyingEncoderFixture {
         let storage: Box<dyn SourceEncodingBuilder + Send + Sync> = Box::new
-            (BitvecSourceEncodingBuilder::new());
+            (BitvecSourceEncodingBuilder::new(TEST_SOURCE_ENCODER_BLOCK_SIZE_IN_BITS));
         let arc_storage = Arc::new(RwLock::new(storage));
         let mut encoder = Box::new(DefaultKeyingEncoder::new(arc_storage.clone()));
         encoder.set_keyer_speed(20);

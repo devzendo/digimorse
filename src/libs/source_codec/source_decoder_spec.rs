@@ -9,6 +9,8 @@ mod source_decoder_spec {
     use crate::libs::source_codec::test_encoding_builder::encoded;
     use crate::libs::util::util::dump_byte_vec;
 
+    const TEST_SOURCE_ENCODER_BLOCK_SIZE_IN_BITS: usize = 64;
+
     #[ctor::ctor]
     fn before_each() {
         env::set_var("RUST_LOG", "debug");
@@ -21,7 +23,7 @@ mod source_decoder_spec {
     #[test]
     pub fn decode_emptiness() {
         // Looks like Padding!
-        let block = encoded(20, &[]);
+        let block = encoded(TEST_SOURCE_ENCODER_BLOCK_SIZE_IN_BITS, 20, &[]);
         let expected_frames = vec![Frame::Padding];
         assert_decoded_eq(block, expected_frames)
     }
@@ -56,7 +58,7 @@ mod source_decoder_spec {
         ];
         // KeyingNaive doesn't need WPM, but it needs polarity to ensure the correct KeyingEvents are emitted.
         for frame in frames {
-            let block = encoded(20, &[
+            let block = encoded(TEST_SOURCE_ENCODER_BLOCK_SIZE_IN_BITS, 20, &[
                 frame,
             ]);
             should_decode_with_error(block, "Cannot decode keying without prior WPM|Polarity")
@@ -71,7 +73,7 @@ mod source_decoder_spec {
             Frame::WPMPolarity { wpm: 20, polarity: true },
             Frame::Padding
         ];
-        let block = encoded(20, keying_frames);
+        let block = encoded(TEST_SOURCE_ENCODER_BLOCK_SIZE_IN_BITS, 20, keying_frames);
         assert_decoded_eq(block, keying_frames.to_vec());
     }
 
@@ -136,7 +138,7 @@ mod source_decoder_spec {
             Frame::Extension, // It stands out as 1111 in the debug output below.
             Frame::Padding
         ];
-        let block = encoded(20, keying_frames);
+        let block = encoded(TEST_SOURCE_ENCODER_BLOCK_SIZE_IN_BITS, 20, keying_frames);
         debug!("{}", dump_byte_vec(&block));
 
         // encoded tracks changes in speed when WPMPolarity frames are
@@ -146,7 +148,7 @@ mod source_decoder_spec {
     }
 
     fn should_decode_with_error(block: Vec<u8>, expected_error_message: &str) {
-        match source_decode(block) {
+        match source_decode(TEST_SOURCE_ENCODER_BLOCK_SIZE_IN_BITS, block) {
             Ok(_) => {
                 panic!("Should not have successfully decoded")
             }
@@ -158,7 +160,7 @@ mod source_decoder_spec {
     }
 
     fn assert_decoded_eq(block: Vec<u8>, expected_frames: Vec<Frame>) {
-        match source_decode(block) {
+        match source_decode(TEST_SOURCE_ENCODER_BLOCK_SIZE_IN_BITS, block) {
             Ok(frames) => {
                 assert_eq!(frames, expected_frames);
             }
@@ -174,7 +176,7 @@ mod source_decoder_spec {
             frame,
             Frame::Padding
         ];
-        let block = encoded(20, keying_frames);
+        let block = encoded(TEST_SOURCE_ENCODER_BLOCK_SIZE_IN_BITS, 20, keying_frames);
         assert_decoded_eq(block, keying_frames.to_vec());
     }
 }

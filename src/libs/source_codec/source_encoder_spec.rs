@@ -14,9 +14,11 @@ mod source_encoder_spec {
 
     use crate::libs::keyer_io::keyer_io::{KeyerSpeed, KeyingEvent, KeyingTimedEvent};
     use crate::libs::source_codec::source_encoder::{SourceEncoder, SourceEncoding};
-    use crate::libs::source_codec::source_encoding::{Frame, SOURCE_ENCODER_BLOCK_SIZE_IN_BITS};
+    use crate::libs::source_codec::source_encoding::Frame;
     use crate::libs::source_codec::test_encoding_builder::encoded;
     use crate::libs::util::test_util;
+
+    const TEST_SOURCE_ENCODER_BLOCK_SIZE_IN_BITS: usize = 64;
 
     #[ctor::ctor]
     fn before_each() {
@@ -41,7 +43,7 @@ mod source_encoder_spec {
         let keying_event_rx = keying_event_tx.add_rx();
         let mut source_encoder_tx = Bus::new(16);
         let source_encoder_rx = source_encoder_tx.add_rx();
-        let source_encoder = SourceEncoder::new(keying_event_rx, source_encoder_tx, terminate.clone());
+        let source_encoder = SourceEncoder::new(keying_event_rx, source_encoder_tx, terminate.clone(), TEST_SOURCE_ENCODER_BLOCK_SIZE_IN_BITS);
 
         info!("Fixture setup sleeping");
         test_util::wait_5_ms(); // give things time to start
@@ -64,6 +66,38 @@ mod source_encoder_spec {
         }
     }
 
+
+    #[test]
+    #[should_panic]
+    fn block_size_must_be_a_multiple_of_8_not_0() {
+        try_block_size(0);
+    }
+
+    #[test]
+    #[should_panic]
+    fn block_size_must_be_a_multiple_of_8_not_7() {
+        try_block_size(7);
+    }
+
+    #[test]
+    #[should_panic]
+    fn block_size_must_be_a_multiple_of_8_not_9() {
+        try_block_size(9);
+    }
+
+    #[test]
+    fn block_size_must_be_a_multiple_of_8() {
+        try_block_size(8);
+    }
+
+    fn try_block_size(block_size: usize) {
+        let terminate = Arc::new(AtomicBool::new(false));
+        let mut keying_event_tx = Bus::new(16);
+        let keying_event_rx = keying_event_tx.add_rx();
+        let mut source_encoder_tx = Bus::new(16);
+        let source_encoder_rx = source_encoder_tx.add_rx();
+        let _ = SourceEncoder::new(keying_event_rx, source_encoder_tx, terminate.clone(), block_size);
+    }
 
     #[rstest]
     pub fn default_keying_speed(fixture: SourceEncoderFixture) {
@@ -164,7 +198,7 @@ mod source_encoder_spec {
                 Ok(encoding) => {
                     info!("Received SourceEncoding of {}", encoding);
                     let vec = encoding.block;
-                    assert_that!(&vec, len(SOURCE_ENCODER_BLOCK_SIZE_IN_BITS / 8));
+                    assert_that!(&vec, len(TEST_SOURCE_ENCODER_BLOCK_SIZE_IN_BITS / 8));
                 }
                 Err(e) => {
                     panic!("Should have received a SourceEncoding, not an error of {}", e);
@@ -210,7 +244,7 @@ mod source_encoder_spec {
                 Ok(encoding) => {
                     info!("Received SourceEncoding of {}", encoding);
                     let vec = encoding.block;
-                    assert_that!(&vec, len(SOURCE_ENCODER_BLOCK_SIZE_IN_BITS / 8));
+                    assert_that!(&vec, len(TEST_SOURCE_ENCODER_BLOCK_SIZE_IN_BITS / 8));
                     //                                    F:PD        F:PD
                     //                     F:WPWPM-    --P    F:    PD
                     assert_eq!(vec, vec![0b00010101, 0b00101100, 0b11001100, 0, 0, 0, 0, 0]);
@@ -478,7 +512,7 @@ mod source_encoder_spec {
                     info!("Received SourceEncoding of {}", encoding);
                     let vec = encoding.block;
 
-                    let expected_encoding = encoded(20, &[
+                    let expected_encoding = encoded(TEST_SOURCE_ENCODER_BLOCK_SIZE_IN_BITS, 20, &[
                         Frame::KeyingEnd,
                     ]);
                     assert_eq!(vec, expected_encoding);
@@ -522,7 +556,7 @@ mod source_encoder_spec {
                 Ok(encoding) => {
                     info!("Received SourceEncoding of {}", encoding);
                     let vec = encoding.block;
-                    let expected_encoding = encoded(20, &[
+                    let expected_encoding = encoded(TEST_SOURCE_ENCODER_BLOCK_SIZE_IN_BITS, 20, &[
                         Frame::WPMPolarity { wpm: 20, polarity: true },
                         Frame::KeyingPerfectDit,
                         Frame::KeyingPerfectDit,
@@ -550,7 +584,7 @@ mod source_encoder_spec {
                 Ok(encoding) => {
                     info!("Received SourceEncoding of {}", encoding);
                     let vec = encoding.block;
-                    let expected_encoding = encoded(20, &[
+                    let expected_encoding = encoded(TEST_SOURCE_ENCODER_BLOCK_SIZE_IN_BITS, 20, &[
                         Frame::KeyingEnd,
                     ]);
                     assert_eq!(vec, expected_encoding);
@@ -589,7 +623,7 @@ mod source_encoder_spec {
             test_util::wait_5_ms();
 
             // Block 1
-            expect_encoded_block(&mut fixture, encoded(20, &[
+            expect_encoded_block(&mut fixture, encoded(TEST_SOURCE_ENCODER_BLOCK_SIZE_IN_BITS, 20, &[
                 Frame::WPMPolarity { wpm: 20, polarity: true },
                 Frame::KeyingPerfectDit,
                 Frame::KeyingPerfectDah,
@@ -600,7 +634,7 @@ mod source_encoder_spec {
             ]));
 
             // Block 2
-            expect_encoded_block(&mut fixture, encoded(20, &[
+            expect_encoded_block(&mut fixture, encoded(TEST_SOURCE_ENCODER_BLOCK_SIZE_IN_BITS, 20, &[
                 Frame::WPMPolarity { wpm: 20, polarity: true },
                 Frame::KeyingNaive { duration: 600 },
                 Frame::KeyingEnd,

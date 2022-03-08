@@ -40,12 +40,16 @@ pub struct SourceEncoder {
     // is moved into a panic_after test's thread.
     thread_handle: Mutex<Option<JoinHandle<()>>>,
     shared: Arc<Mutex<SourceEncoderShared>>,
+    block_size_in_bits: usize,
 }
 
 impl SourceEncoder {
-    pub fn new(keying_event_rx: BusReader<KeyingEvent>, source_encoder_tx: Bus<SourceEncoding>, terminate: Arc<AtomicBool>) -> Self {
+    pub fn new(keying_event_rx: BusReader<KeyingEvent>, source_encoder_tx: Bus<SourceEncoding>, terminate: Arc<AtomicBool>, block_size_in_bits: usize) -> Self {
+        if block_size_in_bits == 0 || block_size_in_bits & 0x07 != 0 {
+            panic!("Source encoder block size must be a multiple of 8 bits");
+        }
         let builder: Box<dyn SourceEncodingBuilder + Send + Sync> = Box::new
-            (BitvecSourceEncodingBuilder::new());
+            (BitvecSourceEncodingBuilder::new(block_size_in_bits));
         let arc_storage = Arc::new(RwLock::new(builder));
         let arc_storage_cloned = arc_storage.clone();
 
@@ -77,6 +81,7 @@ impl SourceEncoder {
             storage: arc_storage_cloned,
             thread_handle: Mutex::new(Some(thread_handle)),
             shared: arc_shared_cloned,
+            block_size_in_bits
         }
     }
 

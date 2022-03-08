@@ -7,7 +7,7 @@ use crate::libs::keyer_io::keyer_io::KeyerSpeed;
 
 // Size of all source encoder frames; could change as the design of later stages evolves.
 // TODO what is the ideal size of this? * WHAT DOES THE LDPC (CHANNEL ENCODER) REQUIRE AS ITS INPUT?
-pub const SOURCE_ENCODER_BLOCK_SIZE_IN_BITS: usize = 64;
+pub const SOURCE_ENCODER_BLOCK_SIZE_IN_BITS: usize = 128;
 // multiple of 8?
 
 #[derive(Clone, PartialEq)]

@@ -4,14 +4,15 @@ use crate::enum_primitive::FromPrimitive;
 use crate::libs::source_codec::bitvec_source_encoding_extractor::BitvecSourceEncodingExtractor;
 use crate::libs::source_codec::keying_encoder::decode_from_binary_with_known_sign;
 use crate::libs::source_codec::keying_timing::{DefaultKeyingTiming, KeyingTiming};
-use crate::libs::source_codec::source_encoding::{EncoderFrameType, Frame, SOURCE_ENCODER_BLOCK_SIZE_IN_BITS, SourceEncodingExtractor};
+use crate::libs::source_codec::source_encoding::{EncoderFrameType, Frame, SourceEncodingExtractor};
 use crate::libs::util::util::dump_byte_vec;
 
 /// Decode an encoded block. This is either error-free or has been extracted from an error-corrected
 /// block; i.e. no decode errors should occur. Just in case there's a decode error, this returns a
 /// Result (which may result in white noise being played, to indicate this to the user).
-pub fn source_decode(encoded_block: Vec<u8>) -> Result<Vec<Frame>, Box<dyn Error>> {
-    if encoded_block.len() != (SOURCE_ENCODER_BLOCK_SIZE_IN_BITS >> 3) {
+// TODO make this an object not just a function - block_size_in_bits is its state.
+pub fn source_decode(block_size_in_bits: usize, encoded_block: Vec<u8>) -> Result<Vec<Frame>, Box<dyn Error>> {
+    if encoded_block.len() != (block_size_in_bits >> 3) {
         return Err(Box::<dyn Error + Send + Sync>::from(format!("Cannot decode a block of the wrong size")));
     }
     debug!("Decoding {}", dump_byte_vec(&encoded_block));
@@ -19,7 +20,7 @@ pub fn source_decode(encoded_block: Vec<u8>) -> Result<Vec<Frame>, Box<dyn Error
     let mut timing = DefaultKeyingTiming::new();
     let mut seen_wpm_polarity = false;
     let mut frames: Vec<Frame> = vec![];
-    let mut extractor = BitvecSourceEncodingExtractor::new(encoded_block);
+    let mut extractor = BitvecSourceEncodingExtractor::new(block_size_in_bits, encoded_block);
     loop {
         let remaining = extractor.remaining();
         if remaining < 4 {

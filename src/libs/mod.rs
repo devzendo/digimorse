@@ -11,3 +11,6 @@ pub mod serial_io;
 pub mod source_codec;
 pub mod transform_bus;
 pub mod util;
+
+#[cfg(test)]
+pub mod matchers;

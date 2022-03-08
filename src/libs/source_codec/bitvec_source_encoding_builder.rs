@@ -1,24 +1,30 @@
 use bitvec::prelude::*;
-use crate::libs::source_codec::source_encoding::{SourceEncodingBuilder, SourceEncoding, SOURCE_ENCODER_BLOCK_SIZE_IN_BITS};
+use crate::libs::source_codec::source_encoding::{SourceEncodingBuilder, SourceEncoding};
 
 /// A SourceEncodingBuilder using the bitvec crate.
 pub struct BitvecSourceEncodingBuilder {
     bits: BitVec::<Msb0, u8>,
     end: bool,
+    block_size_in_bits: usize,
 }
 
 impl BitvecSourceEncodingBuilder {
-    pub fn new() -> Self {
-        let mut bit_vec = BitVec::<Msb0, u8>::with_capacity(SOURCE_ENCODER_BLOCK_SIZE_IN_BITS);
+    pub fn new(block_size_in_bits: usize) -> Self {
+        if block_size_in_bits == 0 || block_size_in_bits & 0x07 != 0 {
+            panic!("Source encoding builder block size must be a multiple of 8 bits");
+        }
+
+        let mut bit_vec = BitVec::<Msb0, u8>::with_capacity(block_size_in_bits);
         bit_vec.set_uninitialized(false);
         Self {
             bits: bit_vec,
             end: false,
+            block_size_in_bits
         }
     }
 
     fn panic_if_full(&self, num_bits_being_added: usize) {
-        if self.size() + num_bits_being_added > SOURCE_ENCODER_BLOCK_SIZE_IN_BITS {
+        if self.size() + num_bits_being_added > self.block_size_in_bits {
             panic!("Adding {} bit(s) would exhaust storage", num_bits_being_added);
         }
     }
@@ -44,7 +50,7 @@ impl SourceEncodingBuilder for BitvecSourceEncodingBuilder {
     }
 
     fn remaining(&self) -> usize {
-        SOURCE_ENCODER_BLOCK_SIZE_IN_BITS - self.bits.len()
+        self.block_size_in_bits - self.bits.len()
     }
 
     fn add_8_bits(&mut self, mut data: u8, num_bits: usize) {
@@ -80,7 +86,7 @@ impl SourceEncodingBuilder for BitvecSourceEncodingBuilder {
     fn build(&mut self) -> SourceEncoding {
         // Extend the bitvec to its capacity
         unsafe {
-            self.bits.set_len(SOURCE_ENCODER_BLOCK_SIZE_IN_BITS);
+            self.bits.set_len(self.block_size_in_bits);
         }
         let out = SourceEncoding {
             block: self.bits.as_raw_slice().to_vec(),

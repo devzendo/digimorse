@@ -34,7 +34,7 @@ use digimorse::libs::delayed_bus::delayed_bus::DelayedBus;
 use digimorse::libs::playback::playback::Playback;
 use digimorse::libs::source_codec::source_decoder::source_decode;
 use digimorse::libs::source_codec::source_encoder::SourceEncoder;
-use digimorse::libs::source_codec::source_encoding::SourceEncoding;
+use digimorse::libs::source_codec::source_encoding::{SOURCE_ENCODER_BLOCK_SIZE_IN_BITS, SourceEncoding};
 use digimorse::libs::transform_bus::transform_bus::TransformBus;
 
 const VERSION: &'static str = env!("CARGO_PKG_VERSION");
@@ -219,7 +219,7 @@ fn run(arguments: ArgMatches, mode: Mode) -> Result<i32, Box<dyn Error>> {
 
     let mut source_encoder_tx = Bus::new(16);
     let source_encoder_rx = source_encoder_tx.add_rx();
-    let mut source_encoder = SourceEncoder::new(source_encoder_keying_event_rx.unwrap(), source_encoder_tx, terminate.clone());
+    let mut source_encoder = SourceEncoder::new(source_encoder_keying_event_rx.unwrap(), source_encoder_tx, terminate.clone(), SOURCE_ENCODER_BLOCK_SIZE_IN_BITS);
     source_encoder.set_keyer_speed(config.get_wpm() as KeyerSpeed);
 
     if mode == Mode::SourceEncoderDiag {
@@ -493,7 +493,7 @@ fn source_encoder_diag(source_encoder_rx: BusReader<SourceEncoding>, terminate: 
                     debug!("SourceEncodingDiag: Encoding {}", line);
                 }
                 // The SourceEncoding can now be decoded...
-                let source_decode_result = source_decode(source_encoding.block);
+                let source_decode_result = source_decode(SOURCE_ENCODER_BLOCK_SIZE_IN_BITS, source_encoding.block);
                 if source_decode_result.is_ok() {
                     // The decoded frames can now be played back (using another tone generator
                     // channel, at the replay sidetone audio frequency).

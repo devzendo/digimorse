@@ -1,5 +1,6 @@
 extern crate hamcrest2;
 
+
 #[cfg(test)]
 mod playback_from_keying_spec {
     use std::sync::{Arc, Mutex};
@@ -22,6 +23,8 @@ mod playback_from_keying_spec {
     use crate::libs::source_codec::source_encoding::SourceEncoding;
     use crate::libs::util::test_util;
 
+    const TEST_SOURCE_ENCODER_BLOCK_SIZE_IN_BITS: usize = 64;
+
     pub struct PlaybackFixture {
         terminate: Arc<AtomicBool>,
         scheduled_thread_pool: Arc<ScheduledThreadPool>,
@@ -43,7 +46,7 @@ mod playback_from_keying_spec {
         let keying_event_rx = keying_event_tx.add_rx();
         let mut source_encoder_tx = Bus::new(16);
         let source_encoder_rx = source_encoder_tx.add_rx();
-        let mut source_encoder = SourceEncoder::new(keying_event_rx, source_encoder_tx, terminate.clone());
+        let mut source_encoder = SourceEncoder::new(keying_event_rx, source_encoder_tx, terminate.clone(), TEST_SOURCE_ENCODER_BLOCK_SIZE_IN_BITS);
         source_encoder.set_keyer_speed(20 as KeyerSpeed);
 
         let keying_event_tone_channel_tx: Arc<Mutex<Bus<KeyingEventToneChannel>>> = Arc::new(Mutex::new(Bus::new(16)));
@@ -103,7 +106,7 @@ mod playback_from_keying_spec {
         loop {
             match fixture.source_encoder_rx.recv_timeout(Duration::from_secs(4)) {
                 Ok(encoding) => {
-                    let decoded = source_decode(encoding.block);
+                    let decoded = source_decode(TEST_SOURCE_ENCODER_BLOCK_SIZE_IN_BITS, encoding.block);
                     info!("Playing back frame");
                     fixture.playback.play(decoded, CALLSIGN_HASH, AUDIO_OFFSET);
                 }

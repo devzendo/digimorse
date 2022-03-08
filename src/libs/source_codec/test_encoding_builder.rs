@@ -13,8 +13,8 @@ use crate::libs::source_codec::source_encoding::{EncoderFrameType, Frame, Source
 /// will be used in a test, and the builder panics if there's too much data.
 /// This is just to offer a more comfortable test data creation facility than hand-constructing
 /// arrays of binary bytes.
-pub fn encoded(wpm: KeyerSpeed, frames: &[Frame]) -> Vec<u8> {
-    let box_builder: Box<dyn SourceEncodingBuilder + Send + Sync> = Box::new(BitvecSourceEncodingBuilder::new());
+pub fn encoded(block_size_in_bits: usize, wpm: KeyerSpeed, frames: &[Frame]) -> Vec<u8> {
+    let box_builder: Box<dyn SourceEncodingBuilder + Send + Sync> = Box::new(BitvecSourceEncodingBuilder::new(block_size_in_bits));
     let arc_locked_builder = Arc::new(RwLock::new(box_builder));
     let builder = arc_locked_builder.clone();
     let mut keying_encoder = DefaultKeyingEncoder::new(arc_locked_builder);
@@ -97,118 +97,124 @@ pub fn encoded(wpm: KeyerSpeed, frames: &[Frame]) -> Vec<u8> {
 mod test_encoding_builder_spec {
     use log::debug;
 
+
     use crate::libs::source_codec::source_encoding::Frame;
     use crate::libs::source_codec::test_encoding_builder::encoded;
     use crate::libs::util::util::dump_byte_vec;
+    use crate::libs::matchers::starts_with::*;
+
+    use hamcrest2::prelude::*;
+
+    const TEST_SOURCE_ENCODER_BLOCK_SIZE_IN_BITS: usize = 64;
 
     #[test]
     fn encode_wpm_polarity() {
-        let vec = encoded(20, &[
+        let vec = encoded(TEST_SOURCE_ENCODER_BLOCK_SIZE_IN_BITS, 20, &[
             Frame::WPMPolarity { wpm: 20, polarity: true },
         ]);
-        assert_eq!(vec,
+        assert_that!(&vec,
                    //
-                   //     F:WPWPM-    --P
-                   vec![0b00010101, 0b00100000, 0, 0, 0, 0, 0, 0]);
+                   //                 F:WPWPM-    --P
+                   starts_with(vec![0b00010101, 0b00100000, 0, 0, 0, 0, 0, 0]));
     }
 
     #[test]
     fn encode_perfect_dit() {
-        let vec = encoded(20, &[
+        let vec = encoded(TEST_SOURCE_ENCODER_BLOCK_SIZE_IN_BITS, 20, &[
             Frame::KeyingPerfectDit,
         ]);
-        assert_eq!(vec,
-                   //     F:PD
-                   vec![0b01100000, 0, 0, 0, 0, 0, 0, 0]);
+        assert_that!(&vec,
+                   //                 F:PD
+                   starts_with(vec![0b01100000, 0, 0, 0, 0, 0, 0, 0]));
     }
 
     #[test]
     fn encode_perfect_dah() {
-        let vec = encoded(20, &[
+        let vec = encoded(TEST_SOURCE_ENCODER_BLOCK_SIZE_IN_BITS, 20, &[
             Frame::KeyingPerfectDah,
         ]);
-        assert_eq!(vec,
-                   //     F:PD
-                   vec![0b01110000, 0, 0, 0, 0, 0, 0, 0]);
+        assert_that!(&vec,
+                   //                 F:PD
+                   starts_with(vec![0b01110000, 0, 0, 0, 0, 0, 0, 0]));
     }
 
     #[test]
     fn encode_perfect_wordgap() {
-        let vec = encoded(20, &[
+        let vec = encoded(TEST_SOURCE_ENCODER_BLOCK_SIZE_IN_BITS, 20, &[
             Frame::KeyingPerfectWordgap,
         ]);
-        assert_eq!(vec,
-                   //     F:PW
-                   vec![0b10000000, 0, 0, 0, 0, 0, 0, 0]);
+        assert_that!(&vec,
+                   //                 F:PW
+                   starts_with(vec![0b10000000, 0, 0, 0, 0, 0, 0, 0]));
     }
 
     #[test]
     fn encode_padding() {
-        let vec = encoded(20, &[
+        let vec = encoded(TEST_SOURCE_ENCODER_BLOCK_SIZE_IN_BITS, 20, &[
             Frame::Padding,
         ]);
-        assert_eq!(vec,
-                   //     F:PA
-                   vec![0b00000000, 0, 0, 0, 0, 0, 0, 0]);
+        assert_that!(&vec,
+                   //                 F:PA
+                   starts_with(vec![0b00000000, 0, 0, 0, 0, 0, 0, 0]));
     }
 
     #[test]
     fn encode_end() {
-        let vec = encoded(20, &[
+        let vec = encoded(TEST_SOURCE_ENCODER_BLOCK_SIZE_IN_BITS, 20, &[
             Frame::KeyingEnd,
         ]);
-        assert_eq!(vec,
-                   //     F:EN
-                   vec![0b10010000, 0, 0, 0, 0, 0, 0, 0]);
+        assert_that!(&vec,
+                   //                 F:EN
+                   starts_with(vec![0b10010000, 0, 0, 0, 0, 0, 0, 0]));
     }
 
     #[test]
     fn encode_delta_dit() {
-        let vec = encoded(20, &[
+        let vec = encoded(TEST_SOURCE_ENCODER_BLOCK_SIZE_IN_BITS, 20, &[
             Frame::KeyingDeltaDit { delta: 1 },
         ]);
         debug!("{}", dump_byte_vec(&vec));
-        assert_eq!(vec,
-                   //     F:DD
-                   vec![0b10100000, 0b00100000, 0, 0, 0, 0, 0, 0]);
+        assert_that!(&vec,
+                   //                 F:DD
+                   starts_with(vec![0b10100000, 0b00100000, 0, 0, 0, 0, 0, 0]));
     }
 
     #[test]
     fn encode_delta_dah() {
-        let vec = encoded(20, &[
+        let vec = encoded(TEST_SOURCE_ENCODER_BLOCK_SIZE_IN_BITS, 20, &[
             Frame::KeyingDeltaDah { delta: 1 },
         ]);
         debug!("{}", dump_byte_vec(&vec));
-        assert_eq!(vec,
-                   //     F:DD
-                   vec![0b10110000, 0b00010000, 0, 0, 0, 0, 0, 0]);
+        assert_that!(&vec,
+                   //                 F:DD
+                   starts_with(vec![0b10110000, 0b00010000, 0, 0, 0, 0, 0, 0]));
     }
 
     #[test]
     fn encode_delta_wordgap() {
-        let vec = encoded(20, &[
+        let vec = encoded(TEST_SOURCE_ENCODER_BLOCK_SIZE_IN_BITS, 20, &[
             Frame::KeyingDeltaWordgap { delta: 1 },
         ]);
         debug!("{}", dump_byte_vec(&vec));
-        assert_eq!(vec,
-                   //     F:DW
-                   vec![0b11000000, 0b00010000, 0, 0, 0, 0, 0, 0]);
+        assert_that!(&vec,
+                   //                 F:DW
+                   starts_with(vec![0b11000000, 0b00010000, 0, 0, 0, 0, 0, 0]));
     }
 
     #[test]
     fn encode_naive() {
-        let vec = encoded(20, &[
+        let vec = encoded(TEST_SOURCE_ENCODER_BLOCK_SIZE_IN_BITS, 20, &[
             Frame::KeyingNaive { duration: 16 },
         ]);
         debug!("{}", dump_byte_vec(&vec));
-        assert_eq!(vec,
-                   //     F:NE
-                   vec![0b11010000, 0b00100000, 0, 0, 0, 0, 0, 0]);
+        assert_that!(&vec,
+                   //                 F:NE
+                   starts_with(vec![0b11010000, 0b00100000, 0, 0, 0, 0, 0, 0]));
     }
 
     #[test]
     fn encode_tracks_speed_changes() {
-        let vec = encoded(5, &[
+        let vec = encoded(TEST_SOURCE_ENCODER_BLOCK_SIZE_IN_BITS, 5, &[
             // These two speeds have different dah encoding sizes
             Frame::WPMPolarity { wpm: 5, polarity: true },
             Frame::KeyingDeltaDah { delta: 1 }, // 9 bits
@@ -217,10 +223,10 @@ mod test_encoding_builder_spec {
             Frame::Extension, // to see a 4 bit end marker
         ]);
         debug!("{}", dump_byte_vec(&vec));
-        assert_eq!(vec,
-                   //                    F:DD                  F:WPWPM    ---P              F:    EX
-                   //     F:WPWPM-    --P    S    DELTA---    -               F:DD    SDELTA
-                   vec![0b00010001, 0b01110110, 0b00000000, 0b10001111, 0b10011011, 0b11111111, 0b11000000, 0]);
+        assert_that!(&vec,
+                   //                                F:DD                  F:WPWPM    ---P              F:    EX
+                   //                 F:WPWPM-    --P    S    DELTA---    -               F:DD    SDELTA
+                   starts_with(vec![0b00010001, 0b01110110, 0b00000000, 0b10001111, 0b10011011, 0b11111111, 0b11000000, 0]));
     }
 }
 

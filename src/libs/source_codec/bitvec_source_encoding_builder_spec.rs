@@ -1,12 +1,15 @@
 extern crate hamcrest2;
 
+
 #[cfg(test)]
 mod bitvec_source_encoding_builder_spec {
     use rstest::*;
     use hamcrest2::prelude::*;
     use std::env;
     use crate::libs::source_codec::bitvec_source_encoding_builder::BitvecSourceEncodingBuilder;
-    use crate::libs::source_codec::source_encoding::{SOURCE_ENCODER_BLOCK_SIZE_IN_BITS, SourceEncodingBuilder};
+    use crate::libs::source_codec::source_encoding::SourceEncodingBuilder;
+
+    const TEST_SOURCE_ENCODER_BLOCK_SIZE_IN_BITS: usize = 64;
 
     #[ctor::ctor]
     fn before_each() {
@@ -24,17 +27,44 @@ mod bitvec_source_encoding_builder_spec {
     #[fixture]
     fn fixture() -> BitvecSourceEncodingBuilderFixture {
         BitvecSourceEncodingBuilderFixture {
-            storage: Box::new(BitvecSourceEncodingBuilder::new())
+            storage: Box::new(BitvecSourceEncodingBuilder::new(TEST_SOURCE_ENCODER_BLOCK_SIZE_IN_BITS))
         }
+    }
+
+    #[test]
+    #[should_panic]
+    fn block_size_must_be_a_multiple_of_8_not_0() {
+        try_block_size(0);
+    }
+
+    #[test]
+    #[should_panic]
+    fn block_size_must_be_a_multiple_of_8_not_7() {
+        try_block_size(7);
+    }
+
+    #[test]
+    #[should_panic]
+    fn block_size_must_be_a_multiple_of_8_not_9() {
+        try_block_size(9);
+    }
+
+    #[test]
+    fn block_size_must_be_a_multiple_of_8() {
+        try_block_size(8);
+    }
+
+    fn try_block_size(block_size: usize) {
+        let _ = BitvecSourceEncodingBuilder::new(block_size);
     }
 
     #[rstest]
     pub fn empty_storage(mut fixture: BitvecSourceEncodingBuilderFixture) {
         assert_eq!(fixture.storage.size(), 0);
-        assert_eq!(fixture.storage.remaining(), SOURCE_ENCODER_BLOCK_SIZE_IN_BITS);
+        assert_eq!(fixture.storage.remaining(), TEST_SOURCE_ENCODER_BLOCK_SIZE_IN_BITS);
         let encoding = fixture.storage.build();
         let vec = encoding.block;
-        assert_that!(&vec, len(SOURCE_ENCODER_BLOCK_SIZE_IN_BITS / 8));
+        assert_that!(&vec, len(TEST_SOURCE_ENCODER_BLOCK_SIZE_IN_BITS / 8));
         assert_eq!(vec, vec![0, 0, 0, 0, 0, 0, 0, 0]);
     }
 
@@ -42,10 +72,10 @@ mod bitvec_source_encoding_builder_spec {
     pub fn add_a_boolean(mut fixture: BitvecSourceEncodingBuilderFixture) {
         fixture.storage.add_bool(true);
         assert_eq!(fixture.storage.size(), 1);
-        assert_eq!(fixture.storage.remaining(), SOURCE_ENCODER_BLOCK_SIZE_IN_BITS - 1);
+        assert_eq!(fixture.storage.remaining(), TEST_SOURCE_ENCODER_BLOCK_SIZE_IN_BITS - 1);
         let encoding = fixture.storage.build();
         let vec = encoding.block;
-        assert_that!(&vec, len(SOURCE_ENCODER_BLOCK_SIZE_IN_BITS / 8));
+        assert_that!(&vec, len(TEST_SOURCE_ENCODER_BLOCK_SIZE_IN_BITS / 8));
         assert_eq!(vec, vec![128, 0, 0, 0, 0, 0, 0, 0]);
     }
 
@@ -61,10 +91,10 @@ mod bitvec_source_encoding_builder_spec {
         fixture.storage.add_bool(true);
         fixture.storage.add_bool(true);
         assert_eq!(fixture.storage.size(), 9);
-        assert_eq!(fixture.storage.remaining(), SOURCE_ENCODER_BLOCK_SIZE_IN_BITS - 9);
+        assert_eq!(fixture.storage.remaining(), TEST_SOURCE_ENCODER_BLOCK_SIZE_IN_BITS - 9);
         let encoding = fixture.storage.build();
         let vec = encoding.block;
-        assert_that!(&vec, len(SOURCE_ENCODER_BLOCK_SIZE_IN_BITS / 8));
+        assert_that!(&vec, len(TEST_SOURCE_ENCODER_BLOCK_SIZE_IN_BITS / 8));
         assert_eq!(vec, vec![0b11010011, 0b10000000, 0, 0, 0, 0, 0, 0]);
     }
 
@@ -99,7 +129,7 @@ mod bitvec_source_encoding_builder_spec {
 
         let second_encoding = fixture.storage.build();
         let second_vec = second_encoding.block;
-        assert_that!(&second_vec, len(SOURCE_ENCODER_BLOCK_SIZE_IN_BITS / 8));
+        assert_that!(&second_vec, len(TEST_SOURCE_ENCODER_BLOCK_SIZE_IN_BITS / 8));
         assert_eq!(second_vec, vec![0, 0, 0, 0, 0, 0, 0, 0]);
     }
 
@@ -114,7 +144,7 @@ mod bitvec_source_encoding_builder_spec {
         assert_eq!(fixture.storage.size(), 4);
         let encoding = fixture.storage.build();
         let first_vec = encoding.block;
-        assert_that!(&first_vec, len(SOURCE_ENCODER_BLOCK_SIZE_IN_BITS / 8));
+        assert_that!(&first_vec, len(TEST_SOURCE_ENCODER_BLOCK_SIZE_IN_BITS / 8));
         assert_eq!(first_vec, vec![0b10110000, 0, 0, 0, 0, 0, 0, 0]);
 
         fixture.storage.add_bool(false);
@@ -134,7 +164,7 @@ mod bitvec_source_encoding_builder_spec {
         assert_eq!(fixture.storage.size(), 4);
         let first_encoding = fixture.storage.build();
         let first_vec = first_encoding.block;
-        assert_that!(&first_vec, len(SOURCE_ENCODER_BLOCK_SIZE_IN_BITS / 8));
+        assert_that!(&first_vec, len(TEST_SOURCE_ENCODER_BLOCK_SIZE_IN_BITS / 8));
         assert_eq!(first_vec, vec![0b10110000, 0, 0, 0, 0, 0, 0, 0]);
 
         fixture.storage.add_bool(false);
@@ -143,7 +173,7 @@ mod bitvec_source_encoding_builder_spec {
         fixture.storage.add_bool(true);
         let second_encoding = fixture.storage.build();
         let second_vec = second_encoding.block;
-        assert_that!(&second_vec, len(SOURCE_ENCODER_BLOCK_SIZE_IN_BITS / 8));
+        assert_that!(&second_vec, len(TEST_SOURCE_ENCODER_BLOCK_SIZE_IN_BITS / 8));
         assert_eq!(second_vec, vec![0b01010000, 0, 0, 0, 0, 0, 0, 0]);
     }
 
@@ -153,14 +183,14 @@ mod bitvec_source_encoding_builder_spec {
     // current size before adding data, so it's probably best to panic.
     // build up some data, build() it, build up some more, build() it and check it's the 2nd data.
     pub fn panics_after_full_adding_bools(mut fixture: BitvecSourceEncodingBuilderFixture) {
-        for _n in 0..=SOURCE_ENCODER_BLOCK_SIZE_IN_BITS {
+        for _n in 0..=TEST_SOURCE_ENCODER_BLOCK_SIZE_IN_BITS {
             fixture.storage.add_bool(true);
         }
     }
 
     #[rstest]
     pub fn does_not_panic_at_full_adding_bools(mut fixture: BitvecSourceEncodingBuilderFixture) {
-        for _n in 0..SOURCE_ENCODER_BLOCK_SIZE_IN_BITS {
+        for _n in 0..TEST_SOURCE_ENCODER_BLOCK_SIZE_IN_BITS {
             fixture.storage.add_bool(true);
         }
     }
@@ -170,14 +200,14 @@ mod bitvec_source_encoding_builder_spec {
     #[rstest]
     #[should_panic]
     pub fn panics_after_full_adding_u8(mut fixture: BitvecSourceEncodingBuilderFixture) {
-        for _n in 0..=(SOURCE_ENCODER_BLOCK_SIZE_IN_BITS/8) {
+        for _n in 0..=(TEST_SOURCE_ENCODER_BLOCK_SIZE_IN_BITS/8) {
             fixture.storage.add_8_bits(0, 8);
         }
     }
 
     #[rstest]
     pub fn does_not_panic_at_full_adding_u8(mut fixture: BitvecSourceEncodingBuilderFixture) {
-        for _n in 0..(SOURCE_ENCODER_BLOCK_SIZE_IN_BITS/8) {
+        for _n in 0..(TEST_SOURCE_ENCODER_BLOCK_SIZE_IN_BITS/8) {
             fixture.storage.add_8_bits(0, 8);
         }
     }
@@ -186,10 +216,10 @@ mod bitvec_source_encoding_builder_spec {
     pub fn add_a_full_byte(mut fixture: BitvecSourceEncodingBuilderFixture) {
         fixture.storage.add_8_bits(0b10000011, 8);
         assert_eq!(fixture.storage.size(), 8);
-        assert_eq!(fixture.storage.remaining(), SOURCE_ENCODER_BLOCK_SIZE_IN_BITS - 8);
+        assert_eq!(fixture.storage.remaining(), TEST_SOURCE_ENCODER_BLOCK_SIZE_IN_BITS - 8);
         let encoding = fixture.storage.build();
         let vec = encoding.block;
-        assert_that!(&vec, len(SOURCE_ENCODER_BLOCK_SIZE_IN_BITS / 8));
+        assert_that!(&vec, len(TEST_SOURCE_ENCODER_BLOCK_SIZE_IN_BITS / 8));
         assert_eq!(vec, vec![0b10000011, 0, 0, 0, 0, 0, 0, 0]);
     }
 
@@ -197,10 +227,10 @@ mod bitvec_source_encoding_builder_spec {
     pub fn add_a_partial_byte(mut fixture: BitvecSourceEncodingBuilderFixture) {
         fixture.storage.add_8_bits(0b00001101, 4);
         assert_eq!(fixture.storage.size(), 4);
-        assert_eq!(fixture.storage.remaining(), SOURCE_ENCODER_BLOCK_SIZE_IN_BITS - 4);
+        assert_eq!(fixture.storage.remaining(), TEST_SOURCE_ENCODER_BLOCK_SIZE_IN_BITS - 4);
         let encoding = fixture.storage.build();
         let vec = encoding.block;
-        assert_that!(&vec, len(SOURCE_ENCODER_BLOCK_SIZE_IN_BITS / 8));
+        assert_that!(&vec, len(TEST_SOURCE_ENCODER_BLOCK_SIZE_IN_BITS / 8));
         assert_eq!(vec, vec![0b11010000, 0, 0, 0, 0, 0, 0, 0]);
     }
 
@@ -208,10 +238,10 @@ mod bitvec_source_encoding_builder_spec {
     pub fn add_no_bits_from_a_byte(mut fixture: BitvecSourceEncodingBuilderFixture) {
         fixture.storage.add_8_bits(0b11111111, 0); // pointless, but why not?
         assert_eq!(fixture.storage.size(), 0);
-        assert_eq!(fixture.storage.remaining(), SOURCE_ENCODER_BLOCK_SIZE_IN_BITS);
+        assert_eq!(fixture.storage.remaining(), TEST_SOURCE_ENCODER_BLOCK_SIZE_IN_BITS);
         let encoding = fixture.storage.build();
         let vec = encoding.block;
-        assert_that!(&vec, len(SOURCE_ENCODER_BLOCK_SIZE_IN_BITS / 8));
+        assert_that!(&vec, len(TEST_SOURCE_ENCODER_BLOCK_SIZE_IN_BITS / 8));
         assert_eq!(vec, vec![0, 0, 0, 0, 0, 0, 0, 0]);
     }
 
@@ -226,14 +256,14 @@ mod bitvec_source_encoding_builder_spec {
     #[rstest]
     #[should_panic]
     pub fn panics_after_full_adding_u16(mut fixture: BitvecSourceEncodingBuilderFixture) {
-        for _n in 0..=(SOURCE_ENCODER_BLOCK_SIZE_IN_BITS/16) {
+        for _n in 0..=(TEST_SOURCE_ENCODER_BLOCK_SIZE_IN_BITS/16) {
             fixture.storage.add_16_bits(0, 16);
         }
     }
 
     #[rstest]
     pub fn does_not_panic_at_full_adding_u16(mut fixture: BitvecSourceEncodingBuilderFixture) {
-        for _n in 0..(SOURCE_ENCODER_BLOCK_SIZE_IN_BITS/16) {
+        for _n in 0..(TEST_SOURCE_ENCODER_BLOCK_SIZE_IN_BITS/16) {
             fixture.storage.add_16_bits(0, 16);
         }
     }
@@ -242,10 +272,10 @@ mod bitvec_source_encoding_builder_spec {
     pub fn add_a_full_word(mut fixture: BitvecSourceEncodingBuilderFixture) {
         fixture.storage.add_16_bits(0b1000000000000011, 16);
         assert_eq!(fixture.storage.size(), 16);
-        assert_eq!(fixture.storage.remaining(), SOURCE_ENCODER_BLOCK_SIZE_IN_BITS - 16);
+        assert_eq!(fixture.storage.remaining(), TEST_SOURCE_ENCODER_BLOCK_SIZE_IN_BITS - 16);
         let encoding = fixture.storage.build();
         let vec = encoding.block;
-        assert_that!(&vec, len(SOURCE_ENCODER_BLOCK_SIZE_IN_BITS / 8));
+        assert_that!(&vec, len(TEST_SOURCE_ENCODER_BLOCK_SIZE_IN_BITS / 8));
         assert_eq!(vec, vec![0b10000000, 0b00000011, 0, 0, 0, 0, 0, 0]);
     }
 
@@ -253,10 +283,10 @@ mod bitvec_source_encoding_builder_spec {
     pub fn add_a_partial_word(mut fixture: BitvecSourceEncodingBuilderFixture) {
         fixture.storage.add_16_bits(0b1110001101, 10);
         assert_eq!(fixture.storage.size(), 10);
-        assert_eq!(fixture.storage.remaining(), SOURCE_ENCODER_BLOCK_SIZE_IN_BITS - 10);
+        assert_eq!(fixture.storage.remaining(), TEST_SOURCE_ENCODER_BLOCK_SIZE_IN_BITS - 10);
         let encoding = fixture.storage.build();
         let vec = encoding.block;
-        assert_that!(&vec, len(SOURCE_ENCODER_BLOCK_SIZE_IN_BITS / 8));
+        assert_that!(&vec, len(TEST_SOURCE_ENCODER_BLOCK_SIZE_IN_BITS / 8));
         assert_eq!(vec, vec![0b11100011, 0b01000000, 0, 0, 0, 0, 0, 0]);
     }
 
@@ -264,10 +294,10 @@ mod bitvec_source_encoding_builder_spec {
     pub fn add_no_bits_from_a_word(mut fixture: BitvecSourceEncodingBuilderFixture) {
         fixture.storage.add_16_bits(0b1111111111111111, 0); // pointless, but why not?
         assert_eq!(fixture.storage.size(), 0);
-        assert_eq!(fixture.storage.remaining(), SOURCE_ENCODER_BLOCK_SIZE_IN_BITS);
+        assert_eq!(fixture.storage.remaining(), TEST_SOURCE_ENCODER_BLOCK_SIZE_IN_BITS);
         let encoding = fixture.storage.build();
         let vec = encoding.block;
-        assert_that!(&vec, len(SOURCE_ENCODER_BLOCK_SIZE_IN_BITS / 8));
+        assert_that!(&vec, len(TEST_SOURCE_ENCODER_BLOCK_SIZE_IN_BITS / 8));
         assert_eq!(vec, vec![0, 0, 0, 0, 0, 0, 0, 0]);
     }
 
@@ -281,14 +311,14 @@ mod bitvec_source_encoding_builder_spec {
     #[rstest]
     #[should_panic]
     pub fn panics_after_full_adding_u32(mut fixture: BitvecSourceEncodingBuilderFixture) {
-        for _n in 0..=(SOURCE_ENCODER_BLOCK_SIZE_IN_BITS/32) {
+        for _n in 0..=(TEST_SOURCE_ENCODER_BLOCK_SIZE_IN_BITS/32) {
             fixture.storage.add_32_bits(0, 32);
         }
     }
 
     #[rstest]
     pub fn does_not_panic_at_full_adding_u32(mut fixture: BitvecSourceEncodingBuilderFixture) {
-        for _n in 0..(SOURCE_ENCODER_BLOCK_SIZE_IN_BITS/32) {
+        for _n in 0..(TEST_SOURCE_ENCODER_BLOCK_SIZE_IN_BITS/32) {
             fixture.storage.add_32_bits(0, 32);
         }
     }
@@ -297,10 +327,10 @@ mod bitvec_source_encoding_builder_spec {
     pub fn add_a_full_dword(mut fixture: BitvecSourceEncodingBuilderFixture) {
         fixture.storage.add_32_bits(0b10000000000000000000000000000011, 32);
         assert_eq!(fixture.storage.size(), 32);
-        assert_eq!(fixture.storage.remaining(), SOURCE_ENCODER_BLOCK_SIZE_IN_BITS - 32);
+        assert_eq!(fixture.storage.remaining(), TEST_SOURCE_ENCODER_BLOCK_SIZE_IN_BITS - 32);
         let encoding = fixture.storage.build();
         let vec = encoding.block;
-        assert_that!(&vec, len(SOURCE_ENCODER_BLOCK_SIZE_IN_BITS / 8));
+        assert_that!(&vec, len(TEST_SOURCE_ENCODER_BLOCK_SIZE_IN_BITS / 8));
         assert_eq!(vec, vec![0b10000000, 0b00000000, 0b00000000, 0b00000011, 0, 0, 0, 0]);
     }
 
@@ -308,10 +338,10 @@ mod bitvec_source_encoding_builder_spec {
     pub fn add_a_partial_dword(mut fixture: BitvecSourceEncodingBuilderFixture) {
         fixture.storage.add_32_bits(0b00000000000010000000001110001101, 20);
         assert_eq!(fixture.storage.size(), 20);
-        assert_eq!(fixture.storage.remaining(), SOURCE_ENCODER_BLOCK_SIZE_IN_BITS - 20);
+        assert_eq!(fixture.storage.remaining(), TEST_SOURCE_ENCODER_BLOCK_SIZE_IN_BITS - 20);
         let encoding = fixture.storage.build();
         let vec = encoding.block;
-        assert_that!(&vec, len(SOURCE_ENCODER_BLOCK_SIZE_IN_BITS / 8));
+        assert_that!(&vec, len(TEST_SOURCE_ENCODER_BLOCK_SIZE_IN_BITS / 8));
         assert_eq!(vec, vec![0b10000000, 0b00111000, 0b11010000, 0, 0, 0, 0, 0]);
     }
 
@@ -319,10 +349,10 @@ mod bitvec_source_encoding_builder_spec {
     pub fn add_no_bits_from_a_dword(mut fixture: BitvecSourceEncodingBuilderFixture) {
         fixture.storage.add_32_bits(0b11111110000000000000000111111111, 0); // pointless, but why not?
         assert_eq!(fixture.storage.size(), 0);
-        assert_eq!(fixture.storage.remaining(), SOURCE_ENCODER_BLOCK_SIZE_IN_BITS);
+        assert_eq!(fixture.storage.remaining(), TEST_SOURCE_ENCODER_BLOCK_SIZE_IN_BITS);
         let encoding = fixture.storage.build();
         let vec = encoding.block;
-        assert_that!(&vec, len(SOURCE_ENCODER_BLOCK_SIZE_IN_BITS / 8));
+        assert_that!(&vec, len(TEST_SOURCE_ENCODER_BLOCK_SIZE_IN_BITS / 8));
         assert_eq!(vec, vec![0, 0, 0, 0, 0, 0, 0, 0]);
     }
 
@@ -349,10 +379,10 @@ mod bitvec_source_encoding_builder_spec {
         fixture.storage.add_bool(true);
         fixture.storage.add_32_bits(0b1010101000010111, 3);
         assert_eq!(fixture.storage.size(), 39);
-        assert_eq!(fixture.storage.remaining(), SOURCE_ENCODER_BLOCK_SIZE_IN_BITS - 39);
+        assert_eq!(fixture.storage.remaining(), TEST_SOURCE_ENCODER_BLOCK_SIZE_IN_BITS - 39);
         let encoding = fixture.storage.build();
         let vec = encoding.block;
-        assert_that!(&vec, len(SOURCE_ENCODER_BLOCK_SIZE_IN_BITS / 8));           //  v
+        assert_that!(&vec, len(TEST_SOURCE_ENCODER_BLOCK_SIZE_IN_BITS / 8));           //  v
         assert_eq!(vec, vec![0b01010100, 0b00111101, 0b11110101, 0b01000010, 0b11111110, 0, 0, 0]);
     }
 }
