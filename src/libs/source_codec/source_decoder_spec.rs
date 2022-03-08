@@ -1,10 +1,12 @@
 extern crate hamcrest2;
 
+// TODO convert to rstest
+
 #[cfg(test)]
 mod source_decoder_spec {
     use log::{debug, info};
     use std::env;
-    use crate::libs::source_codec::source_decoder::source_decode;
+    use crate::libs::source_codec::source_decoder::SourceDecoder;
     use crate::libs::source_codec::source_encoding::Frame;
     use crate::libs::source_codec::test_encoding_builder::encoded;
     use crate::libs::util::util::dump_byte_vec;
@@ -19,6 +21,33 @@ mod source_decoder_spec {
 
     #[ctor::dtor]
     fn after_each() {}
+
+    #[test]
+    #[should_panic]
+    fn block_size_must_be_a_multiple_of_8_not_0() {
+        try_block_size(0);
+    }
+
+    #[test]
+    #[should_panic]
+    fn block_size_must_be_a_multiple_of_8_not_7() {
+        try_block_size(7);
+    }
+
+    #[test]
+    #[should_panic]
+    fn block_size_must_be_a_multiple_of_8_not_9() {
+        try_block_size(9);
+    }
+
+    #[test]
+    fn block_size_must_be_a_multiple_of_8() {
+        try_block_size(8);
+    }
+
+    fn try_block_size(block_size: usize) {
+        let _ = SourceDecoder::new(block_size);
+    }
 
     #[test]
     pub fn decode_emptiness() {
@@ -148,7 +177,8 @@ mod source_decoder_spec {
     }
 
     fn should_decode_with_error(block: Vec<u8>, expected_error_message: &str) {
-        match source_decode(TEST_SOURCE_ENCODER_BLOCK_SIZE_IN_BITS, block) {
+        let source_decoder = SourceDecoder::new(TEST_SOURCE_ENCODER_BLOCK_SIZE_IN_BITS);
+        match source_decoder.source_decode(block) {
             Ok(_) => {
                 panic!("Should not have successfully decoded")
             }
@@ -160,7 +190,8 @@ mod source_decoder_spec {
     }
 
     fn assert_decoded_eq(block: Vec<u8>, expected_frames: Vec<Frame>) {
-        match source_decode(TEST_SOURCE_ENCODER_BLOCK_SIZE_IN_BITS, block) {
+        let source_decoder = SourceDecoder::new(TEST_SOURCE_ENCODER_BLOCK_SIZE_IN_BITS);
+        match source_decoder.source_decode(block) {
             Ok(frames) => {
                 assert_eq!(frames, expected_frames);
             }

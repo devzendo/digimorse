@@ -18,7 +18,7 @@ mod playback_from_keying_spec {
     use crate::libs::audio::tone_generator::{KeyingEventToneChannel, ToneGenerator};
     use crate::libs::keyer_io::keyer_io::{KeyerEdgeDurationMs, KeyerSpeed, KeyingEvent, KeyingTimedEvent};
     use crate::libs::playback::playback::Playback;
-    use crate::libs::source_codec::source_decoder::source_decode;
+    use crate::libs::source_codec::source_decoder::SourceDecoder;
     use crate::libs::source_codec::source_encoder::SourceEncoder;
     use crate::libs::source_codec::source_encoding::SourceEncoding;
     use crate::libs::util::test_util;
@@ -31,6 +31,7 @@ mod playback_from_keying_spec {
         keying_event_tx: Arc<Mutex<Bus<KeyingEvent>>>,
         source_encoder_rx: BusReader<SourceEncoding>,
         _source_encoder: SourceEncoder,
+        source_decoder: SourceDecoder,
         tone_generator: Arc<Mutex<ToneGenerator>>,
         pa: Arc<PortAudio>,
         playback: Playback,
@@ -48,6 +49,8 @@ mod playback_from_keying_spec {
         let source_encoder_rx = source_encoder_tx.add_rx();
         let mut source_encoder = SourceEncoder::new(keying_event_rx, source_encoder_tx, terminate.clone(), TEST_SOURCE_ENCODER_BLOCK_SIZE_IN_BITS);
         source_encoder.set_keyer_speed(20 as KeyerSpeed);
+
+        let source_decoder = SourceDecoder::new(TEST_SOURCE_ENCODER_BLOCK_SIZE_IN_BITS);
 
         let keying_event_tone_channel_tx: Arc<Mutex<Bus<KeyingEventToneChannel>>> = Arc::new(Mutex::new(Bus::new(16)));
         let keying_event_tone_channel_rx = keying_event_tone_channel_tx.lock().unwrap().add_rx();
@@ -69,6 +72,7 @@ mod playback_from_keying_spec {
             keying_event_tx: Arc::new(Mutex::new(keying_event_tx)),
             source_encoder_rx,
             _source_encoder: source_encoder,
+            source_decoder: source_decoder,
             tone_generator: fixture_arc_tone_generator,
             pa: Arc::new(pa::PortAudio::new().unwrap()),
             playback,
@@ -106,7 +110,7 @@ mod playback_from_keying_spec {
         loop {
             match fixture.source_encoder_rx.recv_timeout(Duration::from_secs(4)) {
                 Ok(encoding) => {
-                    let decoded = source_decode(TEST_SOURCE_ENCODER_BLOCK_SIZE_IN_BITS, encoding.block);
+                    let decoded = fixture.source_decoder.source_decode(encoding.block);
                     info!("Playing back frame");
                     fixture.playback.play(decoded, CALLSIGN_HASH, AUDIO_OFFSET);
                 }

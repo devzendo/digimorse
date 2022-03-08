@@ -3,8 +3,6 @@
 * Back-to-back Source Encoder diagnostic mode - keying is encoded into frames, placed into blocks, then sent to a
   delay bus, after a short delay, the blocks are emitted, decoded into frames, and their keying played back.
 
-* Make source_decode an object not just a function.
-
 * Application wiring.
 
 * Playback improvements:
