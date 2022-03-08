@@ -18,8 +18,6 @@
 
 * Use rstest for ArduinoKeyer test fixtures.
 
-* Source encoder block should be configurable, and set to 64 bits for tests.
-
 * End handling is incomplete- should append a keying end frame, this could overflow but does not require a WPM/Polarity
   frame since it’s not actual keying that needs decoding wrt a WPM. An end keying event should automatically cause an
   emit after it is encoded.
