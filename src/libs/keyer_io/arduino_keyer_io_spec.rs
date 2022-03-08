@@ -72,6 +72,7 @@ mod arduino_keyer_io_spec {
     use bus::{Bus, BusReader};
     use crate::libs::application::application::BusOutput;
     use crate::libs::util::test_util;
+    use rstest::*;
 
     #[ctor::ctor]
     fn before_each() {
@@ -82,6 +83,35 @@ mod arduino_keyer_io_spec {
     #[ctor::dtor]
     fn after_each() {
 
+    }
+
+    pub struct ArduinoKeyerFixture {
+        recording_tx: Sender<u8>,
+        recording_rx: Receiver<u8>,
+        keying_event_tx: Arc<Mutex<Bus<KeyingEvent>>>,
+        capture: CapturingKeyingEventReceiver,
+        terminate: Arc<AtomicBool>,
+    }
+
+    #[fixture]
+    fn fixture() -> ArduinoKeyerFixture {
+        let (recording_tx, recording_rx): (Sender<u8>, Receiver<u8>) = mpsc::channel();
+        let keying_event_tx: Arc<Mutex<Bus<KeyingEvent>>> = Arc::new(Mutex::new(Bus::new(10)));
+        let keying_event_rx = keying_event_tx.lock().unwrap().add_rx();
+        let capture = CapturingKeyingEventReceiver::new(keying_event_rx);
+        let terminate = Arc::new(AtomicBool::new(false));
+
+        info!("Fixture setup sleeping");
+        test_util::wait_5_ms(); // give things time to start
+        info!("Fixture setup out of sleep");
+
+        ArduinoKeyerFixture {
+            recording_tx,
+            recording_rx,
+            keying_event_tx,
+            capture,
+            terminate
+        }
     }
 
     struct CapturingKeyingEventReceiver {
@@ -131,22 +161,16 @@ mod arduino_keyer_io_spec {
         }
     }
 
-    #[test]
+    #[rstest]
     #[serial]
-    fn get_version() {
+    fn get_version(fixture: ArduinoKeyerFixture) {
         test_util::panic_after(Duration::from_secs(2), || {
             let keyer_will_send = "v\n"; // sent to the 'arduino' ie FakeSerialIO
             let keyer_will_receive = "> v1.0.0\n\n_________"; // sent back from the 'arduino' ie FakeSerialIO
 
-            let (recording_tx, recording_rx): (Sender<u8>, Receiver<u8>) = mpsc::channel();
-            let keying_event_tx: Arc<Mutex<Bus<KeyingEvent>>> = Arc::new(Mutex::new(Bus::new(10)));
-            let keying_event_rx = keying_event_tx.lock().unwrap().add_rx();
-            let capture = CapturingKeyingEventReceiver::new(keying_event_rx);
-
-            let serial_io = FakeSerialIO::new(keyer_will_receive.as_bytes().to_vec(), recording_tx);
-            let terminate = Arc::new(AtomicBool::new(false));
-            let mut keyer = ArduinoKeyer::new(Box::new(serial_io), terminate);
-            keyer.set_output_tx(keying_event_tx);
+            let serial_io = FakeSerialIO::new(keyer_will_receive.as_bytes().to_vec(), fixture.recording_tx);
+            let mut keyer = ArduinoKeyer::new(Box::new(serial_io), fixture.terminate);
+            keyer.set_output_tx(fixture.keying_event_tx);
 
             match keyer.get_version() {
                 Ok(v) => {
@@ -160,19 +184,19 @@ mod arduino_keyer_io_spec {
             }
 
             // Keyer was sent...
-            let iter = recording_rx.try_iter();
+            let iter = fixture.recording_rx.try_iter();
             let recording: Vec<u8> = iter.collect();
             let recording_string = String::from_utf8(recording).expect("Found invalid UTF-8");
             assert_eq!(recording_string, keyer_will_send.to_string());
 
-            let events = capture.get();
+            let events = fixture.capture.get();
             assert_eq!(events.is_empty(), true);
         });
     }
 
-    #[test]
+    #[rstest]
     #[serial]
-    fn receive_keying() {
+    fn receive_keying(fixture: ArduinoKeyerFixture) {
         test_util::panic_after(Duration::from_secs(5), || {
             // at 12 wpm, a dit is 100ms, a dah is 300ms, pause between elements 100ms, between
             // letters 300ms, between words 700ms.
@@ -223,22 +247,15 @@ mod arduino_keyer_io_spec {
             ];
             let expected_keying_event_count = 29;
 
-            let (recording_tx, _recording_rx): (Sender<u8>, Receiver<u8>) = mpsc::channel();
-            let keying_event_tx: Arc<Mutex<Bus<KeyingEvent>>> = Arc::new(Mutex::new(Bus::new(10)));
-            let keying_event_rx = keying_event_tx.lock().unwrap().add_rx();
-
-            let capture = CapturingKeyingEventReceiver::new(keying_event_rx);
-
-            let serial_io = FakeSerialIO::new(keyer_will_receive, recording_tx);
-            let terminate = Arc::new(AtomicBool::new(false));
-            let mut keyer = ArduinoKeyer::new(Box::new(serial_io), terminate);
-            keyer.set_output_tx(keying_event_tx);
+            let serial_io = FakeSerialIO::new(keyer_will_receive, fixture.recording_tx);
+            let mut keyer = ArduinoKeyer::new(Box::new(serial_io), fixture.terminate);
+            keyer.set_output_tx(fixture.keying_event_tx);
 
             info!("Waiting for for keying...");
             thread::sleep(Duration::from_secs(3));
             info!("Out of keying wait loop");
 
-            let received_keying_events = capture.get();
+            let received_keying_events = fixture.capture.get();
             assert_eq!(received_keying_events.len(), expected_keying_event_count);
 
             assert_eq!(received_keying_events[0], KeyingEvent::Start());
@@ -284,9 +301,9 @@ mod arduino_keyer_io_spec {
         });
     }
 
-    #[test]
+    #[rstest]
     #[serial]
-    fn ignore_comment() {
+    fn ignore_comment(fixture: ArduinoKeyerFixture) {
         test_util::panic_after(Duration::from_secs(4), || {
             const START: u8 = 0x53;
             let keyer_will_receive = vec![
@@ -298,43 +315,30 @@ mod arduino_keyer_io_spec {
             ];
             let expected_keying_event_count = 1;
 
-            let (recording_tx, _recording_rx): (Sender<u8>, Receiver<u8>) = mpsc::channel();
-            let keying_event_tx: Arc<Mutex<Bus<KeyingEvent>>> = Arc::new(Mutex::new(Bus::new(10)));
-            let keying_event_rx = keying_event_tx.lock().unwrap().add_rx();
-
-            let capture = CapturingKeyingEventReceiver::new(keying_event_rx);
-
-            let serial_io = FakeSerialIO::new(keyer_will_receive, recording_tx);
-            let terminate = Arc::new(AtomicBool::new(false));
-            let mut keyer = ArduinoKeyer::new(Box::new(serial_io), terminate);
-            keyer.set_output_tx(keying_event_tx);
+            let serial_io = FakeSerialIO::new(keyer_will_receive, fixture.recording_tx);
+            let mut keyer = ArduinoKeyer::new(Box::new(serial_io), fixture.terminate);
+            keyer.set_output_tx(fixture.keying_event_tx);
 
             info!("Waiting for keying...");
             thread::sleep(Duration::from_secs(2));
             info!("Out of keying wait loop");
 
-            let received_keying_events = capture.get();
+            let received_keying_events = fixture.capture.get();
             assert_eq!(received_keying_events.len(), expected_keying_event_count);
 
             assert_eq!(received_keying_events[0], KeyingEvent::Start());
         });
     }
 
-    #[test]
+    #[rstest]
     #[serial]
-    fn terminate() {
+    fn terminate(fixture: ArduinoKeyerFixture) {
         test_util::panic_after(Duration::from_secs(4), || {
             let keyer_will_receive = "_________"; // cause the keyer to delay its thread a bit
 
-            let (recording_tx, _recording_rx): (Sender<u8>, Receiver<u8>) = mpsc::channel();
-            let keying_event_tx: Arc<Mutex<Bus<KeyingEvent>>> = Arc::new(Mutex::new(Bus::new(10)));
-            let keying_event_rx = keying_event_tx.lock().unwrap().add_rx();
-            let capture = CapturingKeyingEventReceiver::new(keying_event_rx);
-
-            let serial_io = FakeSerialIO::new(keyer_will_receive.as_bytes().to_vec(), recording_tx);
-            let terminate = Arc::new(AtomicBool::new(false));
-            let mut keyer = ArduinoKeyer::new(Box::new(serial_io), terminate);
-            keyer.set_output_tx(keying_event_tx);
+            let serial_io = FakeSerialIO::new(keyer_will_receive.as_bytes().to_vec(), fixture.recording_tx);
+            let mut keyer = ArduinoKeyer::new(Box::new(serial_io), fixture.terminate);
+            keyer.set_output_tx(fixture.keying_event_tx);
 
             info!("Test sleeping");
             thread::sleep(Duration::from_millis(5)); // give things time to start
@@ -344,7 +348,7 @@ mod arduino_keyer_io_spec {
             thread::sleep(Duration::from_millis(5)); // give things time to end
             assert_eq!(keyer.terminated(), true);
 
-            let events = capture.get();
+            let events = fixture.capture.get();
             assert_eq!(events.is_empty(), true);
         });
     }

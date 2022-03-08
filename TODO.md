@@ -16,8 +16,6 @@
 
 * ArduinoKeyer only needs a single channel to communicate commands and output-bus-setting between main and thread.
 
-* Use rstest for ArduinoKeyer test fixtures.
-
 * End handling is incomplete- should append a keying end frame, this could overflow but does not require a WPM/Polarity
   frame since it’s not actual keying that needs decoding wrt a WPM. An end keying event should automatically cause an
   emit after it is encoded.
