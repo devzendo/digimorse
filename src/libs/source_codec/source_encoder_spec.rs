@@ -94,8 +94,7 @@ mod source_encoder_spec {
         let terminate = Arc::new(AtomicBool::new(false));
         let mut keying_event_tx = Bus::new(16);
         let keying_event_rx = keying_event_tx.add_rx();
-        let mut source_encoder_tx = Bus::new(16);
-        let source_encoder_rx = source_encoder_tx.add_rx();
+        let source_encoder_tx = Bus::new(16);
         let _ = SourceEncoder::new(keying_event_rx, source_encoder_tx, terminate.clone(), block_size);
     }
 
