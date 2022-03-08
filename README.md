@@ -208,6 +208,31 @@ You need Rust 1.47.0 or greater.
 * cargo test
 * cargo build --release
 
+Building on macOS
+-----------------
+Since digimorse uses fltk-sys, which compiles its C++ during build, and this requires the macOS SDK, you may find you
+need to create a symbolic link to fix this build issue:
+
+```
+ fatal: not a git repository (or any of the parent directories): .git
+  CMake Warning at /opt/local/share/cmake-3.22/Modules/Platform/Darwin-Initialize.cmake:303 (message):
+    Ignoring CMAKE_OSX_SYSROOT value:
+
+     /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX12.0.sdk
+
+    because the directory does not exist.
+```
+
+In /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/, there's a directory called
+MacOSX.sdk. After upgrading XCode, I had to create a link in the SDKs directory pointing to it:
+
+```
+bash-3.2# ls -l
+total 0
+drwxr-xr-x  7 root  wheel  224 Nov 19 22:25 MacOSX.sdk
+lrwxr-xr-x  1 root  wheel   10 Mar  8 07:44 MacOSX12.0.sdk -> MacOSX.sdk
+lrwxr-xr-x  1 root  wheel   10 Mar  7 10:03 MacOSX12.1.sdk -> MacOSX.sdk
+```
 
 Documentation
 -------------
