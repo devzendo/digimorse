@@ -355,7 +355,7 @@ mod arduino_keyer_io_spec {
             let expected_keying_event_count = 0;
 
             let serial_io = FakeSerialIO::new(keyer_will_receive, fixture.recording_tx, false);
-            let mut keyer = ArduinoKeyer::new(Box::new(serial_io), fixture.terminate);
+            let _keyer = ArduinoKeyer::new(Box::new(serial_io), fixture.terminate);
             // Intentionally do not do keyer.set_output_tx(fixture.keying_event_tx);
 
             info!("Waiting for keying...");
@@ -364,6 +364,38 @@ mod arduino_keyer_io_spec {
 
             let received_keying_events = fixture.capture.get();
             assert_eq!(received_keying_events.len(), expected_keying_event_count);
+        });
+    }
+
+    #[rstest]
+    #[serial]
+    fn output_tx_can_be_cleared(fixture: ArduinoKeyerFixture) {
+        test_util::panic_after(Duration::from_secs(5), || {
+            const START: u8 = 0x53;
+            const END: u8 = 0x45;
+            let keyer_will_receive = vec![
+                START,     // start of keying
+                '|' as u8, // sleep 2s while clearing output_tx
+                END        // end of keying
+            ];
+            let expected_keying_event_count = 1;
+
+            let serial_io = FakeSerialIO::new(keyer_will_receive, fixture.recording_tx, false);
+            let mut keyer = ArduinoKeyer::new(Box::new(serial_io), fixture.terminate);
+            keyer.set_output_tx(fixture.keying_event_tx);
+
+            info!("Waiting for keying to have sent START...");
+            thread::sleep(Duration::from_millis(1750));
+            info!("Clearing output_tx");
+            // The keyer is sleeping due to the | and will process the clear when it wakes..
+            keyer.clear_output_tx();
+            info!("Waiting for keying to send END (which we won't receive)...");
+            thread::sleep(Duration::from_millis(1250));
+            info!("Checking received data");
+
+            let received_keying_events = fixture.capture.get();
+            assert_eq!(received_keying_events.len(), expected_keying_event_count);
+            assert_eq!(received_keying_events[0], KeyingEvent::Start());
         });
     }
 

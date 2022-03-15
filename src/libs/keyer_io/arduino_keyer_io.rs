@@ -13,12 +13,13 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 use bus::Bus;
 use crate::libs::application::application::BusOutput;
-use crate::libs::keyer_io::arduino_keyer_io::ArduinoThreadData::{Command, KeyingEventTx};
+use crate::libs::keyer_io::arduino_keyer_io::ArduinoThreadData::{ClearKeyingEventTx, Command, SetKeyingEventTx};
 use crate::libs::keyer_io::keyer_io::KeyingEvent::{Timed, Start, End};
 
 enum ArduinoThreadData {
     Command(String),
-    KeyingEventTx(Arc<Mutex<Bus<KeyingEvent>>>),
+    SetKeyingEventTx(Arc<Mutex<Bus<KeyingEvent>>>),
+    ClearKeyingEventTx,
 }
 
 pub struct ArduinoKeyer  {
@@ -35,11 +36,18 @@ pub struct ArduinoKeyer  {
 
 impl BusOutput<KeyingEvent> for ArduinoKeyer {
     fn clear_output_tx(&mut self) {
-        todo!()
+        match self.command_request_tx.lock().unwrap().send(ClearKeyingEventTx) {
+            Ok(_) => {
+                // ok, no problem
+            }
+            Err(err) => {
+                warn!("Could not send clear keying event bus to ArduinoKeyerThread: {}", err);
+            }
+        }
     }
 
     fn set_output_tx(&mut self, output_tx: Arc<Mutex<Bus<KeyingEvent>>>) {
-        match self.command_request_tx.lock().unwrap().send(KeyingEventTx(output_tx)) {
+        match self.command_request_tx.lock().unwrap().send(SetKeyingEventTx(output_tx)) {
             Ok(_) => {
                 // ok, no problem
             }
@@ -217,9 +225,13 @@ impl ArduinoKeyerThread {
                             self.send_command(command.as_str());
                             // state machine will send to command_response_tx when done
                         }
-                        KeyingEventTx(bus) => {
+                        SetKeyingEventTx(bus) => {
                             debug!("Setting keyer output bus");
                             self.keying_event_tx = Some(bus);
+                        }
+                        ClearKeyingEventTx => {
+                            debug!("Clearing keyer output bus");
+                            self.keying_event_tx = None;
                         }
                     }
                 }
@@ -346,6 +358,11 @@ impl ArduinoKeyerThread {
             // For tests, to get other threads active without this spinning, just delay a bit..
             b'_' => {
                 thread::sleep(Duration::from_millis(2));
+            }
+            b'|' => {
+                debug!("Starting long test sleep");
+                thread::sleep(Duration::from_millis(2000));
+                debug!("Ending long test sleep");
             }
             _ => {
                 warn!("Unexpected out-of-state data {}", printable(ch));
