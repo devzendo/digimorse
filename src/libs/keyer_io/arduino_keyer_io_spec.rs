@@ -14,13 +14,17 @@ struct FakeSerialIO {
     playback_chars: Vec<u8>,
     playback_index: usize,
 
+    // Should this fake device wait for a command end before sending its data?
+    wait_for_command: bool,
+    return_seen: bool, // won't start returning data from read until write has sent a return
+
     // Returns whatever has been sent by higher levels (the keyer's command sending routine).
     recording_tx: Sender<u8>
 }
 
 impl FakeSerialIO {
-    fn new(playback: Vec<u8>, recording_tx: Sender<u8>) -> Self {
-        Self { playback_chars: playback, playback_index: 0, recording_tx }
+    fn new(playback: Vec<u8>, recording_tx: Sender<u8>, wait_for_command: bool) -> Self {
+        Self { playback_chars: playback, playback_index: 0, wait_for_command, return_seen: false, recording_tx }
     }
 }
 
@@ -28,14 +32,20 @@ impl FakeSerialIO {
 impl SerialIO for FakeSerialIO {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
         for n in 0..buf.len() {
+            if self.wait_for_command && !self.return_seen {
+                // Simulate real serial read timeout with a little sleep here..
+                std::thread::sleep(Duration::from_millis(100));
+                warn!("FakeSerialIO Not seen an end-of-command yet");
+                return Err(Error::new(ErrorKind::NotFound, "Nothing to send yet"));
+            }
             if self.playback_index == self.playback_chars.len() {
                 // Simulate real serial read timeout with a little sleep here..
                 std::thread::sleep(Duration::from_millis(100));
-                warn!("Out of playback data at index {}", self.playback_index);
+                warn!("FakeSerialIO Out of playback data at index {}", self.playback_index);
                 return Err(Error::new(ErrorKind::UnexpectedEof, format!("Out of playback data at index {}", self.playback_index)));
             }
             buf[n] = self.playback_chars[self.playback_index];
-            debug!("received {}", printable(buf[n]));
+            debug!("FakeSerialIO received {}", printable(buf[n]));
             self.playback_index += 1;
         }
         return Ok(buf.len())
@@ -43,10 +53,14 @@ impl SerialIO for FakeSerialIO {
 
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         for n in 0..buf.len() {
-            debug!("transmitted {}", printable(buf[n]));
+            debug!("FakeSerialIO transmitted {}", printable(buf[n]));
             match self.recording_tx.send(buf[n]) {
                 Ok(_) => {}
                 Err(_) => {}
+            }
+            if self.wait_for_command && buf[n] == 0x0a {
+                debug!("FakeSerialIO has now sent an end-of-command return; starting to receive");
+                self.return_seen = true;
             }
         }
         return Ok(buf.len())
@@ -168,7 +182,7 @@ mod arduino_keyer_io_spec {
             let keyer_will_send = "v\n"; // sent to the 'arduino' ie FakeSerialIO
             let keyer_will_receive = "> v1.0.0\n\n_________"; // sent back from the 'arduino' ie FakeSerialIO
 
-            let serial_io = FakeSerialIO::new(keyer_will_receive.as_bytes().to_vec(), fixture.recording_tx);
+            let serial_io = FakeSerialIO::new(keyer_will_receive.as_bytes().to_vec(), fixture.recording_tx, true);
             let mut keyer = ArduinoKeyer::new(Box::new(serial_io), fixture.terminate);
             keyer.set_output_tx(fixture.keying_event_tx);
 
@@ -247,7 +261,7 @@ mod arduino_keyer_io_spec {
             ];
             let expected_keying_event_count = 29;
 
-            let serial_io = FakeSerialIO::new(keyer_will_receive, fixture.recording_tx);
+            let serial_io = FakeSerialIO::new(keyer_will_receive, fixture.recording_tx, false);
             let mut keyer = ArduinoKeyer::new(Box::new(serial_io), fixture.terminate);
             keyer.set_output_tx(fixture.keying_event_tx);
 
@@ -315,7 +329,7 @@ mod arduino_keyer_io_spec {
             ];
             let expected_keying_event_count = 1;
 
-            let serial_io = FakeSerialIO::new(keyer_will_receive, fixture.recording_tx);
+            let serial_io = FakeSerialIO::new(keyer_will_receive, fixture.recording_tx, false);
             let mut keyer = ArduinoKeyer::new(Box::new(serial_io), fixture.terminate);
             keyer.set_output_tx(fixture.keying_event_tx);
 
@@ -332,11 +346,34 @@ mod arduino_keyer_io_spec {
 
     #[rstest]
     #[serial]
+    fn dont_set_output_tx_dont_get_keying(fixture: ArduinoKeyerFixture) {
+        test_util::panic_after(Duration::from_secs(4), || {
+            const START: u8 = 0x53;
+            let keyer_will_receive = vec![
+                START,     // start of keying
+            ];
+            let expected_keying_event_count = 0;
+
+            let serial_io = FakeSerialIO::new(keyer_will_receive, fixture.recording_tx, false);
+            let mut keyer = ArduinoKeyer::new(Box::new(serial_io), fixture.terminate);
+            // Intentionally do not do keyer.set_output_tx(fixture.keying_event_tx);
+
+            info!("Waiting for keying...");
+            thread::sleep(Duration::from_secs(2));
+            info!("Out of keying wait loop");
+
+            let received_keying_events = fixture.capture.get();
+            assert_eq!(received_keying_events.len(), expected_keying_event_count);
+        });
+    }
+
+    #[rstest]
+    #[serial]
     fn terminate(fixture: ArduinoKeyerFixture) {
         test_util::panic_after(Duration::from_secs(4), || {
             let keyer_will_receive = "_________"; // cause the keyer to delay its thread a bit
 
-            let serial_io = FakeSerialIO::new(keyer_will_receive.as_bytes().to_vec(), fixture.recording_tx);
+            let serial_io = FakeSerialIO::new(keyer_will_receive.as_bytes().to_vec(), fixture.recording_tx, false);
             let mut keyer = ArduinoKeyer::new(Box::new(serial_io), fixture.terminate);
             keyer.set_output_tx(fixture.keying_event_tx);
 

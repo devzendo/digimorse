@@ -14,8 +14,6 @@
    metadata frames in a block. Create many dummy QSO texts, send them through the Playback at varying WPM from 5-60, and
    determine how much delay is needed so that no gaps are present. Use this to seed the optimal first frame gap delay.
 
-* ArduinoKeyer only needs a single channel to communicate commands and output-bus-setting between main and thread.
-
 * End handling is incomplete- should append a keying end frame, this could overflow but does not require a WPM/Polarity
   frame since it’s not actual keying that needs decoding wrt a WPM. An end keying event should automatically cause an
   emit after it is encoded.

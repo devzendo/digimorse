@@ -13,16 +13,21 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 use bus::Bus;
 use crate::libs::application::application::BusOutput;
+use crate::libs::keyer_io::arduino_keyer_io::ArduinoThreadData::{Command, KeyingEventTx};
 use crate::libs::keyer_io::keyer_io::KeyingEvent::{Timed, Start, End};
+
+enum ArduinoThreadData {
+    Command(String),
+    KeyingEventTx(Arc<Mutex<Bus<KeyingEvent>>>),
+}
 
 pub struct ArduinoKeyer  {
     // Command channel to/from the thread. Sender is guarded by a Mutex to ensure a single command
     // in flight at a time.
-    command_request_tx: Mutex<Sender<String>>,
+    // Either commands (Strings) or new Bus<KeyingEvent>s can be sent to the thread. This latter
+    // is to allow the keyer to be wired into a larger system dynamically.
+    command_request_tx: Mutex<Sender<ArduinoThreadData>>,
     command_response_rx: Receiver<Result<String, String>>,
-    // TODO only need a single channel for communicating commands and output-bus-setting between the
-    // main thread and the keyer thread.
-    keying_event_tx_request_tx: Sender<Arc<Mutex<Bus<KeyingEvent>>>>,
 
     terminate: Arc<AtomicBool>,
     thread_handle: Mutex<Option<JoinHandle<()>>>,
@@ -34,7 +39,7 @@ impl BusOutput<KeyingEvent> for ArduinoKeyer {
     }
 
     fn set_output_tx(&mut self, output_tx: Arc<Mutex<Bus<KeyingEvent>>>) {
-        match self.keying_event_tx_request_tx.send(output_tx) {
+        match self.command_request_tx.lock().unwrap().send(KeyingEventTx(output_tx)) {
             Ok(_) => {
                 // ok, no problem
             }
@@ -50,20 +55,18 @@ impl ArduinoKeyer {
         // Channels have two endpoints: the `Sender<T>` and the `Receiver<T>`,
         // where `T` is the type of the message to be transferred
         // (type annotation is superfluous)
-        let (command_request_tx, command_request_rx): (Sender<String>, Receiver<String>) = mpsc::channel();
+        let (command_request_tx, command_request_rx): (Sender<ArduinoThreadData>, Receiver<ArduinoThreadData>) = mpsc::channel();
         let (command_response_tx, command_response_rx): (Sender<Result<String, String>>, Receiver<Result<String, String>>) = mpsc::channel();
-        let (keying_event_tx_request_tx, keying_event_tx_request_rx): (Sender<Arc<Mutex<Bus<KeyingEvent>>>>, Receiver<Arc<Mutex<Bus<KeyingEvent>>>>) = mpsc::channel();
         let mutex_command_request_tx = Mutex::new(command_request_tx);
 
         let arc_terminate = terminate.clone();
         let thread_handle = thread::spawn(move || {
-            let mut arduino_keyer_thread = ArduinoKeyerThread::new(serial_io, command_request_rx, command_response_tx, arc_terminate, keying_event_tx_request_rx);
+            let mut arduino_keyer_thread = ArduinoKeyerThread::new(serial_io, command_request_rx, command_response_tx, arc_terminate);
             arduino_keyer_thread.thread_runner();
         });
         Self {
             command_request_tx: mutex_command_request_tx,
             command_response_rx,
-            keying_event_tx_request_tx,
             terminate,
             thread_handle: Mutex::new(Some(thread_handle)),
         }
@@ -90,7 +93,7 @@ impl ArduinoKeyer {
     }
 
     fn transact_channels(&self, command: &str) -> Result<String, String> {
-        match self.command_request_tx.lock().unwrap().send(command.to_string()) {
+        match self.command_request_tx.lock().unwrap().send(Command(command.to_string())) {
             Ok(_) => {
                 match self.command_response_rx.recv_timeout(Duration::from_secs(5)) {
                     Ok(result) => { match result {
@@ -161,9 +164,8 @@ struct ArduinoKeyerThread {
     terminate: Arc<AtomicBool>,
 
     // Command channels
-    command_request_rx: Receiver<String>,
+    command_request_rx: Receiver<ArduinoThreadData>,
     command_response_tx: Sender<Result<String, String>>,
-    keying_event_tx_request_rx: Receiver<Arc<Mutex<Bus<KeyingEvent>>>>,
 
     // Keying channel
     keying_event_tx: Option<Arc<Mutex<Bus<KeyingEvent>>>>,
@@ -178,10 +180,9 @@ struct ArduinoKeyerThread {
 
 impl ArduinoKeyerThread {
     fn new(serial_io: Box<dyn SerialIO>,
-        command_request_rx: Receiver<String>,
+        command_request_rx: Receiver<ArduinoThreadData>,
         command_response_tx: Sender<Result<String, String>>,
-        terminate: Arc<AtomicBool>,
-        keying_event_tx_request_rx: Receiver<Arc<Mutex<Bus<KeyingEvent>>>>
+        terminate: Arc<AtomicBool>
     ) -> Self {
         debug!("Constructing ArduinoKeyerThread");
         Self {
@@ -189,7 +190,6 @@ impl ArduinoKeyerThread {
             terminate,
             command_request_rx,
             command_response_tx,
-            keying_event_tx_request_rx,
             keying_event_tx: None,
             state: Initial,
             up: false,
@@ -208,19 +208,20 @@ impl ArduinoKeyerThread {
                 info!("Terminating keyer I/O thread");
                 break;
             }
-            match self.keying_event_tx_request_rx.try_recv() {
-                Ok(bus) => {
-                    self.keying_event_tx = Some(bus);
-                }
-                Err(_) => {
-                    // ignore for now
-                }
-            }
-            // Any incoming commands?
+
+            // Any incoming commands or bus connections?
             match self.command_request_rx.try_recv() {
-                Ok(command) => {
-                    self.send_command(command.as_str());
-                    // state machine will send to command_response_tx when done
+                Ok(thread_data) => {
+                    match thread_data {
+                        ArduinoThreadData::Command(command) => {
+                            self.send_command(command.as_str());
+                            // state machine will send to command_response_tx when done
+                        }
+                        KeyingEventTx(bus) => {
+                            debug!("Setting keyer output bus");
+                            self.keying_event_tx = Some(bus);
+                        }
+                    }
                 }
                 Err(_) => {
                     // could timeout, or be disconnected?
@@ -271,6 +272,8 @@ impl ArduinoKeyerThread {
                             warn!("End of build loop: {}", e);
                             break;
                         }
+                        // Fake serial can also send ErrorKind::NotFound when it hasn't started
+                        // sending the response; ignore this.
                         _ => {
                             // Be silent when there's nothing incoming..
                         }
