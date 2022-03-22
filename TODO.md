@@ -1,9 +1,12 @@
 # Current Development Activities
 
-* Back-to-back Source Encoder diagnostic mode - keying is encoded into frames, placed into blocks, then sent to a
-  delay bus, after a short delay, the blocks are emitted, decoded into frames, and their keying played back.
-
 * Application wiring.
+
+* Adding error detection by computing a CRC over the source encoder output.
+* Adding error correction by computing a LDPC over the CRC'd source encoder output.
+* Costas array: is there an escaping mechanism, such that the Costas array does not occur in the binary output of the
+  channel encoder?
+* Modulation: choose suitable number of tones for slow/fast (narrow/wide) modulations.
 
 * Playback improvements:
 ** Split the play method into a scan through the frame to extract timings of keyings into a Vec, and then a pass 
