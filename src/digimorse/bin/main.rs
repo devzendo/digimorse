@@ -187,7 +187,9 @@ fn run(arguments: ArgMatches, mode: Mode) -> Result<i32, Box<dyn Error>> {
         None
     };
 
-    let transform_bus = TransformBus::new(tone_generator_keying_event_rx, arc_mutex_keying_event_tone_channel_tx, add_sidetone_channel_to_keying_event, terminate.clone());
+    let transform_bus = TransformBus::new(tone_generator_keying_event_rx,
+                                          arc_mutex_keying_event_tone_channel_tx, add_sidetone_channel_to_keying_event,
+                                          terminate.clone());
     let arc_transform_bus = Arc::new(Mutex::new(transform_bus));
     let keying_event_tone_channel_rx = arc_transform_bus.lock().unwrap().add_reader();
 
@@ -219,14 +221,19 @@ fn run(arguments: ArgMatches, mode: Mode) -> Result<i32, Box<dyn Error>> {
 
     let mut source_encoder_tx = Bus::new(16);
     let source_encoder_rx = source_encoder_tx.add_rx();
-    let mut source_encoder = SourceEncoder::new(source_encoder_keying_event_rx.unwrap(), source_encoder_tx, terminate.clone(), SOURCE_ENCODER_BLOCK_SIZE_IN_BITS);
+    let mut source_encoder = SourceEncoder::new(source_encoder_keying_event_rx.unwrap(),
+                                                source_encoder_tx, terminate.clone(),
+                                                SOURCE_ENCODER_BLOCK_SIZE_IN_BITS);
     source_encoder.set_keyer_speed(config.get_wpm() as KeyerSpeed);
 
     let mut source_decoder = SourceDecoder::new(SOURCE_ENCODER_BLOCK_SIZE_IN_BITS);
 
     if mode == Mode::SourceEncoderDiag {
         info!("Initialising SourceEncoderDiag mode");
-        source_encoder_diag(source_decoder, source_encoder_rx, terminate.clone(), playback_arc_mutex_tone_generator.clone(), playback_arc_mutex_keying_event_tone_channel.unwrap(), scheduled_thread_pool, config.get_sidetone_frequency() + 50)?;
+        source_encoder_diag(source_decoder, source_encoder_rx, terminate.clone(),
+                            playback_arc_mutex_tone_generator.clone(),
+                            playback_arc_mutex_keying_event_tone_channel.unwrap(),
+                            scheduled_thread_pool, config.get_sidetone_frequency() + 50)?;
         source_encoder.terminate();
         keyer.terminate();
         mem::drop(playback_arc_mutex_tone_generator);
@@ -474,10 +481,13 @@ fn source_encoder_diag(source_decoder: SourceDecoder, source_encoder_rx: BusRead
     let mut delayed_source_encoder_rx = delayed_source_encoder_tx.add_rx();
 
     let delayed_bus_scheduled_thread_pool = scheduled_thread_pool.clone();
-    let _delayed_bus = DelayedBus::new(source_encoder_rx, delayed_source_encoder_tx, terminate.clone(), delayed_bus_scheduled_thread_pool, Duration::from_secs(10));
+    let _delayed_bus = DelayedBus::new(source_encoder_rx, delayed_source_encoder_tx,
+                                       terminate.clone(), delayed_bus_scheduled_thread_pool,
+                                       Duration::from_secs(10));
 
     let playback_scheduled_thread_pool = scheduled_thread_pool.clone();
-    let mut playback = Playback::new(terminate.clone(), playback_scheduled_thread_pool, tone_generator, playback_tone_channel_bus_tx.clone());
+    let mut playback = Playback::new(terminate.clone(), playback_scheduled_thread_pool,
+                                     tone_generator, playback_tone_channel_bus_tx.clone());
 
     const REPLAY_CALLSIGN_HASH: u16 = 0x1234u16;
 
