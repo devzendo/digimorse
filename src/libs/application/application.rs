@@ -175,7 +175,6 @@ impl Application {
                 source_encoder.lock().as_mut().unwrap().set_input_rx(bus_reader);
             }
         }
-
     }
 
     pub fn clear_source_encoder(&mut self) {

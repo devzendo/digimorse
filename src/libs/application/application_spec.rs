@@ -208,6 +208,34 @@ mod application_spec {
     }
 
     #[rstest]
+    pub fn set_clear_tone_generator(mut fixture: ApplicationFixture) {
+        fixture.application.set_mode(Mode::KeyerDiag);
+        assert_eq!(fixture.application.got_tone_generator(), false);
+        assert_eq!(fixture.application.got_tone_generator_rx(), true);
+        let tone_generator = Arc::new(Mutex::new(StubBusReader::new()));
+        fixture.application.set_tone_generator(tone_generator);
+        assert_eq!(fixture.application.got_tone_generator(), true);
+        assert_eq!(fixture.application.got_tone_generator_rx(), true);
+        fixture.application.clear_tone_generator();
+        assert_eq!(fixture.application.got_tone_generator(), false);
+        assert_eq!(fixture.application.got_tone_generator_rx(), true);
+    }
+
+    #[rstest]
+    pub fn set_clear_keyer_diag(mut fixture: ApplicationFixture) {
+        fixture.application.set_mode(Mode::KeyerDiag);
+        assert_eq!(fixture.application.got_keyer_diag(), false);
+        assert_eq!(fixture.application.got_keyer_diag_rx(), true);
+        let keyer_diag = Arc::new(Mutex::new(StubBusReader::new()));
+        fixture.application.set_keyer_diag(keyer_diag);
+        assert_eq!(fixture.application.got_keyer_diag(), true);
+        assert_eq!(fixture.application.got_keyer_diag_rx(), true);
+        fixture.application.clear_keyer_diag();
+        assert_eq!(fixture.application.got_keyer_diag(), false);
+        assert_eq!(fixture.application.got_keyer_diag_rx(), true);
+    }
+
+    #[rstest]
     // No need for the FakeKeyer and StubBusReader to have their own threads, so long as no more
     // than 16 elements are placed onto the bus.
     pub fn keyer_diag_bus_wiring(mut fixture: ApplicationFixture) {
