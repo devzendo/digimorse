@@ -23,8 +23,8 @@ pub trait BusOutput<T> {
 }
 
 pub trait BusInput<T> {
-    fn clear_input_tx(&mut self);
-    fn set_input_tx(&mut self, input_tx: Arc<Mutex<BusReader<T>>>);
+    fn clear_input_rx(&mut self);
+    fn set_input_rx(&mut self, input_tx: Arc<Mutex<BusReader<T>>>);
 }
 
 // The Application handles all the wiring between the active components of the system. The wiring
@@ -83,11 +83,14 @@ impl Application {
         }
     }
 
+    pub fn got_keyer(&self) -> bool {
+        self.keyer.is_some()
+    }
+
     pub fn clear_keyer(&mut self) {
         self.keyer = None;
         // TODO unwire down
     }
-
 
     pub fn set_tone_generator(&mut self, mut tone_generator: Arc<Mutex<dyn BusInput<KeyingEvent>>>) {
         match &self.tone_generator_keying_event_rx {
@@ -97,7 +100,7 @@ impl Application {
             Some(keying_event_bus) => {
                 self.tone_generator = Some(tone_generator.clone());
                 let bus_reader = keying_event_bus.clone();
-                tone_generator.lock().as_mut().unwrap().set_input_tx(bus_reader);
+                tone_generator.lock().as_mut().unwrap().set_input_rx(bus_reader);
             }
         }
 
@@ -106,6 +109,15 @@ impl Application {
     pub fn clear_tone_generator(&mut self) {
         // TODO unwire down
     }
+
+    pub fn got_tone_generator(&self) -> bool {
+        self.tone_generator.is_some()
+    }
+
+    pub fn got_tone_generator_rx(&self) -> bool {
+        self.tone_generator_keying_event_rx.is_some()
+    }
+
 
 
     pub fn set_keyer_diag(&mut self, mut keyer_diag: Arc<Mutex<dyn BusInput<KeyingEvent>>>) {
@@ -116,7 +128,7 @@ impl Application {
             Some(keying_event_bus) => {
                 self.keyer_diag = Some(keyer_diag.clone());
                 let bus_reader = keying_event_bus.clone();
-                keyer_diag.lock().as_mut().unwrap().set_input_tx(bus_reader);
+                keyer_diag.lock().as_mut().unwrap().set_input_rx(bus_reader);
             }
         }
 
@@ -124,6 +136,14 @@ impl Application {
 
     pub fn clear_keyer_diag(&mut self) {
         // TODO unwire down
+    }
+
+    pub fn got_keyer_diag(&self) -> bool {
+        self.keyer_diag.is_some()
+    }
+
+    pub fn got_keyer_diag_rx(&self) -> bool {
+        self.keyer_diag_keying_event_rx.is_some()
     }
 
 
@@ -135,7 +155,7 @@ impl Application {
             Some(keying_event_bus) => {
                 self.source_encoder = Some(source_encoder.clone());
                 let bus_reader = keying_event_bus.clone();
-                source_encoder.lock().as_mut().unwrap().set_input_tx(bus_reader);
+                source_encoder.lock().as_mut().unwrap().set_input_rx(bus_reader);
             }
         }
 
@@ -143,6 +163,14 @@ impl Application {
 
     pub fn clear_source_encoder(&mut self) {
         // TODO unwire down
+    }
+
+    pub fn got_source_encoder(&self) -> bool {
+        self.source_encoder.is_some()
+    }
+
+    pub fn got_source_encoder_rx(&self) -> bool {
+        self.source_encoder_keying_event_rx.is_some()
     }
 }
 

@@ -76,12 +76,38 @@ mod application_spec {
     #[rstest]
     pub fn initial_mode(fixture: ApplicationFixture) {
         assert_that!(fixture.application.get_mode(), none());
+        assert_eq!(fixture.application.got_keyer(), false);
+        assert_eq!(fixture.application.got_keyer_diag_rx(), false);
+        assert_eq!(fixture.application.got_tone_generator(), false);
+        assert_eq!(fixture.application.got_tone_generator_rx(), false);
+        assert_eq!(fixture.application.got_source_encoder(), false);
+        assert_eq!(fixture.application.got_source_encoder_rx(), false);
     }
 
     #[rstest]
     pub fn mode_keyer_diag(mut fixture: ApplicationFixture) {
         fixture.application.set_mode(Mode::KeyerDiag);
         assert_that!(fixture.application.get_mode(), has(Mode::KeyerDiag));
+        assert_eq!(fixture.application.got_keyer(), false);
+        assert_eq!(fixture.application.got_keyer_diag_rx(), true);
+        assert_eq!(fixture.application.got_tone_generator(), false);
+        assert_eq!(fixture.application.got_tone_generator_rx(), true);
+        assert_eq!(fixture.application.got_source_encoder(), false);
+        assert_eq!(fixture.application.got_source_encoder_rx(), false);
+    }
+
+    #[rstest]
+    pub fn set_clear_keyer(mut fixture: ApplicationFixture) {
+        fixture.application.set_mode(Mode::KeyerDiag);
+        assert_eq!(fixture.application.got_keyer(), false);
+        assert_eq!(fixture.application.got_keyer_diag_rx(), true);
+        let mut keyer = Arc::new(Mutex::new(FakeKeyer::new(vec![])));
+        fixture.application.set_keyer(keyer);
+        assert_eq!(fixture.application.got_keyer(), true);
+        assert_eq!(fixture.application.got_keyer_diag_rx(), true);
+        fixture.application.clear_keyer();
+        assert_eq!(fixture.application.got_keyer(), false);
+        assert_eq!(fixture.application.got_keyer_diag_rx(), true);
     }
 
     struct FakeKeyer {
@@ -104,6 +130,11 @@ mod application_spec {
                 bus: None
             }
         }
+
+        fn got_output_tx(&self) -> bool {
+            self.bus.is_some()
+        }
+
         fn start(&mut self) {
             match self.bus.clone() {
                 None => {
@@ -126,11 +157,11 @@ mod application_spec {
         bus_reader: Option<Arc<Mutex<BusReader<KeyingEvent>>>>,
     }
     impl BusInput<KeyingEvent> for StubBusReader {
-        fn clear_input_tx(&mut self) {
+        fn clear_input_rx(&mut self) {
             self.bus_reader = None;
         }
 
-        fn set_input_tx(&mut self, input_tx: Arc<Mutex<BusReader<KeyingEvent>>>) {
+        fn set_input_rx(&mut self, input_tx: Arc<Mutex<BusReader<KeyingEvent>>>) {
             self.bus_reader = Some(input_tx);
         }
     }
@@ -140,6 +171,10 @@ mod application_spec {
                 keying: vec![],
                 bus_reader: None
             }
+        }
+
+        fn got_input_rx(&self) -> bool {
+            self.bus_reader.is_some()
         }
 
         fn read(&mut self) -> Vec<KeyingEvent> {
@@ -171,20 +206,25 @@ mod application_spec {
     // than 16 elements are placed onto the bus.
     pub fn keyer_diag_bus_wiring(mut fixture: ApplicationFixture) {
         fixture.application.set_mode(Mode::KeyerDiag);
-        assert_that!(fixture.application.get_mode(), has(Mode::KeyerDiag));
 
         let sent_keying = vec![KeyingEvent::Start(), KeyingEvent::End()];
         let mut keyer = Arc::new(Mutex::new(FakeKeyer::new(sent_keying.clone())));
+        assert_that!(keyer.lock().unwrap().got_output_tx(), false);
         let application_keyer = keyer.clone();
         fixture.application.set_keyer(application_keyer);
+        assert_that!(keyer.lock().unwrap().got_output_tx(), true);
 
         let tone_generator = Arc::new(Mutex::new(StubBusReader::new()));
+        assert_that!(tone_generator.lock().unwrap().got_input_rx(), false);
         let application_tone_generator = tone_generator.clone();
         fixture.application.set_tone_generator(application_tone_generator);
+        assert_that!(tone_generator.lock().unwrap().got_input_rx(), true);
 
         let keyer_diag = Arc::new(Mutex::new(StubBusReader::new()));
+        assert_that!(keyer_diag.lock().unwrap().got_input_rx(), false);
         let application_keyer_diag = keyer_diag.clone();
         fixture.application.set_keyer_diag(application_keyer_diag);
+        assert_that!(keyer_diag.lock().unwrap().got_input_rx(), true);
 
 
         keyer.lock().unwrap().start();
