@@ -24,7 +24,7 @@ pub enum KeyerType {
 pub type KeyerSpeed = u8;
 
 // A keying edge with duration.
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, Copy)]
 pub struct KeyingTimedEvent {
     pub up: bool, // The edge that has transitioned, key up or key down
     pub duration: KeyerEdgeDurationMs, // How long this edge lasted for
@@ -46,7 +46,7 @@ impl Debug for KeyingTimedEvent {
     }
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, Copy)]
 pub enum KeyingEvent {
     Timed(KeyingTimedEvent),
     Start(),
