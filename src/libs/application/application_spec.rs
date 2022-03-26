@@ -246,4 +246,53 @@ mod application_spec {
         assert_eq!(keyer_diag_received_keying, sent_keying.clone());
     }
 
+    #[rstest]
+    pub fn keyer_diag_bus_unwiring(mut fixture: ApplicationFixture) {
+        fixture.application.set_mode(Mode::KeyerDiag);
+
+        let mut keyer = Arc::new(Mutex::new(FakeKeyer::new(vec![])));
+        let application_keyer = keyer.clone();
+        fixture.application.set_keyer(application_keyer);
+
+        let tone_generator = Arc::new(Mutex::new(StubBusReader::new()));
+        let application_tone_generator = tone_generator.clone();
+        fixture.application.set_tone_generator(application_tone_generator);
+
+        let keyer_diag = Arc::new(Mutex::new(StubBusReader::new()));
+        let application_keyer_diag = keyer_diag.clone();
+        fixture.application.set_keyer_diag(application_keyer_diag);
+
+
+        keyer.lock().unwrap().start();
+        info!("Test sleeping");
+        test_util::wait_5_ms(); // give things time to start
+        info!("Test out of sleep");
+
+        fixture.application.clear_keyer();
+        assert_eq!(keyer.lock().unwrap().got_output_tx(), false);
+        assert_eq!(fixture.application.got_keyer(), false);
+        assert_eq!(fixture.application.got_keyer_diag_rx(), true);
+
+        assert_eq!(fixture.application.got_tone_generator(), true);
+        assert_eq!(fixture.application.got_tone_generator_rx(), true);
+
+        assert_eq!(fixture.application.got_keyer_diag(), true);
+        assert_eq!(fixture.application.got_keyer_diag_rx(), true);
+
+        fixture.application.clear_tone_generator();
+        assert_eq!(tone_generator.lock().unwrap().got_input_rx(), false);
+
+        assert_eq!(fixture.application.got_tone_generator(), false);
+        assert_eq!(fixture.application.got_tone_generator_rx(), true);
+
+        assert_eq!(fixture.application.got_keyer_diag(), true);
+        assert_eq!(fixture.application.got_keyer_diag_rx(), true);
+
+        fixture.application.clear_keyer_diag();
+        assert_eq!(keyer_diag.lock().unwrap().got_input_rx(), false);
+
+        assert_eq!(fixture.application.got_keyer_diag(), false);
+        assert_eq!(fixture.application.got_keyer_diag_rx(), true);
+    }
+
 }

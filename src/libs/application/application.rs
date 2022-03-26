@@ -88,8 +88,13 @@ impl Application {
     }
 
     pub fn clear_keyer(&mut self) {
+        match &self.keyer {
+            None => {}
+            Some(keyer) => {
+                keyer.lock().unwrap().clear_output_tx();
+            }
+        }
         self.keyer = None;
-        // TODO unwire down
     }
 
     pub fn set_tone_generator(&mut self, mut tone_generator: Arc<Mutex<dyn BusInput<KeyingEvent>>>) {
@@ -107,7 +112,13 @@ impl Application {
     }
 
     pub fn clear_tone_generator(&mut self) {
-        // TODO unwire down
+        match &self.tone_generator {
+            None => {}
+            Some(tone_generator) => {
+                tone_generator.lock().unwrap().clear_input_rx();
+            }
+        }
+        self.tone_generator = None;
     }
 
     pub fn got_tone_generator(&self) -> bool {
@@ -135,7 +146,13 @@ impl Application {
     }
 
     pub fn clear_keyer_diag(&mut self) {
-        // TODO unwire down
+        match &self.keyer_diag {
+            None => {}
+            Some(keyer_diag) => {
+                keyer_diag.lock().unwrap().clear_input_rx();
+            }
+        }
+        self.keyer_diag = None;
     }
 
     pub fn got_keyer_diag(&self) -> bool {
