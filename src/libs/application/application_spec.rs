@@ -63,6 +63,103 @@ mod application_spec {
         }
     }
 
+
+    struct FakeKeyer {
+        keying: Vec<KeyingEvent>,
+        bus: Option<Arc<Mutex<Bus<KeyingEvent>>>>,
+    }
+
+    impl BusOutput<KeyingEvent> for FakeKeyer {
+        fn clear_output_tx(&mut self) {
+            self.bus = None;
+        }
+
+        fn set_output_tx(&mut self, output_tx: Arc<Mutex<Bus<KeyingEvent>>>) {
+            self.bus = Some(output_tx);
+        }
+    }
+
+    impl FakeKeyer {
+        fn new(keying: Vec<KeyingEvent>) -> Self {
+            Self {
+                keying,
+                bus: None
+            }
+        }
+
+        fn got_output_tx(&self) -> bool {
+            self.bus.is_some()
+        }
+
+        fn start(&mut self) {
+            match self.bus.clone() {
+                None => {
+                    warn!("No bus set in FakeKeyer");
+                }
+                Some(bus) => {
+                    info!("Sending keying from FakeKeyer");
+                    let mut guard = bus.lock().unwrap();
+                    for v in &self.keying {
+                        guard.broadcast(*v);
+                    }
+                    info!("Sent keying from FakeKeyer");
+                }
+            }
+        }
+    }
+
+    struct StubBusReader {
+        keying: Vec<KeyingEvent>,
+        bus_reader: Option<Arc<Mutex<BusReader<KeyingEvent>>>>,
+    }
+
+    impl BusInput<KeyingEvent> for StubBusReader {
+        fn clear_input_rx(&mut self) {
+            self.bus_reader = None;
+        }
+
+        fn set_input_rx(&mut self, input_tx: Arc<Mutex<BusReader<KeyingEvent>>>) {
+            self.bus_reader = Some(input_tx);
+        }
+    }
+
+    impl StubBusReader {
+        fn new() -> Self {
+            Self {
+                keying: vec![],
+                bus_reader: None
+            }
+        }
+
+        fn got_input_rx(&self) -> bool {
+            self.bus_reader.is_some()
+        }
+
+        fn read(&mut self) -> Vec<KeyingEvent> {
+            match &self.bus_reader {
+                None => {
+                    panic!("No bus reader set in StubBusReader");
+                }
+                Some(bus_reader) => {
+                    loop {
+                        match bus_reader.clone().lock().unwrap().recv_timeout(Duration::from_millis(500)) {
+                            Ok(ke) => {
+                                self.keying.push(ke);
+                            }
+                            Err(_) => {
+                                info!("StubBusReader timed out on read");
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+            info!("Out of StubBusReader read");
+            self.keying.clone()
+        }
+    }
+
+
     #[rstest]
     pub fn termination(mut fixture: ApplicationFixture) {
         assert_eq!(fixture.application.terminated(), false);
@@ -108,97 +205,6 @@ mod application_spec {
         fixture.application.clear_keyer();
         assert_eq!(fixture.application.got_keyer(), false);
         assert_eq!(fixture.application.got_keyer_diag_rx(), true);
-    }
-
-    struct FakeKeyer {
-        keying: Vec<KeyingEvent>,
-        bus: Option<Arc<Mutex<Bus<KeyingEvent>>>>,
-    }
-    impl BusOutput<KeyingEvent> for FakeKeyer {
-        fn clear_output_tx(&mut self) {
-            self.bus = None;
-        }
-
-        fn set_output_tx(&mut self, output_tx: Arc<Mutex<Bus<KeyingEvent>>>) {
-            self.bus = Some(output_tx);
-        }
-    }
-    impl FakeKeyer {
-        fn new(keying: Vec<KeyingEvent>) -> Self {
-            Self {
-                keying,
-                bus: None
-            }
-        }
-
-        fn got_output_tx(&self) -> bool {
-            self.bus.is_some()
-        }
-
-        fn start(&mut self) {
-            match self.bus.clone() {
-                None => {
-                    warn!("No bus set in FakeKeyer");
-                }
-                Some(bus) => {
-                    info!("Sending keying from FakeKeyer");
-                    let mut guard = bus.lock().unwrap();
-                    for v in &self.keying {
-                        guard.broadcast(*v);
-                    }
-                    info!("Sent keying from FakeKeyer");
-                }
-            }
-        }
-    }
-
-    struct StubBusReader {
-        keying: Vec<KeyingEvent>,
-        bus_reader: Option<Arc<Mutex<BusReader<KeyingEvent>>>>,
-    }
-    impl BusInput<KeyingEvent> for StubBusReader {
-        fn clear_input_rx(&mut self) {
-            self.bus_reader = None;
-        }
-
-        fn set_input_rx(&mut self, input_tx: Arc<Mutex<BusReader<KeyingEvent>>>) {
-            self.bus_reader = Some(input_tx);
-        }
-    }
-    impl StubBusReader {
-        fn new() -> Self {
-            Self {
-                keying: vec![],
-                bus_reader: None
-            }
-        }
-
-        fn got_input_rx(&self) -> bool {
-            self.bus_reader.is_some()
-        }
-
-        fn read(&mut self) -> Vec<KeyingEvent> {
-            match &self.bus_reader {
-                None => {
-                    panic!("No bus reader set in StubBusReader");
-                }
-                Some(bus_reader) => {
-                    loop {
-                        match bus_reader.clone().lock().unwrap().recv_timeout(Duration::from_millis(500)) {
-                            Ok(ke) => {
-                                self.keying.push(ke);
-                            }
-                            Err(_) => {
-                                info!("StubBusReader timed out on read");
-                                break;
-                            }
-                        }
-                    }
-                }
-            }
-            info!("Out of StubBusReader read");
-            self.keying.clone()
-        }
     }
 
     #[rstest]
