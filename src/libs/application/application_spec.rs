@@ -5,21 +5,17 @@ mod application_spec {
     use std::env;
     use std::sync::{Arc, Mutex};
     use std::sync::atomic::{AtomicBool, Ordering};
-    use std::sync::mpsc::RecvTimeoutError;
     use std::time::Duration;
 
     use bus::{Bus, BusReader};
     use hamcrest2::prelude::*;
     use log::{debug, info, warn};
     use rstest::*;
-    use hamcrest2::prelude::*;
     use syncbox::ScheduledThreadPool;
+
     use crate::libs::application::application::{Application, BusInput, BusOutput, Mode};
     use crate::libs::keyer_io::keyer_io::KeyingEvent;
-
     use crate::libs::util::test_util;
-    use crate::libs::util::test_util::wait_n_ms;
-    use crate::libs::util::util::get_epoch_ms;
 
     #[ctor::ctor]
     fn before_each() {
@@ -32,7 +28,7 @@ mod application_spec {
 
     pub struct ApplicationFixture {
         terminate: Arc<AtomicBool>,
-        scheduled_thread_pool: Arc<ScheduledThreadPool>,
+        _scheduled_thread_pool: Arc<ScheduledThreadPool>,
         application: Application,
     }
 
@@ -49,7 +45,7 @@ mod application_spec {
 
         ApplicationFixture {
             terminate,
-            scheduled_thread_pool,
+            _scheduled_thread_pool: scheduled_thread_pool,
             application,
         }
     }
@@ -198,7 +194,7 @@ mod application_spec {
         fixture.application.set_mode(Mode::KeyerDiag);
         assert_eq!(fixture.application.got_keyer(), false);
         assert_eq!(fixture.application.got_keyer_diag_rx(), true);
-        let mut keyer = Arc::new(Mutex::new(FakeKeyer::new(vec![])));
+        let keyer = Arc::new(Mutex::new(FakeKeyer::new(vec![])));
         fixture.application.set_keyer(keyer);
         assert_eq!(fixture.application.got_keyer(), true);
         assert_eq!(fixture.application.got_keyer_diag_rx(), true);
@@ -242,7 +238,7 @@ mod application_spec {
         fixture.application.set_mode(Mode::KeyerDiag);
 
         let sent_keying = vec![KeyingEvent::Start(), KeyingEvent::End()];
-        let mut keyer = Arc::new(Mutex::new(FakeKeyer::new(sent_keying.clone())));
+        let keyer = Arc::new(Mutex::new(FakeKeyer::new(sent_keying.clone())));
         assert_that!(keyer.lock().unwrap().got_output_tx(), false);
         let application_keyer = keyer.clone();
         fixture.application.set_keyer(application_keyer);
@@ -278,7 +274,7 @@ mod application_spec {
     pub fn keyer_diag_bus_unwiring(mut fixture: ApplicationFixture) {
         fixture.application.set_mode(Mode::KeyerDiag);
 
-        let mut keyer = Arc::new(Mutex::new(FakeKeyer::new(vec![])));
+        let keyer = Arc::new(Mutex::new(FakeKeyer::new(vec![])));
         let application_keyer = keyer.clone();
         fixture.application.set_keyer(application_keyer);
 

@@ -33,7 +33,7 @@ pub trait BusInput<T> {
 // thread pool, etc..
 pub struct Application {
     terminate_flag: Arc<AtomicBool>,
-    scheduled_thread_pool: Arc<ScheduledThreadPool>,
+    _scheduled_thread_pool: Arc<ScheduledThreadPool>,
     mode: Option<Mode>,
 
     keyer: Option<Arc<Mutex<dyn BusOutput<KeyingEvent>>>>,
@@ -70,7 +70,7 @@ impl Application {
         return self.mode.clone();
     }
 
-    pub fn set_keyer(&mut self, mut keyer: Arc<Mutex<dyn BusOutput<KeyingEvent>>>) {
+    pub fn set_keyer(&mut self, keyer: Arc<Mutex<dyn BusOutput<KeyingEvent>>>) {
         match &self.keying_event_bus {
             None => {
                 panic!("Cannot set a keyer with no keying_event_bus");
@@ -97,7 +97,7 @@ impl Application {
         self.keyer = None;
     }
 
-    pub fn set_tone_generator(&mut self, mut tone_generator: Arc<Mutex<dyn BusInput<KeyingEvent>>>) {
+    pub fn set_tone_generator(&mut self, tone_generator: Arc<Mutex<dyn BusInput<KeyingEvent>>>) {
         match &self.tone_generator_keying_event_rx {
             None => {
                 panic!("Cannot set a tone_generator with no tone_generator_keying_event_rx");
@@ -131,7 +131,7 @@ impl Application {
 
 
 
-    pub fn set_keyer_diag(&mut self, mut keyer_diag: Arc<Mutex<dyn BusInput<KeyingEvent>>>) {
+    pub fn set_keyer_diag(&mut self, keyer_diag: Arc<Mutex<dyn BusInput<KeyingEvent>>>) {
         match &self.keyer_diag_keying_event_rx {
             None => {
                 panic!("Cannot set a keyer_diag with no keyer_diag_keying_event_rx");
@@ -164,7 +164,7 @@ impl Application {
     }
 
 
-    pub fn set_source_encoder(&mut self, mut source_encoder: Arc<Mutex<dyn BusInput<KeyingEvent>>>) {
+    pub fn set_source_encoder(&mut self, source_encoder: Arc<Mutex<dyn BusInput<KeyingEvent>>>) {
         match &self.source_encoder_keying_event_rx {
             None => {
                 panic!("Cannot set a source_encoder with no source_encoder_keying_event_rx");
@@ -198,7 +198,7 @@ impl Application {
 
         Self {
             terminate_flag,
-            scheduled_thread_pool,
+            _scheduled_thread_pool: scheduled_thread_pool,
             mode: None,
 
             keyer: None,
