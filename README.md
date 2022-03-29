@@ -1,10 +1,10 @@
-digimorse
-=========
-There's currently not much to see here, except the idea and some very early
-code... there's no graphical user interface, it's all command line tools and
-experiments... perhaps come back later?
+# digimorse
 
+## Project Status
+Project started September 2020. Currently in its early development / feasibility study phase. There's no graphical
+user interface at the moment - the system is configured and used via a command line interface.
 
+# Overview
 This is an EXPERIMENT in taking Morse code, in real-time, encoding it, wrapping
 it in modern error-detection/correction codes, and modulating it out to a
 connected amateur radio transceiver as a narrow-bandwidth signal. 
@@ -48,8 +48,8 @@ What you'll find different to usual CW:
 * So there's not a rapid-fire switching of conversation.
  
 What do I need to try it?
-* A fairly modern computer running Windows 10, macOS 10.15ish (Catalina,
-  possibly Big Sur), or Ubuntu 16.xx LTS, 18.xx LTS, 20.xx LTS.
+* A fairly modern computer running Windows 10, macOS 10.15ish (High Sierra to
+  Big Sur), or Ubuntu 16.xx LTS, 18.xx LTS, 20.xx LTS.
 * Sorry no Raspberry Pi yet - definitely considering a build for this.
 * An interface between the computer sound system and your amateur radio
   transceiver, e.g. Tigertronics SignaLink USB.
@@ -59,53 +59,13 @@ What do I need to try it?
   Arduino Nano-based Morse key/paddle <-> USB Serial interface and simple keyer.
 
 
-(C) 2020-2022 Matt J. Gumbley
-matt.gumbley@devzendo.org
-@mattgumbley @devzendo
-http://devzendo.github.io/digimorse
 
-
-Status
-------
-Project started September 2020. Status: initial investigations, feasiblilty,
-thoughts, working on demo/test facilities, reducing risk.
-
-What can it do at the moment?
-
-You can connect a straight Morse key to an Arduino running the digimorse-arduino-keyer,
-and key a message. This emits keying timing information via a compact binary protocol
-on a USB-Serial link. This is received and decoded by digimorse, and will generate a
-sidetone as you operate the key. There's also a loopback demo of the source encoder/
-decoder. That's all for now. It's all text-mode running in
-a console, no GUI yet. You can query the audio devices, and set them in configuration.
-Configuration is stored in a TOML file that you have to hand-edit.
-
-Currently: Finishing the source encoder loopback demo.
-
-In active development:
-* Building the keyer - straight key is done; paddles are out of scope for now.
-* Reading the keyer output via the USB Serial link, and determining duration of
-  on-off key timing from the USB stream. Done.
-* Sidetone generation. Done.
-* Source encoding and decoding. All keying-related encoding done; no metadata
-  (callsign, locator, power) yet.
-* Currently working on getting an end-to-end loopback demo working with keying
-  being encoded, pushed through a delay, then decoded and played back. No error
-  detection or correction, or modulation/demodulation yet. 
- 
-All development is in Rust, which is a new, difficult, but interesting
-language. It would be easier in C++, and quicker - but probably less provably
-correct, and portability would be painful.
-
-
-Downloads
----------
+## Downloads
 There aren't any yet. There will be for the first release, but that won't be any
 time soon. You'd have to install build tools and build it yourself...
 
 
-Roadmap
--------
+## Roadmap
 First release:
 * Reads keyer output, measures timings, source-encodes these, and mixes with
   callsign and locator information, adds error detection/correction with a
@@ -121,8 +81,7 @@ Second release:
 * Who knows?
 
 
-Release Notes
--------------
+## Release Notes
 0.0.1 First Release (work in progress)
 * Created repository! Wrote the above... made notes... learning about
   information theory, error control coding, modulation/demodulation, the Fourier
@@ -130,8 +89,7 @@ Release Notes
   GUI and audio, built the Arduino keyer.
 
  
-Configuring and running Digimorse
----------------------------------
+## Configuring and running Digimorse
 The GUI is not present yet; all configuration needs to be done via the command line. To run Digimorse, use the
 terminal or Command Prompt, and run the 'digimorse' program. There are several options and modes in which you can run
 the software. Add the '--help' option to the command line to show the full details.
@@ -182,17 +140,23 @@ Currently there's no easy way to show which device this is. Basically, plug it i
 
 
 
-Configuration File
-------------------
+## Configuration File
 * macOS: /Users/<your username>/Library/ApplicationData/digimorse/digimorse.toml
 * Linux: /home/<your username>/.digimorse/digimorse.toml
 * Windows: C:\Users\<your username>\AppData\Roaming\digimorse.toml
 
+# Development
 
+## Current activities
+For information on current development activities, please see the [TODO file](TODO.md) file.
 
-Source directory structure
---------------------------
-The source (in the Rust programming language) is split into the following directories:
+## Technology
+All development is in Rust, which is a new, difficult, but interesting
+language. It would be easier in C++, and quicker - but probably less provably
+correct, and portability would be painful.
+
+## Source directory structure
+The source is split into the following directories:
 
 src/lib.rs - main body of code split into various modules.
 
@@ -200,16 +164,13 @@ src/digimorse.bin/main.rs - the main application.
 
 docs - documentation, rough notes, references.
 
-
-Building
---------
+## Building
 You need Rust 1.47.0 or greater.
 
 * cargo test
 * cargo build --release
 
-Building on macOS
------------------
+### Building on macOS
 Since digimorse uses fltk-sys, which compiles its C++ during build, and this requires the macOS SDK, you may find you
 need to create a symbolic link to fix this build issue:
 
@@ -234,9 +195,14 @@ lrwxr-xr-x  1 root  wheel   10 Mar  8 07:44 MacOSX12.0.sdk -> MacOSX.sdk
 lrwxr-xr-x  1 root  wheel   10 Mar  7 10:03 MacOSX12.1.sdk -> MacOSX.sdk
 ```
 
-Documentation
--------------
-Please see the 'docs' directory. The main document is 'The digimorse Communications Protocol'.
+### Building on Windows
+.. not yet ..
+
+### Building on Linux
+.. not yet ..
+
+# Documentation
+Please see the 'docs' directory. The main document is ['The digimorse Communications Protocol'](docs/the-digimorse-communications-protocol.pdf).
 
 There are various other rough notes in ASCII, RTF and OmmWriter format.
 
@@ -247,14 +213,9 @@ https://github.com/Tufte-LaTeX/tufte-latex. I use the `tufte-handout` class.
 To build the documentation, a simple 'make' should suffice - this produces the relevant PDFs.
 
 
-License
--------
-This code is released under the Apache 2.0 License: http://www.apache.org/licenses/LICENSE-2.0.html.
-(C) 2020-2021 Matt Gumbley, DevZendo.org
 
 
-Acknowledgements
-----------------
+# Acknowledgements
 Bart Massey's PortAudio examples at https://github.com/BartMassey/portaudio-rs-demos
 
 Shepmaster's panic_after test helper routine at https://github.com/rust-lang/rfcs/issues/2798
@@ -267,9 +228,18 @@ Martin Nawrath for the Direct Digital Synthesis sine wave generator ported to Ru
 See http://interface.khm.de/index.php/lab/interfaces-advanced/arduino-dds-sinewave-generator/.
 
 
-Bibliography
-------------
+# Bibliography
 TBC
 
 
 
+# License, Copyright & Contact info
+This code is released under the Apache 2.0 License: http://www.apache.org/licenses/LICENSE-2.0.html.
+
+(C) 2020-2022 Matt J. Gumbley
+
+matt.gumbley@devzendo.org
+
+@mattgumbley @devzendo
+
+http://devzendo.github.io/digimorse
