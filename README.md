@@ -1,5 +1,19 @@
 # digimorse
 
+## What is this?
+Morse code was the first means by which messages were sent by Marconi, as he performed his experiments
+in the 1890's. This was achieved using a crude *spark gap* transmitter. In 1913, Edwin Armstrong
+and Alexander Meissner used thermionic valves to build a *continuous wave oscillator* which
+refined the transmission mechanism. This form of transmission, known by the acronym CW, was widely used
+for military, maritime and commercial telegraphy, gradually being replaced by more modern systems of
+communication. Its last maritime use was in 1999.
+
+It is still, however, used widely by amateur radio operators, such as myself. Although the electronic
+circuits used have been refined as far as they can be, the essential *continuous wave* transmission mechanism
+has remained unchanged.
+
+This project is an attempt to modernise that.
+
 ## Project Status
 Project started September 2020. Currently in its early development / feasibility study phase. There's no graphical
 user interface at the moment - the system is configured and used via a command line interface.
