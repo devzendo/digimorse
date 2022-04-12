@@ -14,6 +14,7 @@ mod application_spec {
     use syncbox::ScheduledThreadPool;
 
     use crate::libs::application::application::{Application, BusInput, BusOutput, Mode};
+    use crate::libs::audio::tone_generator::{KeyingEventToneChannel, ToneChannel};
     use crate::libs::keyer_io::keyer_io::KeyingEvent;
     use crate::libs::util::test_util;
 
@@ -87,7 +88,7 @@ mod application_spec {
             self.bus.is_some()
         }
 
-        fn start(&mut self) {
+        fn start_sending(&mut self) {
             match self.bus.clone() {
                 None => {
                     warn!("No bus set in FakeKeyer");
@@ -104,25 +105,25 @@ mod application_spec {
         }
     }
 
-    struct StubBusReader {
-        keying: Vec<KeyingEvent>,
-        bus_reader: Option<Arc<Mutex<BusReader<KeyingEvent>>>>,
+    struct StubBusReader<T> {
+        content: Vec<T>,
+        bus_reader: Option<Arc<Mutex<BusReader<T>>>>,
     }
 
-    impl BusInput<KeyingEvent> for StubBusReader {
+    impl<T: Clone + Sync> BusInput<T> for StubBusReader<T> {
         fn clear_input_rx(&mut self) {
             self.bus_reader = None;
         }
 
-        fn set_input_rx(&mut self, input_tx: Arc<Mutex<BusReader<KeyingEvent>>>) {
+        fn set_input_rx(&mut self, input_tx: Arc<Mutex<BusReader<T>>>) {
             self.bus_reader = Some(input_tx);
         }
     }
 
-    impl StubBusReader {
+    impl<T: Clone + Sync> StubBusReader<T> {
         fn new() -> Self {
             Self {
-                keying: vec![],
+                content: vec![],
                 bus_reader: None
             }
         }
@@ -131,7 +132,7 @@ mod application_spec {
             self.bus_reader.is_some()
         }
 
-        fn read(&mut self) -> Vec<KeyingEvent> {
+        fn read(&mut self) -> Vec<T> {
             match &self.bus_reader {
                 None => {
                     panic!("No bus reader set in StubBusReader");
@@ -140,7 +141,7 @@ mod application_spec {
                     loop {
                         match bus_reader.clone().lock().unwrap().recv_timeout(Duration::from_millis(500)) {
                             Ok(ke) => {
-                                self.keying.push(ke);
+                                self.content.push(ke);
                             }
                             Err(_) => {
                                 info!("StubBusReader timed out on read");
@@ -151,7 +152,7 @@ mod application_spec {
                 }
             }
             info!("Out of StubBusReader read");
-            self.keying.clone()
+            self.content.clone()
         }
     }
 
@@ -238,11 +239,11 @@ mod application_spec {
         fixture.application.set_mode(Mode::KeyerDiag);
 
         let sent_keying = vec![KeyingEvent::Start(), KeyingEvent::End()];
-        let keyer = Arc::new(Mutex::new(FakeKeyer::new(sent_keying.clone())));
-        assert_that!(keyer.lock().unwrap().got_output_tx(), false);
-        let application_keyer = keyer.clone();
-        fixture.application.set_keyer(application_keyer);
-        assert_that!(keyer.lock().unwrap().got_output_tx(), true);
+        let fake_keyer = Arc::new(Mutex::new(FakeKeyer::new(sent_keying.clone())));
+        assert_that!(fake_keyer.lock().unwrap().got_output_tx(), false);
+        let application_fake_keyer = fake_keyer.clone();
+        fixture.application.set_keyer(application_fake_keyer);
+        assert_that!(fake_keyer.lock().unwrap().got_output_tx(), true);
 
         let tone_generator = Arc::new(Mutex::new(StubBusReader::new()));
         assert_that!(tone_generator.lock().unwrap().got_input_rx(), false);
@@ -257,7 +258,7 @@ mod application_spec {
         assert_that!(keyer_diag.lock().unwrap().got_input_rx(), true);
 
 
-        keyer.lock().unwrap().start();
+        fake_keyer.lock().unwrap().start_sending();
         info!("Test sleeping");
         test_util::wait_5_ms(); // give things time to start
         info!("Test out of sleep");
@@ -266,7 +267,11 @@ mod application_spec {
         let tone_generator_received_keying = tone_generator.lock().unwrap().read();
         let keyer_diag_received_keying = keyer_diag.lock().unwrap().read();
 
-        assert_eq!(tone_generator_received_keying, sent_keying.clone());
+        let expected_tone_generator_received_keying = vec![
+            KeyingEventToneChannel { keying_event: KeyingEvent::Start(), tone_channel: 0 as ToneChannel},
+            KeyingEventToneChannel { keying_event: KeyingEvent::End(), tone_channel: 0 as ToneChannel} ];
+
+        assert_eq!(tone_generator_received_keying, expected_tone_generator_received_keying);
         assert_eq!(keyer_diag_received_keying, sent_keying.clone());
     }
 
@@ -274,9 +279,9 @@ mod application_spec {
     pub fn keyer_diag_bus_unwiring(mut fixture: ApplicationFixture) {
         fixture.application.set_mode(Mode::KeyerDiag);
 
-        let keyer = Arc::new(Mutex::new(FakeKeyer::new(vec![])));
-        let application_keyer = keyer.clone();
-        fixture.application.set_keyer(application_keyer);
+        let fake_keyer = Arc::new(Mutex::new(FakeKeyer::new(vec![])));
+        let application_fake_keyer = fake_keyer.clone();
+        fixture.application.set_keyer(application_fake_keyer);
 
         let tone_generator = Arc::new(Mutex::new(StubBusReader::new()));
         let application_tone_generator = tone_generator.clone();
@@ -287,13 +292,13 @@ mod application_spec {
         fixture.application.set_keyer_diag(application_keyer_diag);
 
 
-        keyer.lock().unwrap().start();
+        fake_keyer.lock().unwrap().start_sending();
         info!("Test sleeping");
         test_util::wait_5_ms(); // give things time to start
         info!("Test out of sleep");
 
         fixture.application.clear_keyer();
-        assert_eq!(keyer.lock().unwrap().got_output_tx(), false);
+        assert_eq!(fake_keyer.lock().unwrap().got_output_tx(), false);
         assert_eq!(fixture.application.got_keyer(), false);
         assert_eq!(fixture.application.got_keyer_diag_rx(), true);
 

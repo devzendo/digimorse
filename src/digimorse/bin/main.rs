@@ -144,6 +144,9 @@ fn run(arguments: ArgMatches, mode: Mode) -> Result<i32, Box<dyn Error>> {
     // From here, we need wiring, so, an Application that handles the 'wiring loom' for the given
     // mode makes sense. The major components (depending on the mode) are instantiated, and set in
     // the Application, which wires them up correctly.
+    // TODO the various diags are being moved to manually-invoked tests and they will not be
+    // invokable from the command line. This main will have config-setup commands, and the main
+    // proper.
 
     let terminate = Arc::new(AtomicBool::new(false));
     let scheduled_thread_pool = Arc::new(syncbox::ScheduledThreadPool::single_thread());
@@ -165,7 +168,7 @@ fn run(arguments: ArgMatches, mode: Mode) -> Result<i32, Box<dyn Error>> {
         Some(keying_event_tx.add_rx())
     };
 
-    let mut keyer = ArduinoKeyer::new(Box::new(serial_io), terminate.clone());
+    let mut keyer = ArduinoKeyer::new(Box::new(serial_io), application.terminate_flag());
     let keyer_keying_event_tx = Arc::new(Mutex::new(keying_event_tx));
     keyer.set_output_tx(keyer_keying_event_tx);
     // TODO ^^ The Application will eventually do this.
@@ -173,7 +176,7 @@ fn run(arguments: ArgMatches, mode: Mode) -> Result<i32, Box<dyn Error>> {
     let keyer_speed: KeyerSpeed = config.get_wpm() as KeyerSpeed;
     keyer.set_speed(keyer_speed)?;
 
-    let ctrlc_arc_terminate = terminate.clone();
+    let ctrlc_arc_terminate = application.terminate_flag();
     ctrlc::set_handler(move || {
         info!("Setting terminate flag...");
         ctrlc_arc_terminate.store(true, Ordering::SeqCst);
@@ -189,7 +192,7 @@ fn run(arguments: ArgMatches, mode: Mode) -> Result<i32, Box<dyn Error>> {
 
     let transform_bus = TransformBus::new(tone_generator_keying_event_rx,
                                           arc_mutex_keying_event_tone_channel_tx, add_sidetone_channel_to_keying_event,
-                                          terminate.clone());
+                                          application.terminate_flag());
     let arc_transform_bus = Arc::new(Mutex::new(transform_bus));
     let keying_event_tone_channel_rx = arc_transform_bus.lock().unwrap().add_reader();
 
@@ -197,14 +200,15 @@ fn run(arguments: ArgMatches, mode: Mode) -> Result<i32, Box<dyn Error>> {
     let out_dev_string = config.get_audio_out_device();
     let out_dev_str = out_dev_string.as_str();
     let output_settings = open_output_audio_device(&pa, out_dev_str)?;
+    // TODO the tone generator will have a set_input_rx when the channel is moved out of its constructor.
     let mut tone_generator = ToneGenerator::new(config.get_sidetone_frequency(),
-                                                keying_event_tone_channel_rx, terminate.clone());
+                                                keying_event_tone_channel_rx, application.terminate_flag());
     tone_generator.start_callback(&pa, output_settings)?; // also initialises DDS for sidetone.
     let playback_arc_mutex_tone_generator = Arc::new(Mutex::new(tone_generator));
 
     if mode == Mode::KeyerDiag {
         info!("Initialising KeyerDiag mode");
-        keyer_diag(keyer_diag_keying_event_rx.unwrap(), terminate.clone())?;
+        keyer_diag(keyer_diag_keying_event_rx.unwrap(), application.terminate_flag())?;
         keyer.terminate();
         mem::drop(playback_arc_mutex_tone_generator);
         pa.terminate()?;
@@ -222,7 +226,7 @@ fn run(arguments: ArgMatches, mode: Mode) -> Result<i32, Box<dyn Error>> {
     let mut source_encoder_tx = Bus::new(16);
     let source_encoder_rx = source_encoder_tx.add_rx();
     let mut source_encoder = SourceEncoder::new(source_encoder_keying_event_rx.unwrap(),
-                                                source_encoder_tx, terminate.clone(),
+                                                source_encoder_tx, application.terminate_flag(),
                                                 SOURCE_ENCODER_BLOCK_SIZE_IN_BITS);
     source_encoder.set_keyer_speed(config.get_wpm() as KeyerSpeed);
 
@@ -230,7 +234,7 @@ fn run(arguments: ArgMatches, mode: Mode) -> Result<i32, Box<dyn Error>> {
 
     if mode == Mode::SourceEncoderDiag {
         info!("Initialising SourceEncoderDiag mode");
-        source_encoder_diag(source_decoder, source_encoder_rx, terminate.clone(),
+        source_encoder_diag(source_decoder, source_encoder_rx, application.terminate_flag(),
                             playback_arc_mutex_tone_generator.clone(),
                             playback_arc_mutex_keying_event_tone_channel.unwrap(),
                             scheduled_thread_pool, config.get_sidetone_frequency() + 50)?;
