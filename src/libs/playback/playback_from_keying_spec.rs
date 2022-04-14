@@ -14,6 +14,7 @@ mod playback_from_keying_spec {
     use portaudio::PortAudio;
     use rstest::*;
     use syncbox::{ScheduledThreadPool, Task};
+    use crate::libs::application::application::BusInput;
     use crate::libs::audio::audio_devices::open_output_audio_device;
     use crate::libs::audio::tone_generator::{KeyingEventToneChannel, ToneGenerator};
     use crate::libs::keyer_io::keyer_io::{KeyerEdgeDurationMs, KeyerSpeed, KeyingEvent, KeyingTimedEvent};
@@ -58,8 +59,11 @@ mod playback_from_keying_spec {
         let dev = "Built-in Output"; // "MacBook Pro Speakers";
         let sidetone_frequency = 600 as u16;
         info!("Instantiating tone generator...");
+        let tone_generator_keying_event_tone_channel_rx = Arc::new(Mutex::new(keying_event_tone_channel_rx));
         let mut tone_generator = ToneGenerator::new(sidetone_frequency,
-                                                    keying_event_tone_channel_rx, terminate.clone());
+                                                    terminate.clone());
+        tone_generator.set_input_rx(tone_generator_keying_event_tone_channel_rx);
+
         info!("Setting audio freqency...");
         tone_generator.set_audio_frequency(0, sidetone_frequency);
 

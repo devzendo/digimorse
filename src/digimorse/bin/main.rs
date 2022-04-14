@@ -26,7 +26,7 @@ use bus::{Bus, BusReader};
 use csv::Writer;
 use portaudio::PortAudio;
 use syncbox::ScheduledThreadPool;
-use digimorse::libs::application::application::{Application, BusOutput, Mode};
+use digimorse::libs::application::application::{Application, BusInput, BusOutput, Mode};
 use digimorse::libs::config_file::config_file::ConfigurationStore;
 use digimorse::libs::audio::audio_devices::{list_audio_devices, output_audio_device_exists, input_audio_device_exists, open_output_audio_device, open_input_audio_device};
 use digimorse::libs::audio::tone_generator::{KeyingEventToneChannel, ToneGenerator};
@@ -202,7 +202,12 @@ fn run(arguments: ArgMatches, mode: Mode) -> Result<i32, Box<dyn Error>> {
     let output_settings = open_output_audio_device(&pa, out_dev_str)?;
     // TODO the tone generator will have a set_input_rx when the channel is moved out of its constructor.
     let mut tone_generator = ToneGenerator::new(config.get_sidetone_frequency(),
-                                                keying_event_tone_channel_rx, application.terminate_flag());
+                                                application.terminate_flag());
+    let tone_generator_keying_event_tone_channel_rx = Arc::new(Mutex::new(keying_event_tone_channel_rx));
+    tone_generator.set_input_rx(tone_generator_keying_event_tone_channel_rx);
+    // TODO ^^ The Application will eventually do this.
+
+
     tone_generator.start_callback(&pa, output_settings)?; // also initialises DDS for sidetone.
     let playback_arc_mutex_tone_generator = Arc::new(Mutex::new(tone_generator));
 

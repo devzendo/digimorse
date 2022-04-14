@@ -21,6 +21,7 @@ mod tone_generator_spec {
     use crate::libs::util::test_util;
     use portaudio as pa;
     use portaudio::PortAudio;
+    use crate::libs::application::application::BusInput;
     use crate::libs::conversion::conversion::text_to_keying;
     use crate::libs::conversion::paris::PARIS_KEYING_12WPM;
 
@@ -63,11 +64,15 @@ mod tone_generator_spec {
         let arc_transform_bus = Arc::new(Mutex::new(transform_bus));
         let keying_event_tone_channel_rx = arc_transform_bus.lock().unwrap().add_reader();
 
-        let dev = "Built-in Output";
+        let old_macbook = false;
+        let dev = if old_macbook {"Built-in Output"} else {"MacBook Pro Speakers"};
         let sidetone_frequency = 600 as u16;
         info!("Instantiating tone generator...");
+        let tone_generator_keying_event_tone_channel_rx = Arc::new(Mutex::new(keying_event_tone_channel_rx));
         let mut tone_generator = ToneGenerator::new(sidetone_frequency,
-                                                    keying_event_tone_channel_rx, terminate.clone());
+                                                    terminate.clone());
+        tone_generator.set_input_rx(tone_generator_keying_event_tone_channel_rx);
+
         info!("Setting audio freqency...");
         tone_generator.set_audio_frequency(0, sidetone_frequency);
 

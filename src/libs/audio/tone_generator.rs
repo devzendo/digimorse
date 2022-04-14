@@ -11,18 +11,21 @@
 // Thanks to BartMassey's PortAudio-rs examples at https://github.com/BartMassey/portaudio-rs-demos
 
 use core::fmt;
+use std::{mem, thread};
 use std::error::Error;
 use std::fmt::{Debug, Display, Formatter};
-use portaudio::{NonBlocking, Output, OutputStreamSettings, PortAudio, Stream};
-use portaudio as pa;
-use log::{debug, info, warn};
-use crate::libs::keyer_io::keyer_io::KeyingEvent;
-use std::thread::JoinHandle;
 use std::sync::{Arc, Mutex, RwLock};
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::{mem, thread};
+use std::thread::JoinHandle;
 use std::time::Duration;
+
 use bus::BusReader;
+use log::{debug, info, warn};
+use portaudio::{NonBlocking, Output, OutputStreamSettings, PortAudio, Stream};
+use portaudio as pa;
+
+use crate::libs::application::application::BusInput;
+use crate::libs::keyer_io::keyer_io::KeyingEvent;
 
 // The ToneGenerator uses a DDS approach, as found at
 // http://interface.khm.de/index.php/lab/interfaces-advanced/arduino-dds-sinewave-generator/
@@ -99,6 +102,8 @@ pub struct ToneGenerator {
     thread_handle: Option<JoinHandle<()>>,
     stream: Option<Stream<NonBlocking, Output<f32>>>,
     callback_data: Arc<RwLock<Vec<Mutex<CallbackData>>>>,
+    // Shared between thread and ToneGenerator
+    input_rx: Arc<Mutex<Option<Arc<Mutex<BusReader<KeyingEventToneChannel>>>>>>,
 }
 
 #[derive(Clone)]
@@ -111,12 +116,31 @@ pub struct CallbackData {
     enabled: bool,
 }
 
+impl BusInput<KeyingEventToneChannel> for ToneGenerator {
+    fn clear_input_rx(&mut self) {
+        match self.input_rx.lock() {
+            Ok(mut locked) => { *locked = None; }
+            Err(_) => {}
+        }
+    }
+
+    fn set_input_rx(&mut self, input_tx: Arc<Mutex<BusReader<KeyingEventToneChannel>>>) {
+        match self.input_rx.lock() {
+            Ok(mut locked) => { *locked = Some(input_tx); }
+            Err(_) => {}
+        }
+    }
+}
+
 impl ToneGenerator {
     // TODO the sidetone_audio_frequency passed into the constructor sets the callback data, but the
     // timing_word_m isn't set. You have to call set_audio_frequency.
     pub fn new(sidetone_audio_frequency: u16,
-               mut keying_events_with_tone_channels: BusReader<KeyingEventToneChannel>,
                terminate: Arc<AtomicBool>) -> Self {
+        // Share this holder between the ToneGenerator and its thread
+        let input_rx_holder: Arc<Mutex<Option<Arc<Mutex<BusReader<KeyingEventToneChannel>>>>>> = Arc::new(Mutex::new(None));
+        let move_clone_input_rx_holder = input_rx_holder.clone();
+
         info!("Initialising Tone generator");
         let sidetone_callback_data = CallbackData {
             ramping: AmplitudeRamping::Stable,
@@ -130,6 +154,7 @@ impl ToneGenerator {
         let arc_lock_sidetone_callback_data = Arc::new(RwLock::new(vec![Mutex::new(sidetone_callback_data)]));
         let move_clone_sidetone_callback_data = arc_lock_sidetone_callback_data.clone();
         Self {
+            input_rx: input_rx_holder,
             enabled_in_filter_bandpass: true,
             sample_rate: 0, // will be initialised when the callback is initialised
             thread_handle: Some(thread::spawn(move || {
@@ -140,35 +165,44 @@ impl ToneGenerator {
                         break;
                     }
 
-                    match keying_events_with_tone_channels.recv_timeout(Duration::from_millis(50)) {
-                        Ok(keying_event_tone_channel) => {
-                            info!("Tone generator got {:?}", keying_event_tone_channel);
-                            if keying_event_tone_channel.tone_channel >= move_clone_sidetone_callback_data.read().unwrap().len() {
-                                warn!("Incoming tone channel {} not in use", keying_event_tone_channel.tone_channel);
-                            } else {
-                                let callback_datas = move_clone_sidetone_callback_data.read().unwrap();
-                                let mut locked_callback_data =  callback_datas[keying_event_tone_channel.tone_channel].lock().unwrap();
-                                locked_callback_data.ramping = match keying_event_tone_channel.keying_event {
-                                    KeyingEvent::Timed(event) => {
-                                        if event.up {
-                                            AmplitudeRamping::RampingDown
-                                        } else {
-                                            AmplitudeRamping::RampingUp
-                                        }
-                                    }
-                                    KeyingEvent::Start() => {
-                                        AmplitudeRamping::RampingUp
-                                    }
-                                    KeyingEvent::End() => {
-                                        AmplitudeRamping::RampingDown
-                                    }
-                                };
-                                // info!("Set ramping of tone channel {} to {}", keying_event.tone_channel, locked_callback_data.ramping);
-                            }
+                    // Can be updated by the BusInput<KeyingEventToneChannel> above
+                    match move_clone_input_rx_holder.lock().unwrap().as_deref() {
+                        None => {
+                            // Input channel hasn't been set yet
+                            thread::sleep(Duration::from_millis(100));
                         }
-                        Err(_) => {
-                            // could timeout, or be disconnected?
-                            // ignore for now...
+                        Some(input_rx) => {
+                            match input_rx.lock().unwrap().recv_timeout(Duration::from_millis(50)) {
+                                Ok(keying_event_tone_channel) => {
+                                    info!("Tone generator got {:?}", keying_event_tone_channel);
+                                    if keying_event_tone_channel.tone_channel >= move_clone_sidetone_callback_data.read().unwrap().len() {
+                                        warn!("Incoming tone channel {} not in use", keying_event_tone_channel.tone_channel);
+                                    } else {
+                                        let callback_datas = move_clone_sidetone_callback_data.read().unwrap();
+                                        let mut locked_callback_data =  callback_datas[keying_event_tone_channel.tone_channel].lock().unwrap();
+                                        locked_callback_data.ramping = match keying_event_tone_channel.keying_event {
+                                            KeyingEvent::Timed(event) => {
+                                                if event.up {
+                                                    AmplitudeRamping::RampingDown
+                                                } else {
+                                                    AmplitudeRamping::RampingUp
+                                                }
+                                            }
+                                            KeyingEvent::Start() => {
+                                                AmplitudeRamping::RampingUp
+                                            }
+                                            KeyingEvent::End() => {
+                                                AmplitudeRamping::RampingDown
+                                            }
+                                        };
+                                        // info!("Set ramping of tone channel {} to {}", keying_event.tone_channel, locked_callback_data.ramping);
+                                    }
+                                }
+                                Err(_) => {
+                                    // could timeout, or be disconnected?
+                                    // ignore for now...
+                                }
+                            }
                         }
                     }
                 }

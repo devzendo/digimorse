@@ -6,8 +6,9 @@ mod tone_generator_channel_alloc_spec {
     use log::{debug, info};
     use std::env;
     use rstest::*;
-    use std::sync::Arc;
+    use std::sync::{Arc, Mutex};
     use std::sync::atomic::{AtomicBool, Ordering};
+    use crate::libs::application::application::BusInput;
     use crate::libs::audio::tone_generator::{KeyingEventToneChannel, ToneGenerator};
     use crate::libs::util::test_util;
 
@@ -34,8 +35,11 @@ mod tone_generator_channel_alloc_spec {
 
         let sidetone_frequency = 600 as u16;
         info!("Instantiating tone generator...");
-        let tone_generator = ToneGenerator::new(sidetone_frequency,
-                                                    keying_event_tone_channel_rx, terminate.clone());
+        let tone_generator_keying_event_tone_channel_rx = Arc::new(Mutex::new(keying_event_tone_channel_rx));
+        let mut tone_generator = ToneGenerator::new(sidetone_frequency,
+                                                    terminate.clone());
+        tone_generator.set_input_rx(tone_generator_keying_event_tone_channel_rx);
+
         let fixture = ToneGeneratorFixture {
             terminate,
             _keying_event_tone_channel_tx: keying_event_tone_channel_tx,
