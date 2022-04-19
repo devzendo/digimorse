@@ -11,11 +11,11 @@ mod diag_application_spec {
 
     use log::{debug, info};
     use portaudio as pa;
-    use portaudio::PortAudio;
     use rstest::*;
     use syncbox::ScheduledThreadPool;
 
     use crate::libs::application::application::{Application, Mode};
+    use crate::libs::audio::tone_generator::ToneGenerator;
     use crate::libs::config_dir::config_dir;
     use crate::libs::config_file::config_file::ConfigurationStore;
     use crate::libs::keyer_io::arduino_keyer_io::ArduinoKeyer;
@@ -37,7 +37,6 @@ mod diag_application_spec {
         terminate: Arc<AtomicBool>,
         _scheduled_thread_pool: Arc<ScheduledThreadPool>,
         application: Application,
-        _pa: PortAudio,
     }
 
     #[fixture]
@@ -51,12 +50,12 @@ mod diag_application_spec {
         let terminate = Arc::new(AtomicBool::new(false));
         let scheduled_thread_pool = Arc::new(syncbox::ScheduledThreadPool::single_thread());
 
-        let application = Application::new(terminate.clone(), scheduled_thread_pool.clone());
-
         let pa = pa::PortAudio::new();
         if pa.is_err() {
             panic!("Portaudio setup failure: {:?}", pa);
         }
+
+        let application = Application::new(terminate.clone(), scheduled_thread_pool.clone(), pa.unwrap());
 
         info!("Fixture setup sleeping");
         test_util::wait_5_ms(); // give things time to start
@@ -67,7 +66,6 @@ mod diag_application_spec {
             terminate,
             _scheduled_thread_pool: scheduled_thread_pool,
             application,
-            _pa: pa.unwrap(),
         }
     }
 
@@ -96,6 +94,35 @@ mod diag_application_spec {
         application.set_keyer(Arc::new(Mutex::new(keyer)));
     }
 
+    fn set_tone_generator(_config: &mut ConfigurationStore, application: &mut Application) {
+        info!("Setting up tone generator");
+        let old_macbook = false;
+        let out_dev_str = if old_macbook {"Built-in Output"} else {"MacBook Pro Speakers"};
+        let output_settings = application.open_output_audio_device(out_dev_str);
+        match output_settings {
+            Ok(_) => {}
+            Err(err) => {
+                panic!("Can't obtain output settings for {}: {}", out_dev_str, err);
+            }
+        }
+
+        let sidetone_frequency = 600 as u16;
+        // let tone_generator_keying_event_tone_channel_rx = Arc::new(Mutex::new(keying_event_tone_channel_rx));
+        let mut tone_generator = ToneGenerator::new(sidetone_frequency,
+                                                    application.terminate_flag());
+
+        info!("Setting audio frequency...");
+        tone_generator.set_audio_frequency(0, sidetone_frequency);
+
+        match tone_generator.start_callback(application.pa_ref(), output_settings.unwrap()) { // also initialises DDS for sidetone.
+            Ok(_) => {}
+            Err(err) => {
+                panic!("Can't initialise tone generator callback: {}", err);
+            }
+        }
+        application.set_tone_generator(Arc::new(Mutex::new(tone_generator)));
+    }
+
     impl Drop for DiagApplicationFixture {
         fn drop(&mut self) {
             debug!("ApplicationFixture setting terminate flag...");
@@ -112,8 +139,9 @@ mod diag_application_spec {
         debug!("start mode_keyer_diag");
         fixture.application.set_mode(Mode::KeyerDiag);
         set_keyer(&mut fixture.config, &mut fixture.application);
+        set_tone_generator(&mut fixture.config, &mut fixture.application);
 
-        // TODO add the tone generator and extracted keyer diag objects.
+        // TODO add the extracted keyer diag object.
         debug!("end mode_keyer_diag");
     }
 }

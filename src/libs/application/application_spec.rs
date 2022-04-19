@@ -10,6 +10,7 @@ mod application_spec {
     use bus::{Bus, BusReader};
     use hamcrest2::prelude::*;
     use log::{debug, info, warn};
+    use portaudio as pa;
     use rstest::*;
     use syncbox::ScheduledThreadPool;
 
@@ -38,7 +39,12 @@ mod application_spec {
         let terminate = Arc::new(AtomicBool::new(false));
         let scheduled_thread_pool = Arc::new(syncbox::ScheduledThreadPool::single_thread());
 
-        let application = Application::new(terminate.clone(), scheduled_thread_pool.clone());
+        let pa = pa::PortAudio::new();
+        if pa.is_err() {
+            panic!("Portaudio setup failure: {:?}", pa);
+        }
+
+        let application = Application::new(terminate.clone(), scheduled_thread_pool.clone(), pa.unwrap());
 
         info!("Fixture setup sleeping");
         test_util::wait_5_ms(); // give things time to start
@@ -158,6 +164,7 @@ mod application_spec {
 
 
     #[rstest]
+    #[serial]
     pub fn termination(mut fixture: ApplicationFixture) {
         assert_eq!(fixture.application.terminated(), false);
         test_util::wait_5_ms();
@@ -168,6 +175,7 @@ mod application_spec {
     }
 
     #[rstest]
+    #[serial]
     pub fn initial_mode(fixture: ApplicationFixture) {
         assert_that!(fixture.application.get_mode(), none());
         assert_eq!(fixture.application.got_keyer(), false);
@@ -179,6 +187,7 @@ mod application_spec {
     }
 
     #[rstest]
+    #[serial]
     pub fn mode_keyer_diag(mut fixture: ApplicationFixture) {
         fixture.application.set_mode(Mode::KeyerDiag);
         assert_that!(fixture.application.get_mode(), has(Mode::KeyerDiag));
@@ -191,6 +200,7 @@ mod application_spec {
     }
 
     #[rstest]
+    #[serial]
     pub fn set_clear_keyer(mut fixture: ApplicationFixture) {
         fixture.application.set_mode(Mode::KeyerDiag);
         assert_eq!(fixture.application.got_keyer(), false);
@@ -205,6 +215,7 @@ mod application_spec {
     }
 
     #[rstest]
+    #[serial]
     pub fn set_clear_tone_generator(mut fixture: ApplicationFixture) {
         fixture.application.set_mode(Mode::KeyerDiag);
         assert_eq!(fixture.application.got_tone_generator(), false);
@@ -219,6 +230,7 @@ mod application_spec {
     }
 
     #[rstest]
+    #[serial]
     pub fn set_clear_keyer_diag(mut fixture: ApplicationFixture) {
         fixture.application.set_mode(Mode::KeyerDiag);
         assert_eq!(fixture.application.got_keyer_diag(), false);
@@ -233,6 +245,7 @@ mod application_spec {
     }
 
     #[rstest]
+    #[serial]
     // No need for the FakeKeyer and StubBusReader to have their own threads, so long as no more
     // than 16 elements are placed onto the bus.
     pub fn keyer_diag_bus_wiring(mut fixture: ApplicationFixture) {
@@ -276,6 +289,7 @@ mod application_spec {
     }
 
     #[rstest]
+    #[serial]
     pub fn keyer_diag_bus_unwiring(mut fixture: ApplicationFixture) {
         fixture.application.set_mode(Mode::KeyerDiag);
 

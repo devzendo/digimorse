@@ -1,14 +1,20 @@
+extern crate portaudio;
+
 use std::sync::{Arc, Mutex};
 use std::sync::atomic::AtomicBool;
+use std::borrow::Borrow;
+use std::error::Error;
 
 use bus::{Bus, BusReader};
 use clap::arg_enum;
 use log::{debug, info};
+use portaudio::{InputStreamSettings, OutputStreamSettings, PortAudio};
 use syncbox::ScheduledThreadPool;
 
 use crate::libs::audio::tone_generator::KeyingEventToneChannel;
 use crate::libs::keyer_io::keyer_io::KeyingEvent;
 use crate::libs::transform_bus::transform_bus::TransformBus;
+use crate::libs::audio::audio_devices::{open_input_audio_device, open_output_audio_device};
 
 arg_enum! {
     #[derive(Debug, Clone, Copy, PartialEq)]
@@ -42,6 +48,7 @@ fn add_sidetone_channel_to_keying_event(keying_event: KeyingEvent) -> KeyingEven
 pub struct Application {
     terminate_flag: Arc<AtomicBool>,
     _scheduled_thread_pool: Arc<ScheduledThreadPool>,
+    pa: PortAudio,
     mode: Option<Mode>,
 
     keyer: Option<Arc<Mutex<dyn BusOutput<KeyingEvent>>>>,
@@ -223,17 +230,33 @@ impl Application {
     pub fn got_source_encoder_rx(&self) -> bool {
         self.source_encoder_keying_event_rx.is_some()
     }
+
+
+    // PortAudio functions...
+    pub fn open_output_audio_device(&self, out_dev_str: &str) -> Result<OutputStreamSettings<f32>, Box<dyn Error>> {
+        open_output_audio_device(&self.pa, out_dev_str)
+    }
+
+    pub fn open_input_audio_device(&self, in_dev_str: &str) -> Result<InputStreamSettings<f32>, Box<dyn Error>> {
+        open_input_audio_device(&self.pa, in_dev_str)
+    }
+
+    pub fn pa_ref(&self) -> &PortAudio {
+        self.pa.borrow()
+    }
 }
 
 impl Application {
     pub fn new(terminate_flag: Arc<AtomicBool>,
                scheduled_thread_pool: Arc<ScheduledThreadPool>,
+               pa: PortAudio,
     ) -> Self {
         debug!("Constructing Application");
 
         Self {
             terminate_flag,
             _scheduled_thread_pool: scheduled_thread_pool,
+            pa,
             mode: None,
 
             keyer: None,

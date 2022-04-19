@@ -151,7 +151,7 @@ fn run(arguments: ArgMatches, mode: Mode) -> Result<i32, Box<dyn Error>> {
     let terminate = Arc::new(AtomicBool::new(false));
     let scheduled_thread_pool = Arc::new(syncbox::ScheduledThreadPool::single_thread());
     info!("Initialising Application...");
-    let mut application = Application::new(terminate.clone(), scheduled_thread_pool.clone());
+    let mut application = Application::new(terminate.clone(), scheduled_thread_pool.clone(), pa);
     application.set_mode(mode.clone());
 
     info!("Initialising keyer...");
@@ -199,7 +199,7 @@ fn run(arguments: ArgMatches, mode: Mode) -> Result<i32, Box<dyn Error>> {
     info!("Initialising audio callback...");
     let out_dev_string = config.get_audio_out_device();
     let out_dev_str = out_dev_string.as_str();
-    let output_settings = open_output_audio_device(&pa, out_dev_str)?;
+    let output_settings = application.open_output_audio_device(out_dev_str)?;
     // TODO the tone generator will have a set_input_rx when the channel is moved out of its constructor.
     let mut tone_generator = ToneGenerator::new(config.get_sidetone_frequency(),
                                                 application.terminate_flag());
@@ -208,7 +208,7 @@ fn run(arguments: ArgMatches, mode: Mode) -> Result<i32, Box<dyn Error>> {
     // TODO ^^ The Application will eventually do this.
 
 
-    tone_generator.start_callback(&pa, output_settings)?; // also initialises DDS for sidetone.
+    tone_generator.start_callback(application.pa_ref(), output_settings)?; // also initialises DDS for sidetone.
     let playback_arc_mutex_tone_generator = Arc::new(Mutex::new(tone_generator));
 
     if mode == Mode::KeyerDiag {
@@ -216,7 +216,6 @@ fn run(arguments: ArgMatches, mode: Mode) -> Result<i32, Box<dyn Error>> {
         keyer_diag(keyer_diag_keying_event_rx.unwrap(), application.terminate_flag())?;
         keyer.terminate();
         mem::drop(playback_arc_mutex_tone_generator);
-        pa.terminate()?;
         thread::sleep(Duration::from_secs(1));
         info!("Finishing KeyerDiag mode");
         return Ok(0);
@@ -246,7 +245,6 @@ fn run(arguments: ArgMatches, mode: Mode) -> Result<i32, Box<dyn Error>> {
         source_encoder.terminate();
         keyer.terminate();
         mem::drop(playback_arc_mutex_tone_generator);
-        pa.terminate()?;
         thread::sleep(Duration::from_secs(1));
         info!("Finishing SourceEncoderDiag mode");
         return Ok(0);
@@ -254,11 +252,11 @@ fn run(arguments: ArgMatches, mode: Mode) -> Result<i32, Box<dyn Error>> {
 
     let rig_in_dev_string = config.get_rig_in_device();
     let rig_in_dev_str = rig_in_dev_string.as_str();
-    let _rig_input_settings = open_input_audio_device(&pa, rig_in_dev_str);
+    let _rig_input_settings = application.open_input_audio_device(rig_in_dev_str);
 
     let rig_out_dev_string = config.get_rig_out_device();
     let rig_out_dev_str = rig_out_dev_string.as_str();
-    let _rig_output_settings = open_output_audio_device(&pa, rig_out_dev_str);
+    let _rig_output_settings = application.open_input_audio_device(rig_out_dev_str);
 
 
     Ok(0)
