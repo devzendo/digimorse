@@ -176,13 +176,6 @@ fn run(arguments: ArgMatches, mode: Mode) -> Result<i32, Box<dyn Error>> {
     let keyer_speed: KeyerSpeed = config.get_wpm() as KeyerSpeed;
     keyer.set_speed(keyer_speed)?;
 
-    let ctrlc_arc_terminate = application.terminate_flag();
-    ctrlc::set_handler(move || {
-        info!("Setting terminate flag...");
-        ctrlc_arc_terminate.store(true, Ordering::SeqCst);
-        info!("... terminate flag set");
-    }).expect("Error setting Ctrl-C handler");
-
     let arc_mutex_keying_event_tone_channel_tx = Arc::new(Mutex::new(Bus::new(16)));
     let playback_arc_mutex_keying_event_tone_channel: Option<Arc<Mutex<Bus<KeyingEventToneChannel>>>> = if mode == Mode::SourceEncoderDiag {
         Some(arc_mutex_keying_event_tone_channel_tx.clone())
