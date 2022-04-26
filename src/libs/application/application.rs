@@ -1,7 +1,7 @@
 extern crate portaudio;
 
 use std::sync::{Arc, Mutex};
-use std::sync::atomic::AtomicBool;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::borrow::Borrow;
 use std::error::Error;
 
@@ -252,6 +252,13 @@ impl Application {
                pa: PortAudio,
     ) -> Self {
         debug!("Constructing Application");
+
+        let ctrlc_arc_terminate = terminate_flag.clone();
+        ctrlc::set_handler(move || {
+            info!("Setting terminate flag...");
+            ctrlc_arc_terminate.store(true, Ordering::SeqCst);
+            info!("... terminate flag set");
+        }).expect("Error setting Ctrl-C handler");
 
         Self {
             terminate_flag,
