@@ -4,6 +4,7 @@ extern crate portaudio;
 
 use core::mem;
 use clap::{App, Arg, ArgMatches};
+use clap::arg_enum;
 use fltk::app;
 use log::{debug, error, info, warn};
 use portaudio as pa;
@@ -26,9 +27,9 @@ use bus::{Bus, BusReader};
 use csv::Writer;
 use portaudio::PortAudio;
 use syncbox::ScheduledThreadPool;
-use digimorse::libs::application::application::{Application, BusInput, BusOutput, Mode};
+use digimorse::libs::application::application::{Application, ApplicationMode, BusInput};
 use digimorse::libs::config_file::config_file::ConfigurationStore;
-use digimorse::libs::audio::audio_devices::{list_audio_devices, output_audio_device_exists, input_audio_device_exists, open_output_audio_device, open_input_audio_device};
+use digimorse::libs::audio::audio_devices::{list_audio_devices, output_audio_device_exists, input_audio_device_exists};
 use digimorse::libs::audio::tone_generator::{KeyingEventToneChannel, ToneGenerator};
 use digimorse::libs::delayed_bus::delayed_bus::DelayedBus;
 use digimorse::libs::playback::playback::Playback;
@@ -54,6 +55,16 @@ const AUDIO_OUT_DEVICE: &'static str = "audio-out-device";
 const RIG_OUT_DEVICE: &'static str = "rig-out-device";
 const RIG_IN_DEVICE: &'static str = "rig-in-device";
 const KEYER_SPEED_WPM: &'static str = "keyer-speed-wpm";
+
+arg_enum! {
+    #[derive(Debug, Clone, Copy, PartialEq)]
+    pub enum Mode {
+        GUI,
+        ListAudioDevices,
+        SerialDiag,
+        SourceEncoderDiag // TODO remove when moved to diag_application_spec
+    }
+}
 
 fn parse_command_line<'a>() -> (ArgMatches<'a>, Mode) {
     let result = App::new("digimorse")
@@ -152,29 +163,26 @@ fn run(arguments: ArgMatches, mode: Mode) -> Result<i32, Box<dyn Error>> {
     let scheduled_thread_pool = Arc::new(syncbox::ScheduledThreadPool::single_thread());
     info!("Initialising Application...");
     let mut application = Application::new(terminate.clone(), scheduled_thread_pool.clone(), pa);
-    application.set_mode(mode.clone());
+    application.set_ctrlc_handler();
+    match mode {
+        Mode::GUI => {
+            application.set_mode(ApplicationMode::Full);
+        }
+        Mode::SourceEncoderDiag => {
+            application.set_mode(ApplicationMode::SourceEncoderDiag); // TODO remove this when source encoder diag moved to diag_application_spec
+        }
+        _ => {}
+    }
 
     info!("Initialising keyer...");
     let mut keying_event_tx = Bus::new(16);
     let tone_generator_keying_event_rx = keying_event_tx.add_rx();
-    let keyer_diag_keying_event_rx: Option<BusReader<KeyingEvent>> = if mode == Mode::KeyerDiag {
-        Some(keying_event_tx.add_rx())
-    } else {
-        None
-    };
-    let source_encoder_keying_event_rx: Option<BusReader<KeyingEvent>> = if mode == Mode::KeyerDiag {
-        None
-    } else {
-        Some(keying_event_tx.add_rx())
-    };
+    let source_encoder_keying_event_rx: Option<BusReader<KeyingEvent>> = Some(keying_event_tx.add_rx());
 
     let mut keyer = ArduinoKeyer::new(Box::new(serial_io), application.terminate_flag());
-    let keyer_keying_event_tx = Arc::new(Mutex::new(keying_event_tx));
-    keyer.set_output_tx(keyer_keying_event_tx);
-    // TODO ^^ The Application will eventually do this.
-
     let keyer_speed: KeyerSpeed = config.get_wpm() as KeyerSpeed;
     keyer.set_speed(keyer_speed)?;
+    application.set_keyer(Arc::new(Mutex::new(keyer)));
 
     let arc_mutex_keying_event_tone_channel_tx = Arc::new(Mutex::new(Bus::new(16)));
     let playback_arc_mutex_keying_event_tone_channel: Option<Arc<Mutex<Bus<KeyingEventToneChannel>>>> = if mode == Mode::SourceEncoderDiag {
@@ -193,31 +201,13 @@ fn run(arguments: ArgMatches, mode: Mode) -> Result<i32, Box<dyn Error>> {
     let out_dev_string = config.get_audio_out_device();
     let out_dev_str = out_dev_string.as_str();
     let output_settings = application.open_output_audio_device(out_dev_str)?;
-    // TODO the tone generator will have a set_input_rx when the channel is moved out of its constructor.
     let mut tone_generator = ToneGenerator::new(config.get_sidetone_frequency(),
                                                 application.terminate_flag());
-    let tone_generator_keying_event_tone_channel_rx = Arc::new(Mutex::new(keying_event_tone_channel_rx));
-    tone_generator.set_input_rx(tone_generator_keying_event_tone_channel_rx);
-    // TODO ^^ The Application will eventually do this.
-
-
     tone_generator.start_callback(application.pa_ref(), output_settings)?; // also initialises DDS for sidetone.
+    application.set_tone_generator(Arc::new(Mutex::new(tone_generator)));
     let playback_arc_mutex_tone_generator = Arc::new(Mutex::new(tone_generator));
 
-    if mode == Mode::KeyerDiag {
-        info!("Initialising KeyerDiag mode");
-        keyer_diag(keyer_diag_keying_event_rx.unwrap(), application.terminate_flag())?;
-        keyer.terminate();
-        mem::drop(playback_arc_mutex_tone_generator);
-        thread::sleep(Duration::from_secs(1));
-        info!("Finishing KeyerDiag mode");
-        return Ok(0);
-    }
-
     info!("Initialising source encoder...");
-    // TODO ARCHITECTURE need a backbone/application to which various subsystems/implementations or
-    // implementations with modified configuration are attached dynamically at runtime (and can be
-    // changed by the preferences dialog, etc.)
 
 
     let mut source_encoder_tx = Bus::new(16);

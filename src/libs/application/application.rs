@@ -18,10 +18,8 @@ use crate::libs::audio::audio_devices::{open_input_audio_device, open_output_aud
 
 arg_enum! {
     #[derive(Debug, Clone, Copy, PartialEq)]
-    pub enum Mode {
-        GUI,
-        ListAudioDevices,
-        SerialDiag,
+    pub enum ApplicationMode {
+        Full,
         KeyerDiag,
         SourceEncoderDiag
     }
@@ -49,7 +47,7 @@ pub struct Application {
     terminate_flag: Arc<AtomicBool>,
     _scheduled_thread_pool: Arc<ScheduledThreadPool>,
     pa: PortAudio,
-    mode: Option<Mode>,
+    mode: Option<ApplicationMode>,
 
     keyer: Option<Arc<Mutex<dyn BusOutput<KeyingEvent>>>>,
     keying_event_bus: Option<Arc<Mutex<Bus<KeyingEvent>>>>,
@@ -64,7 +62,7 @@ pub struct Application {
 }
 
 impl Application {
-    pub fn set_mode(&mut self, mode: Mode) {
+    pub fn set_mode(&mut self, mode: ApplicationMode) {
         info!("Setting mode to {}", mode);
         self.mode = Some(mode);
         // TODO far more to do here, set up wiring for each Mode
@@ -86,10 +84,10 @@ impl Application {
         }
 
         match mode {
-            Mode::KeyerDiag => {
+            ApplicationMode::KeyerDiag => {
                 self.keyer_diag_keying_event_rx = Some(Arc::new(Mutex::new(self.keying_event_bus.as_ref().unwrap().lock().unwrap().add_rx())));
             }
-            Mode::SourceEncoderDiag => {
+            ApplicationMode::SourceEncoderDiag => {
                 self.source_encoder_keying_event_rx = Some(Arc::new(Mutex::new(self.keying_event_bus.as_ref().unwrap().lock().unwrap().add_rx())));
             }
             _ => {
@@ -97,7 +95,7 @@ impl Application {
         }
     }
 
-    pub fn get_mode(&self) -> Option<Mode> {
+    pub fn get_mode(&self) -> Option<ApplicationMode> {
         return self.mode.clone();
     }
 
@@ -220,7 +218,14 @@ impl Application {
     }
 
     pub fn clear_source_encoder(&mut self) {
-        // TODO unwire down
+        match &self.source_encoder {
+            None => {}
+            Some(source_encoder) => {
+                info!("Clearing source encooder");
+                source_encoder.lock().unwrap().clear_input_rx();
+            }
+        }
+        self.source_encoder = None;
     }
 
     pub fn got_source_encoder(&self) -> bool {
@@ -253,13 +258,6 @@ impl Application {
     ) -> Self {
         debug!("Constructing Application");
 
-        let ctrlc_arc_terminate = terminate_flag.clone();
-        ctrlc::set_handler(move || {
-            info!("Setting terminate flag...");
-            ctrlc_arc_terminate.store(true, Ordering::SeqCst);
-            info!("... terminate flag set");
-        }).expect("Error setting Ctrl-C handler");
-
         Self {
             terminate_flag,
             _scheduled_thread_pool: scheduled_thread_pool,
@@ -277,6 +275,17 @@ impl Application {
             source_encoder: None,
             source_encoder_keying_event_rx: None,
         }
+    }
+
+    // Initialise the Ctrl-C handler. Called once by the application.
+    pub fn set_ctrlc_handler(&mut self) {
+        debug!("Setting Ctrl-C handler");
+        let ctrlc_arc_terminate = self.terminate_flag();
+        ctrlc::set_handler(move || {
+            info!("Setting terminate flag...");
+            ctrlc_arc_terminate.store(true, Ordering::SeqCst);
+            info!("... terminate flag set");
+        }).expect("Error setting Ctrl-C handler");
     }
 
     // Setting the terminate AtomicBool will allow the thread to stop on its own.

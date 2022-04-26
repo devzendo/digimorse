@@ -14,7 +14,7 @@ mod application_spec {
     use rstest::*;
     use syncbox::ScheduledThreadPool;
 
-    use crate::libs::application::application::{Application, BusInput, BusOutput, Mode};
+    use crate::libs::application::application::{Application, BusInput, BusOutput, ApplicationMode};
     use crate::libs::audio::tone_generator::{KeyingEventToneChannel, ToneChannel};
     use crate::libs::keyer_io::keyer_io::KeyingEvent;
     use crate::libs::util::test_util;
@@ -189,8 +189,8 @@ mod application_spec {
     #[rstest]
     #[serial]
     pub fn mode_keyer_diag(mut fixture: ApplicationFixture) {
-        fixture.application.set_mode(Mode::KeyerDiag);
-        assert_that!(fixture.application.get_mode(), has(Mode::KeyerDiag));
+        fixture.application.set_mode(ApplicationMode::KeyerDiag);
+        assert_that!(fixture.application.get_mode(), has(ApplicationMode::KeyerDiag));
         assert_eq!(fixture.application.got_keyer(), false);
         assert_eq!(fixture.application.got_keyer_diag_rx(), true);
         assert_eq!(fixture.application.got_tone_generator(), false);
@@ -199,10 +199,12 @@ mod application_spec {
         assert_eq!(fixture.application.got_source_encoder_rx(), false);
     }
 
+
+
     #[rstest]
     #[serial]
     pub fn set_clear_keyer(mut fixture: ApplicationFixture) {
-        fixture.application.set_mode(Mode::KeyerDiag);
+        fixture.application.set_mode(ApplicationMode::KeyerDiag);
         assert_eq!(fixture.application.got_keyer(), false);
         assert_eq!(fixture.application.got_keyer_diag_rx(), true);
         let keyer = Arc::new(Mutex::new(FakeKeyer::new(vec![])));
@@ -217,7 +219,7 @@ mod application_spec {
     #[rstest]
     #[serial]
     pub fn set_clear_tone_generator(mut fixture: ApplicationFixture) {
-        fixture.application.set_mode(Mode::KeyerDiag);
+        fixture.application.set_mode(ApplicationMode::KeyerDiag);
         assert_eq!(fixture.application.got_tone_generator(), false);
         assert_eq!(fixture.application.got_tone_generator_rx(), true);
         let tone_generator = Arc::new(Mutex::new(StubBusReader::new()));
@@ -232,7 +234,7 @@ mod application_spec {
     #[rstest]
     #[serial]
     pub fn set_clear_keyer_diag(mut fixture: ApplicationFixture) {
-        fixture.application.set_mode(Mode::KeyerDiag);
+        fixture.application.set_mode(ApplicationMode::KeyerDiag);
         assert_eq!(fixture.application.got_keyer_diag(), false);
         assert_eq!(fixture.application.got_keyer_diag_rx(), true);
         let keyer_diag = Arc::new(Mutex::new(StubBusReader::new()));
@@ -246,10 +248,30 @@ mod application_spec {
 
     #[rstest]
     #[serial]
+    pub fn set_clear_source_encoder(mut fixture: ApplicationFixture) {
+        fixture.application.set_mode(ApplicationMode::SourceEncoderDiag);
+        assert_eq!(fixture.application.got_source_encoder(), false);
+        assert_eq!(fixture.application.got_source_encoder_rx(), true);
+        let source_encoder = Arc::new(Mutex::new(StubBusReader::new()));
+        fixture.application.set_source_encoder(source_encoder);
+        assert_eq!(fixture.application.got_source_encoder(), true);
+        assert_eq!(fixture.application.got_source_encoder_rx(), true);
+        fixture.application.clear_source_encoder();
+        assert_eq!(fixture.application.got_source_encoder(), false);
+        assert_eq!(fixture.application.got_source_encoder_rx(), true);
+    }
+
+
+    // Wiring tests that check actual traffic is sent between components, and prevented after
+    // unwiring. Tests use the diag ApplicationModes and check wiring/unwiring of all implicated
+    // components.
+
+    #[rstest]
+    #[serial]
     // No need for the FakeKeyer and StubBusReader to have their own threads, so long as no more
     // than 16 elements are placed onto the bus.
     pub fn keyer_diag_bus_wiring(mut fixture: ApplicationFixture) {
-        fixture.application.set_mode(Mode::KeyerDiag);
+        fixture.application.set_mode(ApplicationMode::KeyerDiag);
 
         let sent_keying = vec![KeyingEvent::Start(), KeyingEvent::End()];
         let fake_keyer = Arc::new(Mutex::new(FakeKeyer::new(sent_keying.clone())));
@@ -291,7 +313,7 @@ mod application_spec {
     #[rstest]
     #[serial]
     pub fn keyer_diag_bus_unwiring(mut fixture: ApplicationFixture) {
-        fixture.application.set_mode(Mode::KeyerDiag);
+        fixture.application.set_mode(ApplicationMode::KeyerDiag);
 
         let fake_keyer = Arc::new(Mutex::new(FakeKeyer::new(vec![])));
         let application_fake_keyer = fake_keyer.clone();
@@ -338,4 +360,20 @@ mod application_spec {
         assert_eq!(fixture.application.got_keyer_diag_rx(), true);
     }
 
+
+    #[rstest]
+    #[serial]
+    // No need for the FakeKeyer and StubBusReader to have their own threads, so long as no more
+    // than 16 elements are placed onto the bus.
+    pub fn source_encoder_diag_bus_wiring(mut _fixture: ApplicationFixture) {
+
+    }
+
+    #[rstest]
+    #[serial]
+    // No need for the FakeKeyer and StubBusReader to have their own threads, so long as no more
+    // than 16 elements are placed onto the bus.
+    pub fn source_encoder_diag_bus_unwiring(mut _fixture: ApplicationFixture) {
+
+    }
 }

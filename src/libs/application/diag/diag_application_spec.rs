@@ -18,7 +18,7 @@ mod diag_application_spec {
     use rstest::*;
     use syncbox::ScheduledThreadPool;
 
-    use crate::libs::application::application::{Application, BusInput, Mode};
+    use crate::libs::application::application::{Application, ApplicationMode, BusInput};
     use crate::libs::audio::tone_generator::ToneGenerator;
     use crate::libs::config_dir::config_dir;
     use crate::libs::config_file::config_file::ConfigurationStore;
@@ -216,7 +216,7 @@ mod diag_application_spec {
     #[ignore]
     pub fn mode_keyer_diag(mut fixture: DiagApplicationFixture) {
         debug!("start mode_keyer_diag");
-        fixture.application.set_mode(Mode::KeyerDiag);
+        fixture.application.set_mode(ApplicationMode::KeyerDiag);
         set_keyer(&mut fixture.config, &mut fixture.application);
         set_tone_generator(&mut fixture.config, &mut fixture.application);
         let keyer_diag = set_keyer_diag(&mut fixture.config, &mut fixture.application);
