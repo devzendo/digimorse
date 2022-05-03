@@ -3,7 +3,7 @@ extern crate hamcrest2;
 #[cfg(test)]
 mod source_encoder_spec {
     use std::env;
-    use std::sync::Arc;
+    use std::sync::{Arc, Mutex};
     use std::sync::atomic::{AtomicBool, Ordering};
     use std::time::Duration;
 
@@ -11,6 +11,7 @@ mod source_encoder_spec {
     use hamcrest2::prelude::*;
     use log::{debug, info};
     use rstest::*;
+    use crate::libs::application::application::BusInput;
 
     use crate::libs::keyer_io::keyer_io::{KeyerSpeed, KeyingEvent, KeyingTimedEvent};
     use crate::libs::source_codec::source_encoder::{SourceEncoder, SourceEncoding};
@@ -43,7 +44,8 @@ mod source_encoder_spec {
         let keying_event_rx = keying_event_tx.add_rx();
         let mut source_encoder_tx = Bus::new(16);
         let source_encoder_rx = source_encoder_tx.add_rx();
-        let source_encoder = SourceEncoder::new(keying_event_rx, source_encoder_tx, terminate.clone(), TEST_SOURCE_ENCODER_BLOCK_SIZE_IN_BITS);
+        let mut source_encoder = SourceEncoder::new(source_encoder_tx, terminate.clone(), TEST_SOURCE_ENCODER_BLOCK_SIZE_IN_BITS);
+        source_encoder.set_input_rx(Arc::new(Mutex::new(keying_event_rx)));
 
         info!("Fixture setup sleeping");
         test_util::wait_5_ms(); // give things time to start
@@ -95,7 +97,8 @@ mod source_encoder_spec {
         let mut keying_event_tx = Bus::new(16);
         let keying_event_rx = keying_event_tx.add_rx();
         let source_encoder_tx = Bus::new(16);
-        let _ = SourceEncoder::new(keying_event_rx, source_encoder_tx, terminate.clone(), block_size);
+        let mut source_encoder = SourceEncoder::new(source_encoder_tx, terminate.clone(), block_size);
+        source_encoder.set_input_rx(Arc::new(Mutex::new(keying_event_rx)));
     }
 
     #[rstest]

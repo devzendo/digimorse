@@ -48,7 +48,8 @@ mod playback_from_keying_spec {
         let keying_event_rx = keying_event_tx.add_rx();
         let mut source_encoder_tx = Bus::new(16);
         let source_encoder_rx = source_encoder_tx.add_rx();
-        let mut source_encoder = SourceEncoder::new(keying_event_rx, source_encoder_tx, terminate.clone(), TEST_SOURCE_ENCODER_BLOCK_SIZE_IN_BITS);
+        let mut source_encoder = SourceEncoder::new(source_encoder_tx, terminate.clone(), TEST_SOURCE_ENCODER_BLOCK_SIZE_IN_BITS);
+        source_encoder.set_input_rx(Arc::new(Mutex::new(keying_event_rx)));
         source_encoder.set_keyer_speed(20 as KeyerSpeed);
 
         let source_decoder = SourceDecoder::new(TEST_SOURCE_ENCODER_BLOCK_SIZE_IN_BITS);

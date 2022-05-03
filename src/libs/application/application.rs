@@ -15,6 +15,7 @@ use crate::libs::audio::tone_generator::KeyingEventToneChannel;
 use crate::libs::keyer_io::keyer_io::KeyingEvent;
 use crate::libs::transform_bus::transform_bus::TransformBus;
 use crate::libs::audio::audio_devices::{open_input_audio_device, open_output_audio_device};
+use crate::libs::source_codec::source_encoding::SourceEncoding;
 
 arg_enum! {
     #[derive(Debug, Clone, Copy, PartialEq)]
@@ -59,6 +60,7 @@ pub struct Application {
     keyer_diag_keying_event_rx: Option<Arc<Mutex<BusReader<KeyingEvent>>>>,
     source_encoder: Option<Arc<Mutex<dyn BusInput<KeyingEvent>>>>,
     source_encoder_keying_event_rx: Option<Arc<Mutex<BusReader<KeyingEvent>>>>,
+    source_encoder_source_encoding_rx: Option<Arc<Mutex<BusReader<SourceEncoding>>>>,
 }
 
 impl Application {
@@ -232,10 +234,14 @@ impl Application {
         self.source_encoder.is_some()
     }
 
-    pub fn got_source_encoder_rx(&self) -> bool {
+    pub fn got_source_encoder_keying_event_rx(&self) -> bool {
         self.source_encoder_keying_event_rx.is_some()
     }
 
+
+    pub fn got_source_encoder_source_encoding_rx(&self) -> bool {
+        self.source_encoder_source_encoding_rx.is_some()
+    }
 
     // PortAudio functions...
     pub fn open_output_audio_device(&self, out_dev_str: &str) -> Result<OutputStreamSettings<f32>, Box<dyn Error>> {
@@ -274,6 +280,7 @@ impl Application {
             keyer_diag_keying_event_rx: None,
             source_encoder: None,
             source_encoder_keying_event_rx: None,
+            source_encoder_source_encoding_rx: None,
         }
     }
 

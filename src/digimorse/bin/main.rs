@@ -204,17 +204,19 @@ fn run(arguments: ArgMatches, mode: Mode) -> Result<i32, Box<dyn Error>> {
     let mut tone_generator = ToneGenerator::new(config.get_sidetone_frequency(),
                                                 application.terminate_flag());
     tone_generator.start_callback(application.pa_ref(), output_settings)?; // also initialises DDS for sidetone.
-    application.set_tone_generator(Arc::new(Mutex::new(tone_generator)));
-    let playback_arc_mutex_tone_generator = Arc::new(Mutex::new(tone_generator));
+    let application_tone_generator = Arc::new(Mutex::new(tone_generator));
+    let playback_arc_mutex_tone_generator = application_tone_generator.clone();
+    application.set_tone_generator(application_tone_generator);
 
     info!("Initialising source encoder...");
 
 
     let mut source_encoder_tx = Bus::new(16);
     let source_encoder_rx = source_encoder_tx.add_rx();
-    let mut source_encoder = SourceEncoder::new(source_encoder_keying_event_rx.unwrap(),
+    let mut source_encoder = SourceEncoder::new(
                                                 source_encoder_tx, application.terminate_flag(),
                                                 SOURCE_ENCODER_BLOCK_SIZE_IN_BITS);
+    source_encoder.set_input_rx(Arc::new(Mutex::new(source_encoder_keying_event_rx.unwrap())));
     source_encoder.set_keyer_speed(config.get_wpm() as KeyerSpeed);
 
     let mut source_decoder = SourceDecoder::new(SOURCE_ENCODER_BLOCK_SIZE_IN_BITS);
@@ -226,7 +228,7 @@ fn run(arguments: ArgMatches, mode: Mode) -> Result<i32, Box<dyn Error>> {
                             playback_arc_mutex_keying_event_tone_channel.unwrap(),
                             scheduled_thread_pool, config.get_sidetone_frequency() + 50)?;
         source_encoder.terminate();
-        keyer.terminate();
+        // keyer.terminate();
         mem::drop(playback_arc_mutex_tone_generator);
         thread::sleep(Duration::from_secs(1));
         info!("Finishing SourceEncoderDiag mode");
