@@ -27,7 +27,7 @@ use bus::{Bus, BusReader};
 use csv::Writer;
 use portaudio::PortAudio;
 use syncbox::ScheduledThreadPool;
-use digimorse::libs::application::application::{Application, ApplicationMode, BusInput};
+use digimorse::libs::application::application::{Application, ApplicationMode, BusInput, BusOutput};
 use digimorse::libs::config_file::config_file::ConfigurationStore;
 use digimorse::libs::audio::audio_devices::{list_audio_devices, output_audio_device_exists, input_audio_device_exists};
 use digimorse::libs::audio::tone_generator::{KeyingEventToneChannel, ToneGenerator};
@@ -213,10 +213,10 @@ fn run(arguments: ArgMatches, mode: Mode) -> Result<i32, Box<dyn Error>> {
 
     let mut source_encoder_tx = Bus::new(16);
     let source_encoder_rx = source_encoder_tx.add_rx();
-    let mut source_encoder = SourceEncoder::new(
-                                                source_encoder_tx, application.terminate_flag(),
+    let mut source_encoder = SourceEncoder::new(application.terminate_flag(),
                                                 SOURCE_ENCODER_BLOCK_SIZE_IN_BITS);
     source_encoder.set_input_rx(Arc::new(Mutex::new(source_encoder_keying_event_rx.unwrap())));
+    source_encoder.set_output_tx(Arc::new(Mutex::new(source_encoder_tx)));
     source_encoder.set_keyer_speed(config.get_wpm() as KeyerSpeed);
 
     let mut source_decoder = SourceDecoder::new(SOURCE_ENCODER_BLOCK_SIZE_IN_BITS);

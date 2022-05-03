@@ -14,7 +14,7 @@ mod playback_from_keying_spec {
     use portaudio::PortAudio;
     use rstest::*;
     use syncbox::{ScheduledThreadPool, Task};
-    use crate::libs::application::application::BusInput;
+    use crate::libs::application::application::{BusInput, BusOutput};
     use crate::libs::audio::audio_devices::open_output_audio_device;
     use crate::libs::audio::tone_generator::{KeyingEventToneChannel, ToneGenerator};
     use crate::libs::keyer_io::keyer_io::{KeyerEdgeDurationMs, KeyerSpeed, KeyingEvent, KeyingTimedEvent};
@@ -48,8 +48,9 @@ mod playback_from_keying_spec {
         let keying_event_rx = keying_event_tx.add_rx();
         let mut source_encoder_tx = Bus::new(16);
         let source_encoder_rx = source_encoder_tx.add_rx();
-        let mut source_encoder = SourceEncoder::new(source_encoder_tx, terminate.clone(), TEST_SOURCE_ENCODER_BLOCK_SIZE_IN_BITS);
+        let mut source_encoder = SourceEncoder::new(terminate.clone(), TEST_SOURCE_ENCODER_BLOCK_SIZE_IN_BITS);
         source_encoder.set_input_rx(Arc::new(Mutex::new(keying_event_rx)));
+        source_encoder.set_output_tx(Arc::new(Mutex::new(source_encoder_tx)));
         source_encoder.set_keyer_speed(20 as KeyerSpeed);
 
         let source_decoder = SourceDecoder::new(TEST_SOURCE_ENCODER_BLOCK_SIZE_IN_BITS);

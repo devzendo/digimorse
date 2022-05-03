@@ -1,12 +1,11 @@
 use std::sync::{Arc, Mutex, RwLock};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::{mem, thread};
-use std::sync::mpsc::RecvTimeoutError;
 use std::thread::JoinHandle;
 use std::time::Duration;
 use bus::{Bus, BusReader};
 use log::{debug, info};
-use crate::libs::application::application::BusInput;
+use crate::libs::application::application::{BusInput, BusOutput};
 use crate::libs::keyer_io::keyer_io::{KeyingEvent, KeyerSpeed};
 use crate::libs::source_codec::bitvec_source_encoding_builder::BitvecSourceEncodingBuilder;
 use crate::libs::source_codec::keying_encoder::{DefaultKeyingEncoder, KeyingEncoder};
@@ -37,8 +36,10 @@ use crate::libs::source_codec::source_encoding::{EncoderFrameType, SourceEncodin
 pub struct SourceEncoder {
     keyer_speed: KeyerSpeed,
     terminate: Arc<AtomicBool>,
-    // Shared between thread and ToneGenerator
+    // Shared between thread and SourceEncoder
     input_rx: Arc<Mutex<Option<Arc<Mutex<BusReader<KeyingEvent>>>>>>,
+    // Shared between thread and SourceEncoder and SourceEncoderShared
+    output_tx: Arc<Mutex<Option<Arc<Mutex<Bus<SourceEncoding>>>>>>,
     storage: Arc<RwLock<Box<dyn SourceEncodingBuilder + Send + Sync>>>, // ?? Is it Send + Sync?
     // Send + Sync are here so the DefaultSourceEncoder can be stored in an rstest fixture that
     // is moved into a panic_after test's thread.
@@ -63,8 +64,26 @@ impl BusInput<KeyingEvent> for SourceEncoder {
     }
 }
 
+impl BusOutput<SourceEncoding> for SourceEncoder {
+    fn clear_output_tx(&mut self) {
+        match self.output_tx.lock() {
+            Ok(mut locked) => {
+                *locked = None;
+            }
+            Err(_) => {}
+        }
+    }
+
+    fn set_output_tx(&mut self, output_tx: Arc<Mutex<Bus<SourceEncoding>>>) {
+        match self.output_tx.lock() {
+            Ok(mut locked) => { *locked = Some(output_tx); }
+            Err(_) => {}
+        }
+    }
+}
+
 impl SourceEncoder {
-    pub fn new(source_encoder_tx: Bus<SourceEncoding>, terminate: Arc<AtomicBool>, block_size_in_bits: usize) -> Self {
+    pub fn new(terminate: Arc<AtomicBool>, block_size_in_bits: usize) -> Self {
         if block_size_in_bits == 0 || block_size_in_bits & 0x07 != 0 {
             panic!("Source encoder block size must be a multiple of 8 bits");
         }
@@ -78,14 +97,18 @@ impl SourceEncoder {
         let encoder: Box<dyn KeyingEncoder + Send + Sync> = Box::new(DefaultKeyingEncoder::new
             (arc_storage.clone()));
 
-        // Share this holder between the SourceEncooder and its thread
+        // Share this holder between the SourceEncoder and its thread
         let input_rx_holder: Arc<Mutex<Option<Arc<Mutex<BusReader<KeyingEvent>>>>>> = Arc::new(Mutex::new(None));
         let move_clone_input_rx_holder = input_rx_holder.clone();
+
+        // Share this holder between the SourceEncoder and the SourceEncoderShared
+        let output_tx_holder: Arc<Mutex<Option<Arc<Mutex<Bus<SourceEncoding>>>>>> = Arc::new(Mutex::new(None));
+        let move_clone_output_tx_holder = output_tx_holder.clone();
 
         let shared = Mutex::new(SourceEncoderShared {
             storage: arc_storage.clone(),
             keying_encoder: encoder,
-            source_encoder_tx,
+            source_encoder_tx: move_clone_output_tx_holder,
             is_mark: true,
             sent_wpm_polarity: false,
             keying_speed: 0,
@@ -102,7 +125,8 @@ impl SourceEncoder {
         Self {
             keyer_speed: 12,
             terminate,
-            input_rx: input_rx_holder,
+            input_rx: input_rx_holder,    // Modified by BusInput
+            output_tx: output_tx_holder,  // Modified by BusOutput
             storage: arc_storage_cloned,
             thread_handle: Mutex::new(Some(thread_handle)),
             shared: arc_shared_cloned,
@@ -162,7 +186,8 @@ impl Drop for SourceEncoder {
 struct SourceEncoderShared {
     storage: Arc<RwLock<Box<dyn SourceEncodingBuilder + Send + Sync>>>, // ?? Is it Send + Sync?
     keying_encoder: Box<dyn KeyingEncoder + Send + Sync>,
-    source_encoder_tx: Bus<SourceEncoding>,
+    // Shared between thread and SourceEncoder and SourceEncoderShared
+    source_encoder_tx: Arc<Mutex<Option<Arc<Mutex<Bus<SourceEncoding>>>>>>,
     sent_wpm_polarity: bool,
     is_mark: bool,
     keying_speed: KeyerSpeed,
@@ -177,7 +202,12 @@ impl SourceEncoderShared {
         self.sent_wpm_polarity = false;
         let encoding = self.storage.write().unwrap().build();
         info!("Emitting {}", encoding);
-        self.source_encoder_tx.broadcast(encoding);
+        match self.source_encoder_tx.lock().unwrap().as_deref() {
+            None => {}
+            Some(bus) => {
+                bus.lock().unwrap().broadcast(encoding);
+            }
+        }
     }
 
     fn set_keyer_speed(&mut self, speed: KeyerSpeed) {

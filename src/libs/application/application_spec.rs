@@ -17,7 +17,6 @@ mod application_spec {
     use crate::libs::application::application::{Application, BusInput, BusOutput, ApplicationMode};
     use crate::libs::audio::tone_generator::{KeyingEventToneChannel, ToneChannel};
     use crate::libs::keyer_io::keyer_io::KeyingEvent;
-    use crate::libs::source_codec::source_encoder::SourceEncoder;
     use crate::libs::util::test_util;
 
     #[ctor::ctor]
