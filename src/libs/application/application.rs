@@ -33,7 +33,7 @@ pub trait BusOutput<T> {
 
 pub trait BusInput<T> {
     fn clear_input_rx(&mut self);
-    fn set_input_rx(&mut self, input_tx: Arc<Mutex<BusReader<T>>>);
+    fn set_input_rx(&mut self, input_rx: Arc<Mutex<BusReader<T>>>);
 }
 
 fn add_sidetone_channel_to_keying_event(keying_event: KeyingEvent) -> KeyingEventToneChannel {
