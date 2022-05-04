@@ -16,7 +16,9 @@ mod application_spec {
 
     use crate::libs::application::application::{Application, BusInput, BusOutput, ApplicationMode};
     use crate::libs::audio::tone_generator::{KeyingEventToneChannel, ToneChannel};
-    use crate::libs::keyer_io::keyer_io::KeyingEvent;
+    use crate::libs::keyer_io::keyer_io::{KeyerSpeed, KeyingEvent};
+    use crate::libs::source_codec::source_encoder::SourceEncoder;
+    use crate::libs::source_codec::source_encoding::SOURCE_ENCODER_BLOCK_SIZE_IN_BITS;
     use crate::libs::util::test_util;
 
     #[ctor::ctor]
@@ -161,6 +163,106 @@ mod application_spec {
             self.content.clone()
         }
     }
+
+    /*
+    struct FakeSourceEncoder {
+        terminate: Arc<AtomicBool>,
+        input_rx: Arc<Mutex<Option<Arc<Mutex<BusReader<KeyingEvent>>>>>>,
+        output_tx: Arc<Mutex<Option<Arc<Mutex<Bus<SourceEncoding>>>>>>
+    }
+
+    impl FakeSourceEncoder {
+        fn new(terminate: Arc<AtomicBool>) -> Self {
+            Self {
+                terminate,
+                input_rx: Arc::new(Mutex::new(None)),
+                output_tx: Arc::new(Mutex::new(None)),
+            }
+        }
+
+        fn encode(&mut self, keying_event: KeyingEvent) -> Option<SourceEncoding> {
+            // todo!()
+        }
+
+        fn start_encoding(&mut self) {
+            info!("Encoding loop started");
+            loop {
+                if self.terminate.load(Ordering::SeqCst) {
+                    info!("Terminating encoding loop");
+                    break;
+                }
+
+                match self.keying_event_rx.lock().unwrap().as_deref() {
+                    None => {
+                        // Input channel hasn't been set yet
+                        thread::sleep(Duration::from_millis(100));
+                    }
+                    Some(input_rx) => {
+                        match input_rx.lock().unwrap().recv_timeout(Duration::from_millis(100)) {
+                            Ok(keying_event) => {
+                                let encoding: Option<SourceEncoding> = encode(keying_event);
+                                match encoding {
+                                    None => {
+
+                                    }
+                                    Some(source_encoding) => {
+                                        match self.output_tx.lock().unwrap().as_deref() {
+                                            None => {
+                                                // Output channel hasn't been set yet
+                                            }
+                                            Some(bus) => {
+                                                bus.lock().unwrap().broadcast(source_encoding);
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            Err(_) => {
+                                // Don't log, it's just noise - timeout gives opportunity to go round loop and
+                                // check for terminate.
+                            }
+                        }
+                    }
+                }
+            }
+            info!("Encoding loop ended");
+        }
+    }
+
+    impl BusInput<KeyingEvent> for FakeSourceEncoder {
+        fn clear_input_rx(&mut self) {
+            match self.input_rx.lock() {
+                Ok(mut locked) => { *locked = None; }
+                Err(_) => {}
+            }
+        }
+
+        fn set_input_rx(&mut self, input_rx: Arc<Mutex<BusReader<KeyingEvent>>>) {
+            match self.input_rx.lock() {
+                Ok(mut locked) => { *locked = Some(input_rx); }
+                Err(_) => {}
+            }
+        }
+    }
+
+    impl BusOutput<SourceEncoding> for FakeSourceEncoder {
+        fn clear_output_tx(&mut self) {
+            match self.output_tx.lock() {
+                Ok(mut locked) => {
+                    *locked = None;
+                }
+                Err(_) => {}
+            }
+        }
+
+        fn set_output_tx(&mut self, output_tx: Arc<Mutex<Bus<SourceEncoding>>>) {
+            match self.output_tx.lock() {
+                Ok(mut locked) => { *locked = Some(output_tx); }
+                Err(_) => {}
+            }
+        }
+    }
+*/
 
 
     #[rstest]
@@ -397,7 +499,11 @@ mod application_spec {
         fixture.application.set_tone_generator(application_tone_generator);
         assert_that!(tone_generator.lock().unwrap().got_input_rx(), true);
 
-        // let source_encoder = Arc::new(Mutex::new(SourceEncoder::new()))
+        // Use the real SourceEncoder
+        let mut se = SourceEncoder::new(fixture.application.terminate_flag(), SOURCE_ENCODER_BLOCK_SIZE_IN_BITS);
+        se.set_keyer_speed(12 as KeyerSpeed);
+        let source_encoder = Arc::new(Mutex::new(se));
+        fixture.application.set_source_encoder(source_encoder);
 
         fake_keyer.lock().unwrap().start_sending();
         info!("Test sleeping");
