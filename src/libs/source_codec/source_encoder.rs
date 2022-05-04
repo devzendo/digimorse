@@ -56,9 +56,9 @@ impl BusInput<KeyingEvent> for SourceEncoder {
         }
     }
 
-    fn set_input_rx(&mut self, input_tx: Arc<Mutex<BusReader<KeyingEvent>>>) {
+    fn set_input_rx(&mut self, input_rx: Arc<Mutex<BusReader<KeyingEvent>>>) {
         match self.input_rx.lock() {
-            Ok(mut locked) => { *locked = Some(input_tx); }
+            Ok(mut locked) => { *locked = Some(input_rx); }
             Err(_) => {}
         }
     }
