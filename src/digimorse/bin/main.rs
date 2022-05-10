@@ -191,9 +191,10 @@ fn run(arguments: ArgMatches, mode: Mode) -> Result<i32, Box<dyn Error>> {
         None
     };
 
-    let transform_bus = TransformBus::new(tone_generator_keying_event_rx,
-                                          arc_mutex_keying_event_tone_channel_tx, add_sidetone_channel_to_keying_event,
+    let mut transform_bus = TransformBus::new(add_sidetone_channel_to_keying_event,
                                           application.terminate_flag());
+    transform_bus.set_input_rx(Arc::new(Mutex::new(tone_generator_keying_event_rx)));
+    transform_bus.set_output_tx(arc_mutex_keying_event_tone_channel_tx);
     let arc_transform_bus = Arc::new(Mutex::new(transform_bus));
     let keying_event_tone_channel_rx = arc_transform_bus.lock().unwrap().add_reader();
 

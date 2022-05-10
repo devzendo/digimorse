@@ -21,7 +21,7 @@ mod tone_generator_spec {
     use crate::libs::util::test_util;
     use portaudio as pa;
     use portaudio::PortAudio;
-    use crate::libs::application::application::BusInput;
+    use crate::libs::application::application::{BusInput, BusOutput};
     use crate::libs::conversion::conversion::text_to_keying;
     use crate::libs::conversion::paris::PARIS_KEYING_12WPM;
 
@@ -60,7 +60,9 @@ mod tone_generator_spec {
 
         let keying_event_tone_channel_tx: Arc<Mutex<Bus<KeyingEventToneChannel>>> = Arc::new(Mutex::new(Bus::new(16)));
         let fixture_keying_event_tone_channel_tx = keying_event_tone_channel_tx.clone();
-        let transform_bus = TransformBus::new(keying_event_rx, keying_event_tone_channel_tx, add_sidetone_channel_to_keying_event, terminate.clone());
+        let mut transform_bus = TransformBus::new(add_sidetone_channel_to_keying_event, terminate.clone());
+        transform_bus.set_input_rx(Arc::new(Mutex::new(keying_event_rx)));
+        transform_bus.set_output_tx(keying_event_tone_channel_tx);
         let arc_transform_bus = Arc::new(Mutex::new(transform_bus));
         let keying_event_tone_channel_rx = arc_transform_bus.lock().unwrap().add_reader();
 

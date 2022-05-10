@@ -11,6 +11,7 @@ mod transform_bus_spec {
     use hamcrest2::prelude::*;
     use log::{debug, info};
     use rstest::*;
+    use crate::libs::application::application::{BusInput, BusOutput};
     use crate::libs::transform_bus::transform_bus::TransformBus;
 
     use crate::libs::util::test_util;
@@ -50,7 +51,9 @@ mod transform_bus_spec {
         let output_tx: Bus<(String, usize)> = Bus::new(16);
         let arc_mutex_output_tx = Arc::new(Mutex::new(output_tx));
         let self_arc_mutex_output_tx = arc_mutex_output_tx.clone();
-        let transform_bus = TransformBus::new(input_rx, arc_mutex_output_tx, transform, terminate.clone());
+        let mut transform_bus = TransformBus::new(transform, terminate.clone());
+        transform_bus.set_input_rx(Arc::new(Mutex::new(input_rx)));
+        transform_bus.set_output_tx(arc_mutex_output_tx);
         let arc_mutex_transform_bus = Arc::new(Mutex::new(transform_bus));
         let output_rx = arc_mutex_transform_bus.lock().unwrap().add_reader();
         info!("Fixture setup sleeping");
