@@ -8,20 +8,65 @@ use std::thread::JoinHandle;
 use std::time::Duration;
 use bus::{Bus, BusReader};
 use syncbox::{ScheduledThreadPool, Task};
+use crate::libs::application::application::{BusInput, BusOutput};
 
 pub struct DelayedBus<T> where T: 'static + Send + Display + Clone + Sync {
     terminate_flag: Arc<AtomicBool>,
     read_thread_handle: Mutex<Option<JoinHandle<()>>>,
     spooky: PhantomData<T>,
+    input_rx: Arc<Mutex<Option<Arc<Mutex<BusReader<T>>>>>>,
+    output_tx: Arc<Mutex<Option<Arc<Mutex<Bus<T>>>>>>,
+}
+
+impl<T: 'static + Send + Display + Clone + Sync> BusInput<T> for DelayedBus<T> {
+    fn clear_input_rx(&mut self) {
+        match self.input_rx.lock() {
+            Ok(mut locked) => { *locked = None; }
+            Err(_) => {}
+        }
+    }
+
+    fn set_input_rx(&mut self, input_rx: Arc<Mutex<BusReader<T>>>) {
+        match self.input_rx.lock() {
+            Ok(mut locked) => { *locked = Some(input_rx); }
+            Err(_) => {}
+        }
+    }
+}
+
+impl<T: 'static + Send + Display + Clone + Sync> BusOutput<T> for DelayedBus<T> {
+    fn clear_output_tx(&mut self) {
+        match self.output_tx.lock() {
+            Ok(mut locked) => {
+                *locked = None;
+            }
+            Err(_) => {}
+        }
+    }
+
+    fn set_output_tx(&mut self, output_tx: Arc<Mutex<Bus<T>>>) {
+        match self.output_tx.lock() {
+            Ok(mut locked) => { *locked = Some(output_tx); }
+            Err(_) => {}
+        }
+    }
 }
 
 impl<T: 'static + Send + Display + Clone + Sync> DelayedBus<T> {
-    pub fn new(input_rx: BusReader<T>, output_tx: Bus<T>, terminate: Arc<AtomicBool>, arc_scheduled_thread_pool: Arc<ScheduledThreadPool>, delay: Duration) -> Self {
+    pub fn new(/*input_rx: BusReader<T>, output_tx: Bus<T>, */terminate: Arc<AtomicBool>, arc_scheduled_thread_pool: Arc<ScheduledThreadPool>, delay: Duration) -> Self {
         let arc_terminate = terminate.clone();
-        let arc_output_tx = Arc::new(Mutex::new(output_tx));
+
+        // Share this holder between the DelayedBus and its thread
+        let input_rx_holder: Arc<Mutex<Option<Arc<Mutex<BusReader<T>>>>>> = Arc::new(Mutex::new(None));
+        let move_clone_input_rx_holder = input_rx_holder.clone();
+
+        // Share this holder between the DelayedBus and the thread
+        let output_tx_holder: Arc<Mutex<Option<Arc<Mutex<Bus<T>>>>>> = Arc::new(Mutex::new(None));
+        let move_clone_output_tx_holder = output_tx_holder.clone();
+
         let read_thread_handle = thread::spawn(move || {
-            let mut read_thread = DelayedBusReadThread::new(delay, input_rx,
-                                                            arc_output_tx,
+            let mut read_thread = DelayedBusReadThread::new(delay, move_clone_input_rx_holder,
+                                                            move_clone_output_tx_holder,
                                                             arc_terminate,
                                                             arc_scheduled_thread_pool);
             read_thread.thread_runner();
@@ -31,6 +76,8 @@ impl<T: 'static + Send + Display + Clone + Sync> DelayedBus<T> {
             terminate_flag: terminate,
             read_thread_handle: Mutex::new(Some(read_thread_handle)),
             spooky: PhantomData,
+            input_rx: input_rx_holder,
+            output_tx: output_tx_holder,
         }
     }
 
@@ -70,16 +117,17 @@ impl<T: Send + Display + Clone + Sync + 'static> Drop for DelayedBus<T> {
 struct DelayedBusReadThread<T> {
     delay: Duration,
     terminate: Arc<AtomicBool>,
-    input_rx: BusReader<T>,
-    output_tx: Arc<Mutex<Bus<T>>>,
     scheduled_thread_pool: Arc<ScheduledThreadPool>,
+    // Shared between thread and DelayedBus
+    input_rx: Arc<Mutex<Option<Arc<Mutex<BusReader<T>>>>>>,
+    output_tx: Arc<Mutex<Option<Arc<Mutex<Bus<T>>>>>>,
 }
 
 
 impl<T: Send + Display + Clone + Sync + 'static> DelayedBusReadThread<T> {
     fn new(delay: Duration,
-           input_rx: BusReader<T>,
-           output_tx: Arc<Mutex<Bus<T>>>,
+           input_rx: Arc<Mutex<Option<Arc<Mutex<BusReader<T>>>>>>,
+           output_tx: Arc<Mutex<Option<Arc<Mutex<Bus<T>>>>>>,
            terminate: Arc<AtomicBool>,
            scheduled_thread_pool: Arc<ScheduledThreadPool>,
     ) -> Self {
@@ -103,17 +151,31 @@ impl<T: Send + Display + Clone + Sync + 'static> DelayedBusReadThread<T> {
                 break;
             }
 
-            match self.input_rx.recv_timeout(Duration::from_millis(100)) {
-                Ok(item) => {
-                    debug!("Received item {}", item);
-                    let item_later = self.delay.as_millis();
-                    let arc_output_tx = self.output_tx.clone();
-                    let task = TimedOutput{ item, output_tx: arc_output_tx };
-                    self.scheduled_thread_pool.schedule_ms(item_later as u32, task);
+            match self.input_rx.lock().unwrap().as_deref() {
+                None => {
+                    // Input channel hasn't been set yet
+                    thread::sleep(Duration::from_millis(100));
                 }
-                Err(_) => {
-                    // Don't log, it's just noise - timeout gives opportunity to go round loop and
-                    // check for terminate.
+                Some(input_rx) => {
+                    match input_rx.lock().unwrap().recv_timeout(Duration::from_millis(100)) {
+                        Ok(item) => {
+                            debug!("Received item {}", item);
+                            let item_later = self.delay.as_millis();
+                            match self.output_tx.lock().unwrap().as_ref() {
+                                None => {}
+                                Some(output_tx) => {
+                                    let cloned_output_tx = output_tx.clone();
+                                    let task = TimedOutput{ item, output_tx: cloned_output_tx };
+                                    self.scheduled_thread_pool.schedule_ms(item_later as u32, task);
+                                }
+                            }
+                        }
+                        Err(_) => {
+                            // Don't log, it's just noise - timeout gives opportunity to go round loop and
+                            // check for terminate.
+                        }
+                    }
+
                 }
             }
         }

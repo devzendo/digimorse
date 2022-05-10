@@ -473,9 +473,12 @@ fn source_encoder_diag(source_decoder: SourceDecoder, source_encoder_rx: BusRead
     let mut delayed_source_encoder_rx = delayed_source_encoder_tx.add_rx();
 
     let delayed_bus_scheduled_thread_pool = scheduled_thread_pool.clone();
-    let _delayed_bus = DelayedBus::new(source_encoder_rx, delayed_source_encoder_tx,
-                                       terminate.clone(), delayed_bus_scheduled_thread_pool,
-                                       Duration::from_secs(10));
+    let mut delayed_bus = DelayedBus::new(
+        terminate.clone(),
+        delayed_bus_scheduled_thread_pool,
+        Duration::from_secs(10));
+    delayed_bus.set_input_rx(Arc::new(Mutex::new(source_encoder_rx)));
+    delayed_bus.set_output_tx(Arc::new(Mutex::new(delayed_source_encoder_tx)));
 
     let playback_scheduled_thread_pool = scheduled_thread_pool.clone();
     let mut playback = Playback::new(terminate.clone(), playback_scheduled_thread_pool,

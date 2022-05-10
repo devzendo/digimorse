@@ -12,6 +12,7 @@ mod delayed_bus_spec {
     use hamcrest2::prelude::*;
     use log::{debug, info};
     use rstest::*;
+    use crate::libs::application::application::{BusInput, BusOutput};
     use crate::libs::delayed_bus::delayed_bus::DelayedBus;
 
     use crate::libs::util::test_util;
@@ -45,7 +46,9 @@ mod delayed_bus_spec {
         let output_rx = output_tx.add_rx();
         let scheduled_thread_pool = Arc::new(syncbox::ScheduledThreadPool::single_thread());
 
-        let delayed_bus = DelayedBus::new(input_rx, output_tx, terminate.clone(), scheduled_thread_pool, Duration::from_millis(DELAY_MILLIS));
+        let mut delayed_bus = DelayedBus::new(terminate.clone(), scheduled_thread_pool, Duration::from_millis(DELAY_MILLIS));
+        delayed_bus.set_input_rx(Arc::new(Mutex::new(input_rx)));
+        delayed_bus.set_output_tx(Arc::new(Mutex::new(output_tx)));
 
         info!("Fixture setup sleeping");
         test_util::wait_5_ms(); // give things time to start
