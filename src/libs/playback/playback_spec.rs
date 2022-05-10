@@ -15,6 +15,8 @@ mod playback_spec {
     use crate::libs::application::application::{BusInput, BusOutput};
     use crate::libs::audio::audio_devices::open_output_audio_device;
     use crate::libs::audio::tone_generator::{KeyingEventToneChannel, ToneGenerator};
+    use crate::libs::config_dir::config_dir;
+    use crate::libs::config_file::config_file::ConfigurationStore;
     use crate::libs::playback::playback::Playback;
     use crate::libs::source_codec::source_encoding::Frame;
     use crate::libs::util::test_util;
@@ -38,13 +40,16 @@ mod playback_spec {
     #[fixture]
     fn fixture() -> PlaybackFixture {
         info!("starting fixture");
+        let home_dir = dirs::home_dir();
+        let config_path = config_dir::configuration_directory(home_dir).unwrap();
+        let config = ConfigurationStore::new(config_path).unwrap();
+
         let terminate = Arc::new(AtomicBool::new(false));
         let scheduled_thread_pool = Arc::new(syncbox::ScheduledThreadPool::single_thread());
 
         let keying_event_tone_channel_tx: Arc<Mutex<Bus<KeyingEventToneChannel>>> = Arc::new(Mutex::new(Bus::new(16)));
         let keying_event_tone_channel_rx = keying_event_tone_channel_tx.lock().unwrap().add_rx();
 
-        let dev = "Built-in Output"; // "MacBook Pro Speakers";
         let sidetone_frequency = 600 as u16;
         info!("Instantiating tone generator...");
         let tone_generator_keying_event_tone_channel_rx = Arc::new(Mutex::new(keying_event_tone_channel_rx));
@@ -66,7 +71,7 @@ mod playback_spec {
             pa: Arc::new(pa::PortAudio::new().unwrap()),
             playback,
         };
-        let output_settings = open_output_audio_device(&fixture.pa, dev).unwrap();
+        let output_settings = open_output_audio_device(&fixture.pa, config.get_audio_out_device().as_str()).unwrap();
         info!("Initialising audio callback...");
         fixture.tone_generator.lock().unwrap().start_callback(&fixture.pa, output_settings).unwrap();
 
