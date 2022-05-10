@@ -58,9 +58,12 @@ pub struct Application {
     keying_event_tone_channel_transform: Option<TransformBus<KeyingEvent, KeyingEventToneChannel>>,
     keyer_diag: Option<Arc<Mutex<dyn BusInput<KeyingEvent>>>>,
     keyer_diag_keying_event_rx: Option<Arc<Mutex<BusReader<KeyingEvent>>>>,
-    source_encoder: Option<Arc<Mutex<dyn BusInput<KeyingEvent>>>>,
+    source_encoder: Option<Arc<Mutex<dyn BusInput<KeyingEvent>>>>, // TODO it's a BusOutput<SourceEncoding> too
+    source_encoding_bus: Option<Arc<Mutex<Bus<SourceEncoding>>>>,
     source_encoder_keying_event_rx: Option<Arc<Mutex<BusReader<KeyingEvent>>>>,
     source_encoder_source_encoding_rx: Option<Arc<Mutex<BusReader<SourceEncoding>>>>,
+    source_encoder_diag: Option<Arc<Mutex<dyn BusInput<SourceEncoding>>>>,
+    source_encoder_diag_source_encoding_rx: Option<Arc<Mutex<BusReader<SourceEncoding>>>>,
 }
 
 impl Application {
@@ -79,9 +82,12 @@ impl Application {
             let keying_event_tone_channel_bus = Arc::new(Mutex::new(transform_bus));
             self.keying_event_tone_channel_bus = Some(keying_event_tone_channel_bus.clone());
             // SourceEncoderDiag needs a clone of this for playback
-            self.keying_event_tone_channel_transform = Some(TransformBus::new(tone_generator_keying_event_rx,
-                                                  keying_event_tone_channel_bus.clone(), add_sidetone_channel_to_keying_event,
-                                                  self.terminate_flag.clone()));
+            let mut bus = TransformBus::new(
+                                        add_sidetone_channel_to_keying_event,
+                                        self.terminate_flag.clone());
+            bus.set_input_rx(Arc::new(Mutex::new(tone_generator_keying_event_rx)));
+            bus.set_output_tx(keying_event_tone_channel_bus.clone());
+            self.keying_event_tone_channel_transform = Some(bus);
             self.keying_event_tone_channel_rx = Some(Arc::new(Mutex::new(transform_bus_rx)));
         }
 
@@ -215,6 +221,7 @@ impl Application {
                 self.source_encoder = Some(source_encoder.clone());
                 let bus_reader = keying_event_bus.clone();
                 source_encoder.lock().as_mut().unwrap().set_input_rx(bus_reader);
+                // TODO need to set_output_tx to the source_encoding_bus
             }
         }
     }
@@ -225,6 +232,7 @@ impl Application {
             Some(source_encoder) => {
                 info!("Clearing source encooder");
                 source_encoder.lock().unwrap().clear_input_rx();
+                // TODO need to clear_output_tx too
             }
         }
         self.source_encoder = None;
@@ -242,6 +250,42 @@ impl Application {
     pub fn got_source_encoder_source_encoding_rx(&self) -> bool {
         self.source_encoder_source_encoding_rx.is_some()
     }
+
+    pub fn set_source_encoder_diag(&mut self, source_encoder_diag: Arc<Mutex<dyn BusInput<SourceEncoding>>>) {
+        info!("Starting to set source encoder diag");
+        match &self.source_encoder_diag_source_encoding_rx {
+            None => {
+                panic!("Cannot set a source_encoder_diag with no source_encoder_diag_source_encoding_rx");
+            }
+            Some(source_encoding_bus) => {
+                info!("Setting source encoder diag");
+                self.source_encoder_diag = Some(source_encoder_diag.clone());
+                let bus_reader = source_encoding_bus.clone();
+                source_encoder_diag.lock().as_mut().unwrap().set_input_rx(bus_reader);
+            }
+        }
+
+    }
+
+    pub fn clear_source_encoder_diag(&mut self) {
+        match &self.source_encoder_diag {
+            None => {}
+            Some(source_encoder_diag) => {
+                info!("Clearing source encoder diag");
+                source_encoder_diag.lock().unwrap().clear_input_rx();
+            }
+        }
+        self.source_encoder_diag = None;
+    }
+
+    pub fn got_source_encoder_diag(&self) -> bool {
+        self.source_encoder_diag.is_some()
+    }
+
+    pub fn got_source_encoder_diag_rx(&self) -> bool {
+        self.source_encoder_diag_source_encoding_rx.is_some()
+    }
+
 
     // PortAudio functions...
     pub fn open_output_audio_device(&self, out_dev_str: &str) -> Result<OutputStreamSettings<f32>, Box<dyn Error>> {
@@ -279,8 +323,11 @@ impl Application {
             keyer_diag: None,
             keyer_diag_keying_event_rx: None,
             source_encoder: None,
+            source_encoding_bus: None,
             source_encoder_keying_event_rx: None,
             source_encoder_source_encoding_rx: None,
+            source_encoder_diag: None,
+            source_encoder_diag_source_encoding_rx: None
         }
     }
 

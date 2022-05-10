@@ -16,6 +16,7 @@ mod application_spec {
 
     use crate::libs::application::application::{Application, BusInput, BusOutput, ApplicationMode};
     use crate::libs::audio::tone_generator::{KeyingEventToneChannel, ToneChannel};
+    use crate::libs::delayed_bus::delayed_bus::DelayedBus;
     use crate::libs::keyer_io::keyer_io::{KeyerSpeed, KeyingEvent};
     use crate::libs::source_codec::source_encoder::SourceEncoder;
     use crate::libs::source_codec::source_encoding::SOURCE_ENCODER_BLOCK_SIZE_IN_BITS;
@@ -32,7 +33,7 @@ mod application_spec {
 
     pub struct ApplicationFixture {
         terminate: Arc<AtomicBool>,
-        _scheduled_thread_pool: Arc<ScheduledThreadPool>,
+        scheduled_thread_pool: Arc<ScheduledThreadPool>,
         application: Application,
     }
 
@@ -54,7 +55,7 @@ mod application_spec {
 
         ApplicationFixture {
             terminate,
-            _scheduled_thread_pool: scheduled_thread_pool,
+            scheduled_thread_pool: scheduled_thread_pool,
             application,
         }
     }
@@ -504,6 +505,12 @@ mod application_spec {
         se.set_keyer_speed(12 as KeyerSpeed);
         let source_encoder = Arc::new(Mutex::new(se));
         fixture.application.set_source_encoder(source_encoder);
+
+        // The SourceEncoder 'diag' is a delayed bus that then decodes, and passes the decoded data
+        // to Playback. For this test, just read/write with no delay.
+
+        // let mut delayed_bus = DelayedBus::new(fixture.application.terminate_flag(), fixture.scheduled_thread_pool.clone(), Duration::from_millis(10));
+
 
         fake_keyer.lock().unwrap().start_sending();
         info!("Test sleeping");
