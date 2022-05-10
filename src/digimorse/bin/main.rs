@@ -482,7 +482,8 @@ fn source_encoder_diag(source_decoder: SourceDecoder, source_encoder_rx: BusRead
 
     let playback_scheduled_thread_pool = scheduled_thread_pool.clone();
     let mut playback = Playback::new(terminate.clone(), playback_scheduled_thread_pool,
-                                     tone_generator, playback_tone_channel_bus_tx.clone());
+                                     tone_generator);
+    playback.set_output_tx(playback_tone_channel_bus_tx.clone());
 
     const REPLAY_CALLSIGN_HASH: u16 = 0x1234u16;
 

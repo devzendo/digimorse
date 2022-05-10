@@ -5,6 +5,7 @@ use std::sync::atomic::AtomicBool;
 use bus::Bus;
 use dashmap::DashMap;
 use syncbox::{ScheduledThreadPool, Task};
+use crate::libs::application::application::BusOutput;
 use crate::libs::audio::tone_generator::{KeyingEventToneChannel, ToneGenerator};
 use crate::libs::keyer_io::keyer_io::{KeyerEdgeDurationMs, KeyingEvent, KeyingTimedEvent};
 use crate::libs::source_codec::keying_timing::{DefaultKeyingTiming, KeyingTiming};
@@ -36,19 +37,39 @@ pub struct Playback {
     playback_state: DashMap<StationIdentifier, StationDetails>,
     tone_generator: Arc<Mutex<ToneGenerator>>,
     scheduled_thread_pool: Arc<ScheduledThreadPool>,
-    keying_event_tone_channel_tx: Arc<Mutex<Bus<KeyingEventToneChannel>>>,
+    output_tx: Arc<Mutex<Option<Arc<Mutex<Bus<KeyingEventToneChannel>>>>>>,
 }
 
 const BODGE_HACK_FIRST_FRAME_PLAYBACK_DELAY_MS: u32 = 1000;
 
+impl BusOutput<KeyingEventToneChannel> for Playback {
+    fn clear_output_tx(&mut self) {
+        match self.output_tx.lock() {
+            Ok(mut locked) => {
+                *locked = None;
+            }
+            Err(_) => {}
+        }
+    }
+
+    fn set_output_tx(&mut self, output_tx: Arc<Mutex<Bus<KeyingEventToneChannel>>>) {
+        match self.output_tx.lock() {
+            Ok(mut locked) => { *locked = Some(output_tx); }
+            Err(_) => {}
+        }
+    }
+}
+
 impl Playback {
-    pub fn new(terminate: Arc<AtomicBool>, arc_scheduled_thread_pool: Arc<ScheduledThreadPool>, arc_tone_generator: Arc<Mutex<ToneGenerator>>, keying_event_tone_channel_tx: Arc<Mutex<Bus<KeyingEventToneChannel>>>) -> Self {
+    pub fn new(terminate: Arc<AtomicBool>, arc_scheduled_thread_pool: Arc<ScheduledThreadPool>, arc_tone_generator: Arc<Mutex<ToneGenerator>>) -> Self {
+        let output_tx_holder: Arc<Mutex<Option<Arc<Mutex<Bus<KeyingEventToneChannel>>>>>> = Arc::new(Mutex::new(None));
+
         Self {
             terminate_flag: terminate,
             playback_state: DashMap::new(),
             tone_generator: arc_tone_generator,
             scheduled_thread_pool: arc_scheduled_thread_pool,
-            keying_event_tone_channel_tx,
+            output_tx: output_tx_holder,
         }
     }
 
@@ -212,7 +233,6 @@ impl Playback {
 
     fn schedule_start(&self, details: &mut StationDetails) {
         // This denotes the START of a tone.
-        let chan = self.keying_event_tone_channel_tx.clone();
         let now = get_epoch_ms();
 
         let last_playback_finished = now >= details.last_playback_end_epoch_ms;
@@ -230,10 +250,16 @@ impl Playback {
             (details.last_playback_end_epoch_ms - now) as u32
         };
 
-        let ke = KeyingEvent::Start();
-        let task = TimedPlayback { item: KeyingEventToneChannel { keying_event: ke, tone_channel: details.tone_generator_channel }, output_tx: chan };
-        info!("!!! Scheduling start tone [ch# {}] @ time {}", details.tone_generator_channel, details.next_playback_schedule_time);
-        self.scheduled_thread_pool.schedule_ms(details.next_playback_schedule_time, task);
+        match self.output_tx.lock().unwrap().as_ref() {
+            None => {}
+            Some(output_tx) => {
+                let cloned_output_tx = output_tx.clone();
+                let ke = KeyingEvent::Start();
+                let task = TimedPlayback { item: KeyingEventToneChannel { keying_event: ke, tone_channel: details.tone_generator_channel }, output_tx: cloned_output_tx };
+                info!("!!! Scheduling start tone [ch# {}] @ time {}", details.tone_generator_channel, details.next_playback_schedule_time);
+                self.scheduled_thread_pool.schedule_ms(details.next_playback_schedule_time, task);
+            }
+        }
         details.last_playback_end_epoch_ms = now + details.next_playback_schedule_time as u128; // really only matters for first frame, subsequent will not change this
     }
 
@@ -255,11 +281,16 @@ impl Playback {
         } + duration_ms as u128) as u32;
         // This denotes the END of a tone.
 
-        let chan = self.keying_event_tone_channel_tx.clone();
-        let ke = KeyingEvent::Timed(KeyingTimedEvent { up: details.current_polarity, duration: duration_ms });
-        let task = TimedPlayback { item: KeyingEventToneChannel { keying_event: ke, tone_channel: details.tone_generator_channel }, output_tx: chan };
-        info!("!!! Scheduling end of tone [ch# {}] {} after {}ms @ time {:?}", details.tone_generator_channel, ( if details.current_polarity { "MARK ^" } else { "SPACE v" } ), duration_ms, details.next_playback_schedule_time);
-        self.scheduled_thread_pool.schedule_ms(details.next_playback_schedule_time, task);
+        match self.output_tx.lock().unwrap().as_ref() {
+            None => {}
+            Some(output_tx) => {
+                let cloned_output_tx = output_tx.clone();
+                let ke = KeyingEvent::Timed(KeyingTimedEvent { up: details.current_polarity, duration: duration_ms });
+                let task = TimedPlayback { item: KeyingEventToneChannel { keying_event: ke, tone_channel: details.tone_generator_channel }, output_tx: cloned_output_tx };
+                info!("!!! Scheduling end of tone [ch# {}] {} after {}ms @ time {:?}", details.tone_generator_channel, ( if details.current_polarity { "MARK ^" } else { "SPACE v" } ), duration_ms, details.next_playback_schedule_time);
+                self.scheduled_thread_pool.schedule_ms(details.next_playback_schedule_time, task);
+            }
+        }
         details.current_polarity = !details.current_polarity;
         details.last_playback_end_epoch_ms += duration_ms as u128;
     }
@@ -281,12 +312,17 @@ impl Playback {
         }) as u32;
         // This denotes the END of a tone.
 
-        let chan = self.keying_event_tone_channel_tx.clone();
         details.current_polarity = true;
-        let ke = KeyingEvent::End();
-        let task = TimedPlayback { item: KeyingEventToneChannel { keying_event: ke, tone_channel: details.tone_generator_channel }, output_tx: chan };
-        info!("!!! Scheduling end on tone [ch# {}] @ time {:?}", details.tone_generator_channel, details.next_playback_schedule_time);
-        self.scheduled_thread_pool.schedule_ms(details.next_playback_schedule_time, task);
+        match self.output_tx.lock().unwrap().as_ref() {
+            None => {}
+            Some(output_tx) => {
+                let cloned_output_tx = output_tx.clone();
+                let ke = KeyingEvent::End();
+                let task = TimedPlayback { item: KeyingEventToneChannel { keying_event: ke, tone_channel: details.tone_generator_channel }, output_tx: cloned_output_tx };
+                info!("!!! Scheduling end on tone [ch# {}] @ time {:?}", details.tone_generator_channel, details.next_playback_schedule_time);
+                self.scheduled_thread_pool.schedule_ms(details.next_playback_schedule_time, task);
+            }
+        }
     }
 
     #[cfg(test)]

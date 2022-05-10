@@ -71,7 +71,9 @@ mod playback_from_keying_spec {
 
         let arc_tone_generator = Arc::new(Mutex::new(tone_generator));
         let fixture_arc_tone_generator = arc_tone_generator.clone();
-        let playback = Playback::new(terminate.clone(), scheduled_thread_pool, arc_tone_generator, keying_event_tone_channel_tx.clone());
+        let mut playback = Playback::new(terminate.clone(), scheduled_thread_pool, arc_tone_generator);
+        playback.set_output_tx(keying_event_tone_channel_tx.clone());
+
         let fixture = PlaybackFixture {
             terminate,
             scheduled_thread_pool: fixture_scheduled_thread_pool,

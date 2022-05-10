@@ -12,7 +12,7 @@ mod playback_spec {
     use portaudio as pa;
     use portaudio::PortAudio;
     use rstest::*;
-    use crate::libs::application::application::BusInput;
+    use crate::libs::application::application::{BusInput, BusOutput};
     use crate::libs::audio::audio_devices::open_output_audio_device;
     use crate::libs::audio::tone_generator::{KeyingEventToneChannel, ToneGenerator};
     use crate::libs::playback::playback::Playback;
@@ -57,7 +57,9 @@ mod playback_spec {
 
         let arc_tone_generator = Arc::new(Mutex::new(tone_generator));
         let fixture_arc_tone_generator = arc_tone_generator.clone();
-        let playback = Playback::new(terminate.clone(), scheduled_thread_pool, arc_tone_generator, keying_event_tone_channel_tx.clone());
+        let mut playback = Playback::new(terminate.clone(), scheduled_thread_pool, arc_tone_generator);
+        playback.set_output_tx(keying_event_tone_channel_tx.clone());
+
         let fixture = PlaybackFixture {
             terminate,
             tone_generator: fixture_arc_tone_generator,
