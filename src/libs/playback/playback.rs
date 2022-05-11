@@ -42,6 +42,10 @@ pub struct Playback {
 
 const BODGE_HACK_FIRST_FRAME_PLAYBACK_DELAY_MS: u32 = 1000;
 
+// TODO possible future refactoring - Playback needs the ToneGenerator reference so it can
+// allocate/deallocate channels for new/expiring received frames. It has a reference to the
+// ToneGenerator's input channel so it can schedule sends to this channel. Perhaps these
+// scheduled play methods could be exposed on the ToneGenerator, so that this channel isn't needed?
 impl BusOutput<KeyingEventToneChannel> for Playback {
     fn clear_output_tx(&mut self) {
         match self.output_tx.lock() {
