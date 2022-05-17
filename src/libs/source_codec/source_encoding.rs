@@ -10,7 +10,7 @@ use crate::libs::keyer_io::keyer_io::KeyerSpeed;
 pub const SOURCE_ENCODER_BLOCK_SIZE_IN_BITS: usize = 128;
 // multiple of 8?
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, Debug)]
 pub struct SourceEncoding {
     // bytes of a block
     pub block: Vec<u8>,

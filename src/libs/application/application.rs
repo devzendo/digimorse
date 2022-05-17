@@ -6,7 +6,7 @@ use std::borrow::Borrow;
 use std::error::Error;
 
 use bus::{Bus, BusReader};
-use clap::arg_enum;
+use clap::{App, arg_enum};
 use log::{debug, info};
 use portaudio::{InputStreamSettings, OutputStreamSettings, PortAudio};
 use syncbox::ScheduledThreadPool;
@@ -91,12 +91,18 @@ impl Application {
             self.keying_event_tone_channel_rx = Some(Arc::new(Mutex::new(transform_bus_rx)));
         }
 
+        if mode == ApplicationMode::SourceEncoderDiag || mode == ApplicationMode::Full {
+            let mut source_encoding_bus = Bus::new(16);
+            self.source_encoding_bus = Some(Arc::new(Mutex::new(source_encoding_bus)));
+        }
+
         match mode {
             ApplicationMode::KeyerDiag => {
                 self.keyer_diag_keying_event_rx = Some(Arc::new(Mutex::new(self.keying_event_bus.as_ref().unwrap().lock().unwrap().add_rx())));
             }
             ApplicationMode::SourceEncoderDiag => {
                 self.source_encoder_keying_event_rx = Some(Arc::new(Mutex::new(self.keying_event_bus.as_ref().unwrap().lock().unwrap().add_rx())));
+                self.source_encoder_diag_source_encoding_rx = Some(Arc::new(Mutex::new(self.source_encoding_bus.as_ref().unwrap().lock().unwrap().add_rx())));
             }
             _ => {
             }
@@ -108,6 +114,9 @@ impl Application {
     }
 
     pub fn set_keyer(&mut self, keyer: Arc<Mutex<dyn BusOutput<KeyingEvent>>>) {
+        if self.mode.is_none() {
+            panic!("Can't set keyer in mode {:?}", self.mode);
+        }
         info!("Starting to set keyer");
         match &self.keying_event_bus {
             None => {
@@ -127,6 +136,9 @@ impl Application {
     }
 
     pub fn clear_keyer(&mut self) {
+        if self.mode.is_none() {
+            panic!("Can't clear keyer in mode {:?}", self.mode);
+        }
         match &self.keyer {
             None => {}
             Some(keyer) => {
@@ -138,6 +150,9 @@ impl Application {
     }
 
     pub fn set_tone_generator(&mut self, tone_generator: Arc<Mutex<dyn BusInput<KeyingEventToneChannel>>>) {
+        if self.mode.is_none() {
+            panic!("Can't set tone_generator in mode {:?}", self.mode);
+        }
         info!("Starting to set tone generator");
         self.clear_tone_generator();
         match &self.keying_event_tone_channel_rx {
@@ -154,6 +169,9 @@ impl Application {
     }
 
     pub fn clear_tone_generator(&mut self) {
+        if self.mode.is_none() {
+            panic!("Can't clear tone_generator in mode {:?}", self.mode);
+        }
         match &self.tone_generator {
             None => {}
             Some(tone_generator) => {
@@ -175,6 +193,9 @@ impl Application {
 
 
     pub fn set_keyer_diag(&mut self, keyer_diag: Arc<Mutex<dyn BusInput<KeyingEvent>>>) {
+        if self.mode.is_none() || self.mode.unwrap() != ApplicationMode::KeyerDiag {
+            panic!("Can't set keyer_diag in mode {:?}", self.mode);
+        }
         info!("Starting to set keyer diag");
         match &self.keyer_diag_keying_event_rx {
             None => {
@@ -191,6 +212,9 @@ impl Application {
     }
 
     pub fn clear_keyer_diag(&mut self) {
+        if self.mode.is_none() || self.mode.unwrap() != ApplicationMode::KeyerDiag {
+            panic!("Can't clear keyer_diag in mode {:?}", self.mode);
+        }
         match &self.keyer_diag {
             None => {}
             Some(keyer_diag) => {
@@ -211,6 +235,9 @@ impl Application {
 
 
     pub fn set_source_encoder(&mut self, source_encoder: Arc<Mutex<dyn BusInput<KeyingEvent>>>) {
+        if self.mode.is_none() || self.mode.unwrap() == ApplicationMode::KeyerDiag {
+            panic!("Can't set source_encoder in mode {:?}", self.mode);
+        }
         info!("Starting to set source encoder");
         match &self.source_encoder_keying_event_rx {
             None => {
@@ -227,6 +254,11 @@ impl Application {
     }
 
     pub fn clear_source_encoder(&mut self) {
+        if self.mode.is_none() ||
+            (self.mode.unwrap() != ApplicationMode::SourceEncoderDiag &&
+                self.mode.unwrap() != ApplicationMode::Full) {
+            panic!("Can't clear source_encoder in mode {:?}", self.mode);
+        }
         match &self.source_encoder {
             None => {}
             Some(source_encoder) => {
@@ -251,7 +283,14 @@ impl Application {
         self.source_encoder_source_encoding_rx.is_some()
     }
 
+    pub fn got_source_encoder_diag_source_encoding_rx(&self) -> bool {
+        self.source_encoder_diag_source_encoding_rx.is_some()
+    }
+
     pub fn set_source_encoder_diag(&mut self, source_encoder_diag: Arc<Mutex<dyn BusInput<SourceEncoding>>>) {
+        if self.mode.is_none() || self.mode.unwrap() != ApplicationMode::SourceEncoderDiag {
+            panic!("Can't set source_encoder_diag in mode {:?}", self.mode);
+        }
         info!("Starting to set source encoder diag");
         match &self.source_encoder_diag_source_encoding_rx {
             None => {
@@ -268,6 +307,10 @@ impl Application {
     }
 
     pub fn clear_source_encoder_diag(&mut self) {
+        if self.mode.is_none() || self.mode.unwrap() != ApplicationMode::SourceEncoderDiag {
+            panic!("Can't clear source_encoder_diag in mode {:?}", self.mode);
+        }
+
         match &self.source_encoder_diag {
             None => {}
             Some(source_encoder_diag) => {
