@@ -48,6 +48,12 @@ pub struct SourceEncoder {
     block_size_in_bits: usize,
 }
 
+// Multiple traits: using supertraits and a blanket implementation ... thanks to
+// https://tousu.in/qa/?qa=424751/
+pub trait SourceEncoderTrait: BusInput<KeyingEvent> + BusOutput<SourceEncoding> {}
+impl<T: BusInput<KeyingEvent> + BusOutput<SourceEncoding>> SourceEncoderTrait for T {}
+
+
 impl BusInput<KeyingEvent> for SourceEncoder {
     fn clear_input_rx(&mut self) {
         match self.input_rx.lock() {

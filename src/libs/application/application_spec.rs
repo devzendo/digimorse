@@ -34,7 +34,7 @@ mod application_spec {
 
     pub struct ApplicationFixture {
         terminate: Arc<AtomicBool>,
-        scheduled_thread_pool: Arc<ScheduledThreadPool>,
+        _scheduled_thread_pool: Arc<ScheduledThreadPool>,
         application: Application,
     }
 
@@ -56,7 +56,7 @@ mod application_spec {
 
         ApplicationFixture {
             terminate,
-            scheduled_thread_pool,
+            _scheduled_thread_pool: scheduled_thread_pool,
             application,
         }
     }
@@ -69,52 +69,6 @@ mod application_spec {
             debug!("ApplicationFixture ...set terminate flag");
         }
     }
-
-
-    struct FakeKeyer {
-        keying: Vec<KeyingEvent>,
-        bus: Option<Arc<Mutex<Bus<KeyingEvent>>>>,
-    }
-
-    impl BusOutput<KeyingEvent> for FakeKeyer {
-        fn clear_output_tx(&mut self) {
-            self.bus = None;
-        }
-
-        fn set_output_tx(&mut self, output_tx: Arc<Mutex<Bus<KeyingEvent>>>) {
-            self.bus = Some(output_tx);
-        }
-    }
-
-    impl FakeKeyer {
-        fn new(keying: Vec<KeyingEvent>) -> Self {
-            Self {
-                keying,
-                bus: None
-            }
-        }
-
-        fn got_output_tx(&self) -> bool {
-            self.bus.is_some()
-        }
-
-        fn start_sending(&mut self) {
-            match self.bus.clone() {
-                None => {
-                    warn!("No bus set in FakeKeyer");
-                }
-                Some(bus) => {
-                    info!("Sending keying from FakeKeyer");
-                    let mut guard = bus.lock().unwrap();
-                    for v in &self.keying {
-                        guard.broadcast(*v);
-                    }
-                    info!("Sent keying from FakeKeyer");
-                }
-            }
-        }
-    }
-
 
     struct StubBusWriter<T> {
         bus_writer: Option<Arc<Mutex<Bus<T>>>>,
@@ -356,7 +310,7 @@ mod application_spec {
         fixture.application.set_mode(ApplicationMode::KeyerDiag);
         assert_eq!(fixture.application.got_keyer(), false);
         assert_eq!(fixture.application.got_keyer_diag_rx(), true);
-        let keyer = Arc::new(Mutex::new(FakeKeyer::new(vec![])));
+        let keyer = Arc::new(Mutex::new(StubBusWriter::new()));
         fixture.application.set_keyer(keyer);
         assert_eq!(fixture.application.got_keyer(), true);
         assert_eq!(fixture.application.got_keyer_diag_rx(), true);
@@ -401,7 +355,7 @@ mod application_spec {
         fixture.application.set_mode(ApplicationMode::SourceEncoderDiag);
         assert_eq!(fixture.application.got_source_encoder(), false);
         assert_eq!(fixture.application.got_source_encoder_keying_event_rx(), true);
-        let source_encoder = Arc::new(Mutex::new(StubBusReader::new()));
+        let source_encoder: Arc<Mutex<StubBusReaderWriter<KeyingEvent, SourceEncoding>>> = Arc::new(Mutex::new(StubBusReaderWriter::new()));
         fixture.application.set_source_encoder(source_encoder);
         assert_eq!(fixture.application.got_source_encoder(), true);
         assert_eq!(fixture.application.got_source_encoder_keying_event_rx(), true);
@@ -425,7 +379,20 @@ mod application_spec {
         assert_eq!(fixture.application.got_source_encoder_diag_source_encoding_rx(), true);
     }
 
+    #[rstest]
+    #[serial]
+    pub fn set_clear_playback(mut fixture: ApplicationFixture) {
+        fixture.application.set_mode(ApplicationMode::SourceEncoderDiag);
+        assert_eq!(fixture.application.got_playback(), false);
+        let playback = Arc::new(Mutex::new(StubBusWriter::new()));
+        fixture.application.set_playback(playback);
+        assert_eq!(fixture.application.got_playback(), true);
+        fixture.application.clear_playback();
+        assert_eq!(fixture.application.got_playback(), false);
+    }
+
     // Mode/Component set/clear validation tests
+
     #[rstest]
     #[serial]
     #[should_panic(expected="Can't set keyer in mode None")]
@@ -501,6 +468,21 @@ mod application_spec {
         fixture.application.clear_source_encoder_diag();
     }
 
+    #[rstest]
+    #[serial]
+    #[should_panic(expected="Can't set playback in mode None")]
+    pub fn none__cannot_set_playback(mut fixture: ApplicationFixture) {
+        let playback: Arc<Mutex<StubBusWriter<KeyingEventToneChannel>>> = Arc::new(Mutex::new(StubBusWriter::new()));
+        fixture.application.set_playback(playback);
+    }
+
+    #[rstest]
+    #[serial]
+    #[should_panic(expected="Can't clear playback in mode None")]
+    pub fn none__cannot_clear_playback(mut fixture: ApplicationFixture) {
+        fixture.application.clear_playback();
+    }
+
 
     #[rstest]
     #[serial]
@@ -537,6 +519,22 @@ mod application_spec {
         fixture.application.clear_source_encoder_diag();
     }
 
+    #[rstest]
+    #[serial]
+    #[should_panic(expected="Can't set playback in mode Some(KeyerDiag)")]
+    pub fn keyer_diag__cannot_set_playback(mut fixture: ApplicationFixture) {
+        fixture.application.set_mode(ApplicationMode::KeyerDiag);
+        let playback: Arc<Mutex<StubBusWriter<KeyingEventToneChannel>>> = Arc::new(Mutex::new(StubBusWriter::new()));
+        fixture.application.set_playback(playback);
+    }
+
+    #[rstest]
+    #[serial]
+    #[should_panic(expected="Can't clear playback in mode Some(KeyerDiag)")]
+    pub fn keyer_diag__cannot_clear_playback(mut fixture: ApplicationFixture) {
+        fixture.application.set_mode(ApplicationMode::KeyerDiag);
+        fixture.application.clear_playback();
+    }
 
 
     #[rstest]
@@ -779,4 +777,40 @@ mod application_spec {
         assert_eq!(source_encoder_diag_received, test_vec_source_encoding);
     }
 
+    // The source_encoder_diag doesn't use a bus to communicate to playback - it's done by method
+    // calls.
+    // Playback uses method calls to tone_generator to allocate/deallocate channels, but the tones
+    // on those channels are sent to the tone_generator over a bus.
+
+    #[rstest]
+    #[serial]
+    pub fn source_encoder_diag__playback_sends_to_tone_generator(mut fixture: ApplicationFixture) {
+        fixture.application.set_mode(ApplicationMode::SourceEncoderDiag);
+
+        let playback: Arc<Mutex<StubBusWriter<KeyingEventToneChannel>>> = Arc::new(Mutex::new(StubBusWriter::new()));
+        let test_playback = playback.clone();
+        fixture.application.set_playback(playback);
+
+        let tone_generator: Arc<Mutex<StubBusReader<KeyingEventToneChannel>>> = Arc::new(Mutex::new(StubBusReader::new()));
+        let test_tone_generator = tone_generator.clone();
+        fixture.application.set_tone_generator(tone_generator);
+
+        test_util::wait_5_ms();
+
+        let sent_keying_tones = vec![
+            KeyingEventToneChannel{ keying_event: KeyingEvent::Start(), tone_channel: 0 },
+            KeyingEventToneChannel{ keying_event: KeyingEvent::End(), tone_channel: 0}];
+
+        test_playback.lock().unwrap().write(sent_keying_tones);
+
+        test_util::wait_5_ms();
+
+        let tone_generator_received_keying = test_tone_generator.lock().unwrap().read();
+
+        let expected_tone_generator_received_keying = vec![
+            KeyingEventToneChannel { keying_event: KeyingEvent::Start(), tone_channel: 0 as ToneChannel},
+            KeyingEventToneChannel { keying_event: KeyingEvent::End(), tone_channel: 0 as ToneChannel} ];
+
+        assert_eq!(tone_generator_received_keying, expected_tone_generator_received_keying);
+    }
 }

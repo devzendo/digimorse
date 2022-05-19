@@ -10,7 +10,7 @@ mod diag_application_spec {
     use std::sync::{Arc, Mutex};
     use std::sync::atomic::{AtomicBool, Ordering};
     use std::time::Duration;
-    use bus::BusReader;
+    use bus::{Bus, BusReader};
     use csv::Writer;
 
     use log::{debug, info};
@@ -22,9 +22,12 @@ mod diag_application_spec {
     use crate::libs::audio::tone_generator::ToneGenerator;
     use crate::libs::config_dir::config_dir;
     use crate::libs::config_file::config_file::ConfigurationStore;
+    use crate::libs::delayed_bus::delayed_bus::DelayedBus;
+    use crate::libs::application::application::BusOutput;
     use crate::libs::keyer_io::arduino_keyer_io::ArduinoKeyer;
     use crate::libs::keyer_io::keyer_io::{Keyer, KeyerSpeed, KeyingEvent};
     use crate::libs::serial_io::serial_io::DefaultSerialIO;
+    use crate::libs::source_codec::source_encoding::SourceEncoding;
     use crate::libs::util::test_util;
 
     #[ctor::ctor]
@@ -98,7 +101,7 @@ mod diag_application_spec {
         application.set_keyer(Arc::new(Mutex::new(keyer)));
     }
 
-    fn set_tone_generator(_config: &mut ConfigurationStore, application: &mut Application) {
+    fn set_tone_generator(_config: &mut ConfigurationStore, application: &mut Application) -> Arc<Mutex<ToneGenerator>> {
         info!("Setting up tone generator");
         let old_macbook = false;
         let out_dev_str = if old_macbook {"Built-in Output"} else {"MacBook Pro Speakers"};
@@ -124,7 +127,9 @@ mod diag_application_spec {
                 panic!("Can't initialise tone generator callback: {}", err);
             }
         }
-        application.set_tone_generator(Arc::new(Mutex::new(tone_generator)));
+        let return_tone_generator = Arc::new(Mutex::new(tone_generator));
+        application.set_tone_generator(return_tone_generator.clone());
+        return return_tone_generator;
     }
 
     impl Drop for DiagApplicationFixture {
@@ -224,4 +229,38 @@ mod diag_application_spec {
         keyer_diag.lock().unwrap().process();
         debug!("end mode_keyer_diag");
     }
+
+    #[rstest]
+    #[serial]
+    #[ignore]
+    pub fn mode_source_encoder_diag(mut fixture: DiagApplicationFixture) {
+        // Keying goes into the SourceEncoder, which emits SourceEncodings to source_encoder_tx. We have
+        // the other end of that bus here as source_encoder_rx. Patch this into the delayed_bus,
+        // which will send these SourceEncodings to us on delayed_source_encoder_rx, below.
+        debug!("start mode_source_encoder_diag");
+        fixture.application.set_mode(ApplicationMode::SourceEncoderDiag);
+        set_keyer(&mut fixture.config, &mut fixture.application);
+        let tone_generator = set_tone_generator(&mut fixture.config, &mut fixture.application);
+        let keyer_diag = set_keyer_diag(&mut fixture.config, &mut fixture.application);
+
+        let mut delayed_source_encoder_tx = Bus::new(16);
+        let mut delayed_source_encoder_rx = delayed_source_encoder_tx.add_rx();
+        let mut delayed_bus: DelayedBus<SourceEncoding> = DelayedBus::new(
+            fixture.application.terminate_flag(),
+            fixture.application.scheduled_thread_pool(),
+            Duration::from_secs(10));
+        // The source_encoder_diag doesn't use a bus to communicate to playback - it's done by method
+        // calls.
+        // Playback uses method calls to tone_generator to allocate/deallocate channels, but the tones
+        // on those channels are sent to the tone_generator over a bus.
+
+        // TODO
+        delayed_bus.set_output_tx(Arc::new(Mutex::new(delayed_source_encoder_tx)));
+        fixture.application.set_source_encoder_diag(Arc::new(Mutex::new(delayed_bus))); // the delayed_bus input is the source_encoder_diag_rx, in SourceEncoderDiag mode.
+
+        debug!("processing keyer_diag");
+        keyer_diag.lock().unwrap().process();
+        debug!("end mode_source_encoder_diag");
+    }
+
 }

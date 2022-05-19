@@ -6,7 +6,7 @@ use std::borrow::Borrow;
 use std::error::Error;
 
 use bus::{Bus, BusReader};
-use clap::{App, arg_enum};
+use clap::arg_enum;
 use log::{debug, info};
 use portaudio::{InputStreamSettings, OutputStreamSettings, PortAudio};
 use syncbox::ScheduledThreadPool;
@@ -15,6 +15,7 @@ use crate::libs::audio::tone_generator::KeyingEventToneChannel;
 use crate::libs::keyer_io::keyer_io::KeyingEvent;
 use crate::libs::transform_bus::transform_bus::TransformBus;
 use crate::libs::audio::audio_devices::{open_input_audio_device, open_output_audio_device};
+use crate::libs::source_codec::source_encoder::SourceEncoderTrait;
 use crate::libs::source_codec::source_encoding::SourceEncoding;
 
 arg_enum! {
@@ -46,7 +47,7 @@ fn add_sidetone_channel_to_keying_event(keying_event: KeyingEvent) -> KeyingEven
 // thread pool, etc..
 pub struct Application {
     terminate_flag: Arc<AtomicBool>,
-    _scheduled_thread_pool: Arc<ScheduledThreadPool>,
+    scheduled_thread_pool: Arc<ScheduledThreadPool>,
     pa: PortAudio,
     mode: Option<ApplicationMode>,
 
@@ -58,12 +59,13 @@ pub struct Application {
     keying_event_tone_channel_transform: Option<TransformBus<KeyingEvent, KeyingEventToneChannel>>,
     keyer_diag: Option<Arc<Mutex<dyn BusInput<KeyingEvent>>>>,
     keyer_diag_keying_event_rx: Option<Arc<Mutex<BusReader<KeyingEvent>>>>,
-    source_encoder: Option<Arc<Mutex<dyn BusInput<KeyingEvent>>>>, // TODO it's a BusOutput<SourceEncoding> too
+    source_encoder: Option<Arc<Mutex<dyn SourceEncoderTrait>>>,
     source_encoding_bus: Option<Arc<Mutex<Bus<SourceEncoding>>>>,
     source_encoder_keying_event_rx: Option<Arc<Mutex<BusReader<KeyingEvent>>>>,
     source_encoder_source_encoding_rx: Option<Arc<Mutex<BusReader<SourceEncoding>>>>,
     source_encoder_diag: Option<Arc<Mutex<dyn BusInput<SourceEncoding>>>>,
     source_encoder_diag_source_encoding_rx: Option<Arc<Mutex<BusReader<SourceEncoding>>>>,
+    playback: Option<Arc<Mutex<dyn BusOutput<KeyingEventToneChannel>>>>,
 }
 
 impl Application {
@@ -92,7 +94,7 @@ impl Application {
         }
 
         if mode == ApplicationMode::SourceEncoderDiag || mode == ApplicationMode::Full {
-            let mut source_encoding_bus = Bus::new(16);
+            let source_encoding_bus = Bus::new(16);
             self.source_encoding_bus = Some(Arc::new(Mutex::new(source_encoding_bus)));
         }
 
@@ -234,7 +236,7 @@ impl Application {
     }
 
 
-    pub fn set_source_encoder(&mut self, source_encoder: Arc<Mutex<dyn BusInput<KeyingEvent>>>) {
+    pub fn set_source_encoder(&mut self, source_encoder: Arc<Mutex<dyn SourceEncoderTrait>>) {
         if self.mode.is_none() || self.mode.unwrap() == ApplicationMode::KeyerDiag {
             panic!("Can't set source_encoder in mode {:?}", self.mode);
         }
@@ -246,9 +248,18 @@ impl Application {
             Some(keying_event_bus) => {
                 info!("Setting source encoder");
                 self.source_encoder = Some(source_encoder.clone());
+                info!("Setting source encoder input");
                 let bus_reader = keying_event_bus.clone();
                 source_encoder.lock().as_mut().unwrap().set_input_rx(bus_reader);
-                // TODO need to set_output_tx to the source_encoding_bus
+            }
+        }
+        match &self.source_encoding_bus {
+            None => {
+                panic!("Cannot set a source_encoder's output with no source_encoding_bus");
+            }
+            Some(source_encoding_bus) => {
+                info!("Setting source encoder output");
+                source_encoder.lock().as_mut().unwrap().set_output_tx(source_encoding_bus.clone());
             }
         }
     }
@@ -330,6 +341,42 @@ impl Application {
     }
 
 
+    pub fn set_playback(&mut self, playback: Arc<Mutex<dyn BusOutput<KeyingEventToneChannel>>>) {
+        if self.mode.is_none() || self.mode.unwrap() == ApplicationMode::KeyerDiag {
+            panic!("Can't set playback in mode {:?}", self.mode);
+        }
+        info!("Starting to set playback");
+        match &self.keying_event_tone_channel_bus {
+            None => {
+                panic!("Can't set playback's output bus because it doesn't exist");
+            }
+            Some(keying_event_tone_channel_bus) => {
+                info!("Setting playback");
+                self.playback = Some(playback.clone());
+                playback.lock().unwrap().set_output_tx(keying_event_tone_channel_bus.clone());
+            }
+        }
+    }
+
+    pub fn clear_playback(&mut self) {
+        if self.mode.is_none() || self.mode.unwrap() == ApplicationMode::KeyerDiag {
+            panic!("Can't clear playback in mode {:?}", self.mode);
+        }
+        match &self.playback {
+            None => {}
+            Some(playback) => {
+                info!("Clearing playback");
+                playback.lock().unwrap().clear_output_tx();
+            }
+        }
+        self.playback = None;
+    }
+
+    pub fn got_playback(&self) -> bool {
+        self.playback.is_some()
+    }
+
+
     // PortAudio functions...
     pub fn open_output_audio_device(&self, out_dev_str: &str) -> Result<OutputStreamSettings<f32>, Box<dyn Error>> {
         open_output_audio_device(&self.pa, out_dev_str)
@@ -353,7 +400,7 @@ impl Application {
 
         Self {
             terminate_flag,
-            _scheduled_thread_pool: scheduled_thread_pool,
+            scheduled_thread_pool,
             pa,
             mode: None,
 
@@ -370,7 +417,8 @@ impl Application {
             source_encoder_keying_event_rx: None,
             source_encoder_source_encoding_rx: None,
             source_encoder_diag: None,
-            source_encoder_diag_source_encoding_rx: None
+            source_encoder_diag_source_encoding_rx: None,
+            playback: None,
         }
     }
 
@@ -403,6 +451,11 @@ impl Application {
     // Obtain a clone of the global terminate flag.
     pub fn terminate_flag(&mut self) -> Arc<AtomicBool> {
         self.terminate_flag.clone()
+    }
+
+    // Obtain a clone of the global scheduled thread pool.
+    pub fn scheduled_thread_pool(&mut self) -> Arc<ScheduledThreadPool> {
+        self.scheduled_thread_pool.clone()
     }
 }
 
