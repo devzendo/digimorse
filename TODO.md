@@ -6,15 +6,14 @@ of the system into the Application object. All Bus/BusReaders will be encapsulat
 systems that read/write from these Bus/BusReaders currently have their connections set statically
 on construction. Later the user will be able to reconfigure the Keyer, Audio devices and Transceiver
 at runtime - so the Application must permit dynamic rewiring, and the system objects need to change
-to be able to be wired in to the Application. This has been done for the arduino_keyer_io: it now implements BusOutput.
-The other bus-connected system objects need to implement BusInput/BusOutput, as they are
-refactored to permit dynamic wiring into the Application.
+to be able to be wired in to the Application. This has been done for all bus-connected system objects: they
+now implement BusInput/BusOutput, as they are refactored to permit dynamic wiring into the Application.
 
 * Application wiring.
-  * The Application needs to create and encapsulate the TransformBus that transforms KeyingEvent
-into KeyingEventToneChannel.
-  * The ToneGenerator needs its input bus setting/clearing, rather than having it set in its constructor.
-  * The Application needs to be able to have the ToneGenerator set/cleared.
+  * The diag_application_spec.rs needs to have the 'source encoder diag' code moved here, out of the main
+  program, and the main program command line handling should have it removed - such 'diags' are now implemented
+  as tests.
+  
   
 My current research activities are around the next system object: the channel encoder:
 
