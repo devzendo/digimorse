@@ -13,10 +13,11 @@ mod diag_application_spec {
     use bus::{Bus, BusReader};
     use csv::Writer;
 
-    use log::{debug, info};
+    use log::{debug, info, warn};
     use portaudio as pa;
     use rstest::*;
-    use syncbox::ScheduledThreadPool;
+    use pretty_hex::*;
+    use syncbox::{Delay, ScheduledThreadPool};
 
     use crate::libs::application::application::{Application, ApplicationMode, BusInput};
     use crate::libs::audio::tone_generator::ToneGenerator;
@@ -26,8 +27,10 @@ mod diag_application_spec {
     use crate::libs::application::application::BusOutput;
     use crate::libs::keyer_io::arduino_keyer_io::ArduinoKeyer;
     use crate::libs::keyer_io::keyer_io::{Keyer, KeyerSpeed, KeyingEvent};
+    use crate::libs::playback::playback::Playback;
     use crate::libs::serial_io::serial_io::DefaultSerialIO;
-    use crate::libs::source_codec::source_encoding::SourceEncoding;
+    use crate::libs::source_codec::source_decoder::SourceDecoder;
+    use crate::libs::source_codec::source_encoding::{SOURCE_ENCODER_BLOCK_SIZE_IN_BITS, SourceEncoding};
     use crate::libs::util::test_util;
 
     #[ctor::ctor]
@@ -230,6 +233,80 @@ mod diag_application_spec {
         debug!("end mode_keyer_diag");
     }
 
+    struct SourceEncoderDiag {
+        delayed_source_encoding_bus: Arc<Mutex<Bus<SourceEncoding>>>,
+        delayed_source_encoding_bus_rx: BusReader<SourceEncoding>,
+        delayed_bus: DelayedBus<SourceEncoding>,
+        terminate: Arc<AtomicBool>,
+        playback: Arc<Mutex<Playback>>,
+        replay_sidetone_frequency: u16,
+    }
+    impl BusInput<SourceEncoding> for SourceEncoderDiag {
+        fn clear_input_rx(&mut self) {
+            self.delayed_bus.clear_input_rx();
+        }
+
+        fn set_input_rx(&mut self, input_rx: Arc<Mutex<BusReader<SourceEncoding>>>) {
+            self.delayed_bus.set_input_rx(input_rx);
+        }
+    }
+    impl SourceEncoderDiag {
+        fn new(terminate: Arc<AtomicBool>, scheduled_thread_pool: Arc<ScheduledThreadPool>, playback: Arc<Mutex<Playback>>, replay_sidetone_frequency: u16) -> Self {
+            let mut delayed_source_encoding_bus = Bus::new(16);
+            let delayed_source_encoding_bus_rx = delayed_source_encoding_bus.add_rx();
+            let mut delayed_bus: DelayedBus<SourceEncoding> = DelayedBus::new(
+                terminate.clone(),
+                scheduled_thread_pool.clone(),
+                Duration::from_secs(10));
+            let shared_delayed_source_encoding_bus = Arc::new(Mutex::new(delayed_source_encoding_bus));
+            delayed_bus.set_output_tx(shared_delayed_source_encoding_bus.clone());
+            Self {
+                delayed_source_encoding_bus: shared_delayed_source_encoding_bus,
+                delayed_source_encoding_bus_rx,
+                delayed_bus,
+                terminate,
+                playback,
+                replay_sidetone_frequency,
+            }
+        }
+
+        // Precondition: set_input_rx has been called.
+        fn process(&mut self) {
+            const REPLAY_CALLSIGN_HASH: u16 = 0x1234u16;
+            let mut source_decoder = SourceDecoder::new(SOURCE_ENCODER_BLOCK_SIZE_IN_BITS);
+
+            loop {
+                if self.terminate.load(Ordering::SeqCst) {
+                    break;
+                }
+                let result = self.delayed_source_encoding_bus_rx.recv_timeout(Duration::from_millis(250));
+                match result {
+                    Ok(source_encoding) => {
+                        info!("SourceEncoderDiag: Source Encoding {}", source_encoding);
+                        debug!("SourceEncodingDiag: isEnd {}", source_encoding.is_end);
+                        let hexdump = pretty_hex(&source_encoding.block);
+                        let hexdump_lines = hexdump.split("\n");
+                        for line in hexdump_lines {
+                            debug!("SourceEncodingDiag: Encoding {}", line);
+                        }
+                        // The SourceEncoding can now be decoded...
+                        let source_decode_result = source_decoder.source_decode(source_encoding.block);
+                        if source_decode_result.is_ok() {
+                            // The decoded frames can now be played back (using another tone generator
+                            // channel, at the replay sidetone audio frequency).
+                            self.playback.lock().unwrap().play(source_decode_result, REPLAY_CALLSIGN_HASH, self.replay_sidetone_frequency);
+                        } else {
+                            warn!("Error from source decoder: {:?}", source_decode_result);
+                        }
+                    }
+                    Err(_) => {
+                        // be quiet, it's ok..
+                    }
+                }
+            }
+        }
+    }
+
     #[rstest]
     #[serial]
     #[ignore]
@@ -248,24 +325,33 @@ mod diag_application_spec {
         set_keyer(&mut fixture.config, &mut fixture.application);
         let tone_generator = set_tone_generator(&mut fixture.config, &mut fixture.application);
 
-        let mut delayed_source_encoder_tx = Bus::new(16);
-        let mut delayed_source_encoder_rx = delayed_source_encoder_tx.add_rx();
-        let mut delayed_bus: DelayedBus<SourceEncoding> = DelayedBus::new(
-            fixture.application.terminate_flag(),
-            fixture.application.scheduled_thread_pool(),
-            Duration::from_secs(10));
         // The source_encoder_diag doesn't use a bus to communicate to playback - it's done by method
         // calls.
         // Playback uses method calls to tone_generator to allocate/deallocate channels, but the tones
         // on those channels are sent to the tone_generator over a bus.
 
         // TODO
-        delayed_bus.set_output_tx(Arc::new(Mutex::new(delayed_source_encoder_tx)));
-        fixture.application.set_source_encoder_diag(Arc::new(Mutex::new(delayed_bus))); // the delayed_bus input is the source_encoder_diag_rx, in SourceEncoderDiag mode.
+        // fixture.application.set_source_encoder_diag(Arc::new(Mutex::new(delayed_bus))); // the delayed_bus input is the source_encoder_diag_rx, in SourceEncoderDiag mode.
 
-        debug!("processing keyer_diag");
-        keyer_diag.lock().unwrap().process();
+        let playback = Playback::new(fixture.application.terminate_flag(), fixture.application.scheduled_thread_pool(),
+                                         tone_generator);
+        let application_playback = Arc::new(Mutex::new(playback));
+        let source_encoder_diag_playback = application_playback.clone();
+        fixture.application.set_playback(application_playback);
+
+        let mut source_encoder_diag = SourceEncoderDiag::new(
+            fixture.application.terminate_flag(),
+            fixture.application.scheduled_thread_pool(),
+            source_encoder_diag_playback,
+            fixture.config.get_sidetone_frequency() + 50);
+        let shared_source_encoder_diag = Arc::new(Mutex::new(source_encoder_diag));
+        let diag_shared_source_encoder_diag = shared_source_encoder_diag.clone();
+        fixture.application.set_source_encoder_diag(shared_source_encoder_diag);
+
+        test_util::wait_n_ms(1000);
+
+        debug!("processing source_encoder_diag");
+        diag_shared_source_encoder_diag.lock().unwrap().process();
         debug!("end mode_source_encoder_diag");
     }
-
 }
