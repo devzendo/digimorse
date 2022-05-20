@@ -234,14 +234,19 @@ mod diag_application_spec {
     #[serial]
     #[ignore]
     pub fn mode_source_encoder_diag(mut fixture: DiagApplicationFixture) {
-        // Keying goes into the SourceEncoder, which emits SourceEncodings to source_encoder_tx. We have
-        // the other end of that bus here as source_encoder_rx. Patch this into the delayed_bus,
-        // which will send these SourceEncodings to us on delayed_source_encoder_rx, below.
+        // Keying goes into the Application's keying_event_bus. The SourceEncoder reads from this.
+        // This bus is also read via the Application's embedded TransformBus
+        // that adds channel 0 to the KeyingEvents and emits them to the ToneGenerator.
+        // The SourceEncoder emits SourceEncodings to the Application's source_encoder_bus.
+        // This diag attaches a DelayedBus to the Application's source_encoder_diag, so it receives
+        // the SourceEncodings. The output of the diag (the SourceEncodings) are then decoded, and
+        // submitted to the Playback via method calls. This allocates channels of the ToneGenerator
+        // via method calls, and also submits KeyingEventToneChannel events to the ToneGenerator,
+        // which plays them.
         debug!("start mode_source_encoder_diag");
         fixture.application.set_mode(ApplicationMode::SourceEncoderDiag);
         set_keyer(&mut fixture.config, &mut fixture.application);
         let tone_generator = set_tone_generator(&mut fixture.config, &mut fixture.application);
-        let keyer_diag = set_keyer_diag(&mut fixture.config, &mut fixture.application);
 
         let mut delayed_source_encoder_tx = Bus::new(16);
         let mut delayed_source_encoder_rx = delayed_source_encoder_tx.add_rx();
