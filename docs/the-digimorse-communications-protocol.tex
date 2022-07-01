@@ -412,6 +412,22 @@ The approach is therefore:
     \item Otherwise use the \emph{Keying (Naïve)} frame - which does not distinguish between dit, dah and wordgap: it's not relative to any of them.
 \end{itemize}
 
+\subsection{Block size}
+\label{section:block-size}
+
+How large should the digimorse block be? Each block will contain a \emph{WPM/Polarity} frame, followed by a possible \emph{Metadata} frame, then several \emph{Keying} frames, which as discussed in the previous section, can be various lengths, depending on the chosen keying speed, and the operator's accuracy. Ideally, we want to reduce the use of wasted 
+	\emph{Padding to end of block} frames.
+
+To recap, \emph{WPM/Polarity} frame are 4+7 bits; \emph{Keying (Perfect)} frames are 4 bits; \emph{Keying (Naïve)} are 4+11; \emph{Keying (Delta)} are between 4+5 and 4+9 bits - let's say an average of 4+7 bits. 
+
+Metadata encoding has not yet been incorporated into the code, so I'm not considering that in the block size.
+
+So how many average \emph{Keying} frames should each block contain? There should be sufficient to ensure that the overhead of \emph{WPM/Polarity}, and the extra bits added due to error correction and synchronisation do not dwarf the actual keying. Without doing any exhaustive simulation of this, I'm going to choose "two typical Morse characters" to be encodable in a block. Of the A-Z 0-9 , / ? AR . set of characters, 14 have 5 elements, 12 have 4, 8 have 3. So, two of the most common 5 element characters, which would require $(2*5 - 1)$ frames, with an average \emph{Keying} frame length of 4+7.
+
+This leads to $(4+7) + ((2*5 - 1) * (4*7))$ bits, or 110 bits, which, rounded up to a multiple of 8 bits gives a block size of 112 bits.
+    
+This block size is up for discussion!
+    
 \section{Channel Encoder}
 Adding LDPC and CRC \& Costas Array. End of transmission marker (another Costas array?).
 
