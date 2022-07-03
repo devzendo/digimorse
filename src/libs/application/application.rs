@@ -23,7 +23,8 @@ arg_enum! {
     pub enum ApplicationMode {
         Full,
         KeyerDiag,
-        SourceEncoderDiag
+        SourceEncoderDiag,
+        ChannelDiag
     }
 }
 
