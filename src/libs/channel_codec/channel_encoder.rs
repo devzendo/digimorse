@@ -1,6 +1,8 @@
 /*
  * The Channel Encoder has a similar design to that in FT8/WSJT-X. The size of the input data is
- * different, as are the CRC and LDPC matrix dimensions.
+ * different, as is the LDPC matrix dimensions. The CRC is identical to FT8, as its number of bits
+ * is not critical to error control; the LDPC performance dominates. See discussions on the WSJT-X
+ * mailing list.
  * The Channel Encoder receives SourceEncodings on its input bus, applies the CRC, then the LDPC
  * then the resulting data is split into 3-bit fields (each can hold a number from 0-7 hence the
  * 8 tones used), these are then mapped to a set of 3-bit Gray codes. A ramping-up symbol is emitted
@@ -19,8 +21,10 @@
  */
 
 
-// why did ft8 choose a 14 bit CRC?
-// source_encodinp.rs SOURCE_ENCODER_BLOCK_SIZE_IN_BITS is currently 128.
+// why did ft8 choose a 14 bit CRC? They upgraded from 12 to 14 with version 2.0. It doesn't seem
+// critical, as the LDPC always returns valid codewords. The CRC just allows the wrong codeword to
+// be corrected.
+// source_encodinp.rs SOURCE_ENCODER_BLOCK_SIZE_IN_BITS is currently 112.
 
 
 // geometry of the LDPC (X, Y) where Y is source encoder frame length in bits + CRC length.
