@@ -4,15 +4,15 @@ pub type RadioFrequencyMHz = u32;
 pub type AudioFrequencyKHz = u16;
 
 pub struct Transmitter {
-    radio_frequency_mhz: RadioFrequencyMHz,
-    audio_offset: AudioFrequencyKHz,
+    _radio_frequency_mhz: RadioFrequencyMHz,
+    _audio_offset: AudioFrequencyKHz,
 }
 
 impl Transmitter {
     pub fn new() -> Self {
         Self {
-            radio_frequency_mhz: 0,
-            audio_offset: 0
+            _radio_frequency_mhz: 0,
+            _audio_offset: 0
         }
     }
 }
