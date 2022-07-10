@@ -17,7 +17,7 @@ mod diag_application_spec {
     use portaudio as pa;
     use rstest::*;
     use pretty_hex::*;
-    use syncbox::{Delay, ScheduledThreadPool};
+    use syncbox::ScheduledThreadPool;
 
     use crate::libs::application::application::{Application, ApplicationMode, BusInput};
     use crate::libs::audio::tone_generator::ToneGenerator;
