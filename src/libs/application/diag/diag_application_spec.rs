@@ -273,7 +273,7 @@ mod diag_application_spec {
         // Precondition: set_input_rx has been called.
         fn process(&mut self) {
             const REPLAY_CALLSIGN_HASH: u16 = 0x1234u16;
-            let mut source_decoder = SourceDecoder::new(SOURCE_ENCODER_BLOCK_SIZE_IN_BITS);
+            let source_decoder = SourceDecoder::new(SOURCE_ENCODER_BLOCK_SIZE_IN_BITS);
 
             loop {
                 if self.terminate.load(Ordering::SeqCst) {
@@ -339,7 +339,7 @@ mod diag_application_spec {
         let source_encoder_diag_playback = application_playback.clone();
         fixture.application.set_playback(application_playback);
 
-        let mut source_encoder_diag = SourceEncoderDiag::new(
+        let source_encoder_diag = SourceEncoderDiag::new(
             fixture.application.terminate_flag(),
             fixture.application.scheduled_thread_pool(),
             source_encoder_diag_playback,
