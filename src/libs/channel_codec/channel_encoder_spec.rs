@@ -47,5 +47,5 @@ mod channel_encoder_spec {
     }
 
     #[rstest]
-    pub fn do_something(mut fixture: ChannelEncoderFixture) {}
+    pub fn do_something(mut _fixture: ChannelEncoderFixture) {}
 }

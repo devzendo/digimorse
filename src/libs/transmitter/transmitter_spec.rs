@@ -47,5 +47,5 @@ mod transmitter_spec {
     }
 
     #[rstest]
-    pub fn do_something(mut fixture: TransmitterFixture) {}
+    pub fn do_something(mut _fixture: TransmitterFixture) {}
 }
