@@ -3,12 +3,9 @@ extern crate hamcrest2;
 #[cfg(test)]
 mod transmitter_spec {
     use std::env;
-    use std::sync::{Arc, Mutex};
+    use std::sync::Arc;
     use std::sync::atomic::{AtomicBool, Ordering};
-    use std::time::Duration;
 
-    use bus::{Bus, BusReader};
-    use hamcrest2::prelude::*;
     use log::{debug, info};
     use rstest::*;
 
