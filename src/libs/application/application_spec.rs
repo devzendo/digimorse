@@ -419,14 +419,14 @@ mod application_spec {
     #[rstest]
     #[serial]
     #[should_panic(expected="Can't clear tone_generator in mode None")]
-    pub fn none__cannot_clear_tone_generator(mut fixture: ApplicationFixture) {
+    pub fn none_mode_cannot_clear_tone_generator(mut fixture: ApplicationFixture) {
         fixture.application.clear_tone_generator();
     }
 
     #[rstest]
     #[serial]
     #[should_panic(expected="Can't set keyer_diag in mode None")]
-    pub fn none__cannot_set_keyer_diag(mut fixture: ApplicationFixture) {
+    pub fn none_mode_cannot_set_keyer_diag(mut fixture: ApplicationFixture) {
         let keyer_diag: Arc<Mutex<StubBusReader<KeyingEvent>>> = Arc::new(Mutex::new(StubBusReader::new()));
         fixture.application.set_keyer_diag(keyer_diag);
     }
@@ -434,14 +434,14 @@ mod application_spec {
     #[rstest]
     #[serial]
     #[should_panic(expected="Can't clear keyer_diag in mode None")]
-    pub fn none__cannot_clear_keyer_diag(mut fixture: ApplicationFixture) {
+    pub fn none_mode_cannot_clear_keyer_diag(mut fixture: ApplicationFixture) {
         fixture.application.clear_keyer_diag();
     }
 
     #[rstest]
     #[serial]
     #[should_panic(expected="Can't set source_encoder in mode None")]
-    pub fn none__cannot_set_source_encoder(mut fixture: ApplicationFixture) {
+    pub fn none_mode_cannot_set_source_encoder(mut fixture: ApplicationFixture) {
         let source_encoder: Arc<Mutex<StubBusReaderWriter<KeyingEvent, SourceEncoding>>> = Arc::new(Mutex::new(StubBusReaderWriter::new()));
         fixture.application.set_source_encoder(source_encoder);
     }
@@ -449,14 +449,14 @@ mod application_spec {
     #[rstest]
     #[serial]
     #[should_panic(expected="Can't clear source_encoder in mode None")]
-    pub fn none__cannot_clear_source_encoder(mut fixture: ApplicationFixture) {
+    pub fn none_mode_cannot_clear_source_encoder(mut fixture: ApplicationFixture) {
         fixture.application.clear_source_encoder();
     }
 
     #[rstest]
     #[serial]
     #[should_panic(expected="Can't set source_encoder_diag in mode None")]
-    pub fn none__cannot_set_source_encoder_diag(mut fixture: ApplicationFixture) {
+    pub fn none_mode_cannot_set_source_encoder_diag(mut fixture: ApplicationFixture) {
         let source_encoder_diag: Arc<Mutex<StubBusReader<SourceEncoding>>> = Arc::new(Mutex::new(StubBusReader::new()));
         fixture.application.set_source_encoder_diag(source_encoder_diag);
     }
@@ -464,14 +464,14 @@ mod application_spec {
     #[rstest]
     #[serial]
     #[should_panic(expected="Can't clear source_encoder_diag in mode None")]
-    pub fn none__cannot_clear_source_encoder_diag(mut fixture: ApplicationFixture) {
+    pub fn none_mode_cannot_clear_source_encoder_diag(mut fixture: ApplicationFixture) {
         fixture.application.clear_source_encoder_diag();
     }
 
     #[rstest]
     #[serial]
     #[should_panic(expected="Can't set playback in mode None")]
-    pub fn none__cannot_set_playback(mut fixture: ApplicationFixture) {
+    pub fn none_mode_cannot_set_playback(mut fixture: ApplicationFixture) {
         let playback: Arc<Mutex<StubBusWriter<KeyingEventToneChannel>>> = Arc::new(Mutex::new(StubBusWriter::new()));
         fixture.application.set_playback(playback);
     }
@@ -479,7 +479,7 @@ mod application_spec {
     #[rstest]
     #[serial]
     #[should_panic(expected="Can't clear playback in mode None")]
-    pub fn none__cannot_clear_playback(mut fixture: ApplicationFixture) {
+    pub fn none_mode_cannot_clear_playback(mut fixture: ApplicationFixture) {
         fixture.application.clear_playback();
     }
 
@@ -487,7 +487,7 @@ mod application_spec {
     #[rstest]
     #[serial]
     #[should_panic(expected="Can't set source_encoder in mode Some(KeyerDiag)")]
-    pub fn keyer_diag__cannot_set_source_encoder(mut fixture: ApplicationFixture) {
+    pub fn keyer_diag_mode_cannot_set_source_encoder(mut fixture: ApplicationFixture) {
         fixture.application.set_mode(ApplicationMode::KeyerDiag);
         let source_encoder: Arc<Mutex<StubBusReaderWriter<KeyingEvent, SourceEncoding>>> = Arc::new(Mutex::new(StubBusReaderWriter::new()));
         fixture.application.set_source_encoder(source_encoder);
@@ -496,7 +496,7 @@ mod application_spec {
     #[rstest]
     #[serial]
     #[should_panic(expected="Can't clear source_encoder in mode Some(KeyerDiag)")]
-    pub fn keyer_diag__cannot_clear_source_encoder(mut fixture: ApplicationFixture) {
+    pub fn keyer_diag_mode_cannot_clear_source_encoder(mut fixture: ApplicationFixture) {
         fixture.application.set_mode(ApplicationMode::KeyerDiag);
         fixture.application.clear_source_encoder();
     }
@@ -505,7 +505,7 @@ mod application_spec {
     #[rstest]
     #[serial]
     #[should_panic(expected="Can't set source_encoder_diag in mode Some(KeyerDiag)")]
-    pub fn keyer_diag__cannot_set_source_encoder_diag(mut fixture: ApplicationFixture) {
+    pub fn keyer_diag_mode_cannot_set_source_encoder_diag(mut fixture: ApplicationFixture) {
         fixture.application.set_mode(ApplicationMode::KeyerDiag);
         let source_encoder_diag: Arc<Mutex<StubBusReader<SourceEncoding>>> = Arc::new(Mutex::new(StubBusReader::new()));
         fixture.application.set_source_encoder_diag(source_encoder_diag);
@@ -514,7 +514,7 @@ mod application_spec {
     #[rstest]
     #[serial]
     #[should_panic(expected="Can't clear source_encoder_diag in mode Some(KeyerDiag)")]
-    pub fn keyer_diag__cannot_clear_source_encoder_diag(mut fixture: ApplicationFixture) {
+    pub fn keyer_diag_mode_cannot_clear_source_encoder_diag(mut fixture: ApplicationFixture) {
         fixture.application.set_mode(ApplicationMode::KeyerDiag);
         fixture.application.clear_source_encoder_diag();
     }
@@ -522,7 +522,7 @@ mod application_spec {
     #[rstest]
     #[serial]
     #[should_panic(expected="Can't set playback in mode Some(KeyerDiag)")]
-    pub fn keyer_diag__cannot_set_playback(mut fixture: ApplicationFixture) {
+    pub fn keyer_diag_mode_cannot_set_playback(mut fixture: ApplicationFixture) {
         fixture.application.set_mode(ApplicationMode::KeyerDiag);
         let playback: Arc<Mutex<StubBusWriter<KeyingEventToneChannel>>> = Arc::new(Mutex::new(StubBusWriter::new()));
         fixture.application.set_playback(playback);
@@ -531,7 +531,7 @@ mod application_spec {
     #[rstest]
     #[serial]
     #[should_panic(expected="Can't clear playback in mode Some(KeyerDiag)")]
-    pub fn keyer_diag__cannot_clear_playback(mut fixture: ApplicationFixture) {
+    pub fn keyer_diag_mode_cannot_clear_playback(mut fixture: ApplicationFixture) {
         fixture.application.set_mode(ApplicationMode::KeyerDiag);
         fixture.application.clear_playback();
     }
@@ -540,7 +540,7 @@ mod application_spec {
     #[rstest]
     #[serial]
     #[should_panic(expected="Can't set keyer_diag in mode Some(SourceEncoderDiag)")]
-    pub fn source_encoder_diag__cannot_set_keyer_diag(mut fixture: ApplicationFixture) {
+    pub fn source_encoder_diag_mode_cannot_set_keyer_diag(mut fixture: ApplicationFixture) {
         fixture.application.set_mode(ApplicationMode::SourceEncoderDiag);
         let keyer_diag: Arc<Mutex<StubBusReader<KeyingEvent>>> = Arc::new(Mutex::new(StubBusReader::new()));
         fixture.application.set_keyer_diag(keyer_diag);
@@ -549,7 +549,7 @@ mod application_spec {
     #[rstest]
     #[serial]
     #[should_panic(expected="Can't clear keyer_diag in mode Some(SourceEncoderDiag)")]
-    pub fn source_encoder_diag__cannot_clear_keyer_diag(mut fixture: ApplicationFixture) {
+    pub fn source_encoder_diag_mode_cannot_clear_keyer_diag(mut fixture: ApplicationFixture) {
         fixture.application.set_mode(ApplicationMode::SourceEncoderDiag);
         fixture.application.clear_keyer_diag();
     }
@@ -558,7 +558,7 @@ mod application_spec {
     #[rstest]
     #[serial]
     #[should_panic(expected="Can't set keyer_diag in mode Some(Full)")]
-    pub fn full__cannot_set_keyer_diag(mut fixture: ApplicationFixture) {
+    pub fn full_mode_cannot_set_keyer_diag(mut fixture: ApplicationFixture) {
         fixture.application.set_mode(ApplicationMode::Full);
         let keyer_diag: Arc<Mutex<StubBusReader<KeyingEvent>>> = Arc::new(Mutex::new(StubBusReader::new()));
         fixture.application.set_keyer_diag(keyer_diag);
@@ -567,7 +567,7 @@ mod application_spec {
     #[rstest]
     #[serial]
     #[should_panic(expected="Can't clear keyer_diag in mode Some(Full)")]
-    pub fn full__cannot_clear_keyer_diag(mut fixture: ApplicationFixture) {
+    pub fn full_mode_cannot_clear_keyer_diag(mut fixture: ApplicationFixture) {
         fixture.application.set_mode(ApplicationMode::Full);
         fixture.application.clear_keyer_diag();
     }
@@ -575,7 +575,7 @@ mod application_spec {
     #[rstest]
     #[serial]
     #[should_panic(expected="Can't set source_encoder_diag in mode Some(Full)")]
-    pub fn full__cannot_set_source_encoder_diag(mut fixture: ApplicationFixture) {
+    pub fn full_mode_cannot_set_source_encoder_diag(mut fixture: ApplicationFixture) {
         fixture.application.set_mode(ApplicationMode::Full);
         let source_encoder_diag: Arc<Mutex<StubBusReader<SourceEncoding>>> = Arc::new(Mutex::new(StubBusReader::new()));
         fixture.application.set_source_encoder_diag(source_encoder_diag);
@@ -584,7 +584,7 @@ mod application_spec {
     #[rstest]
     #[serial]
     #[should_panic(expected="Can't clear source_encoder_diag in mode Some(Full)")]
-    pub fn full__cannot_clear_source_encoder_diag(mut fixture: ApplicationFixture) {
+    pub fn full_mode_cannot_clear_source_encoder_diag(mut fixture: ApplicationFixture) {
         fixture.application.set_mode(ApplicationMode::Full);
         fixture.application.clear_source_encoder_diag();
     }
@@ -599,21 +599,21 @@ mod application_spec {
 
     #[rstest]
     #[serial]
-    pub fn full__keyer_sends_to_tone_generator(mut fixture: ApplicationFixture) {
+    pub fn full_mode_keyer_sends_to_tone_generator(mut fixture: ApplicationFixture) {
         fixture.application.set_mode(ApplicationMode::Full);
         _keyer_sends_to_tone_generator(fixture);
     }
 
     #[rstest]
     #[serial]
-    pub fn keyer_diag__keyer_sends_to_tone_generator(mut fixture: ApplicationFixture) {
+    pub fn keyer_diag_mode_keyer_sends_to_tone_generator(mut fixture: ApplicationFixture) {
         fixture.application.set_mode(ApplicationMode::KeyerDiag);
         _keyer_sends_to_tone_generator(fixture);
     }
 
     #[rstest]
     #[serial]
-    pub fn source_encoder_diag__keyer_sends_to_tone_generator(mut fixture: ApplicationFixture) {
+    pub fn source_encoder_diag_mode_keyer_sends_to_tone_generator(mut fixture: ApplicationFixture) {
         fixture.application.set_mode(ApplicationMode::SourceEncoderDiag);
         _keyer_sends_to_tone_generator(fixture);
     }
@@ -647,7 +647,7 @@ mod application_spec {
 
     #[rstest]
     #[serial]
-    pub fn keyer_diag__keyer_sends_to_keyer_diag(mut fixture: ApplicationFixture) {
+    pub fn keyer_diag_mode_keyer_sends_to_keyer_diag(mut fixture: ApplicationFixture) {
         fixture.application.set_mode(ApplicationMode::KeyerDiag);
         let keyer: Arc<Mutex<StubBusWriter<KeyingEvent>>> = Arc::new(Mutex::new(StubBusWriter::new()));
         let test_keyer = keyer.clone();
@@ -674,14 +674,14 @@ mod application_spec {
 
     #[rstest]
     #[serial]
-    pub fn keyer_diag__clear_keyer_prevents_send_to_tone_generator(mut fixture: ApplicationFixture) {
+    pub fn keyer_diag_mode_clear_keyer_prevents_send_to_tone_generator(mut fixture: ApplicationFixture) {
         fixture.application.set_mode(ApplicationMode::KeyerDiag);
         _keyer_does_not_send_to_tone_generator(fixture);
     }
 
     #[rstest]
     #[serial]
-    pub fn source_encoder_diag__clear_keyer_prevents_send_to_tone_generator(mut fixture: ApplicationFixture) {
+    pub fn source_encoder_diag_mode_clear_keyer_prevents_send_to_tone_generator(mut fixture: ApplicationFixture) {
         fixture.application.set_mode(ApplicationMode::SourceEncoderDiag);
         _keyer_does_not_send_to_tone_generator(fixture);
     }
@@ -712,7 +712,7 @@ mod application_spec {
 
     #[rstest]
     #[serial]
-    pub fn keyer_diag__clear_keyer_does_not_send_to_keyer_diag(mut fixture: ApplicationFixture) {
+    pub fn keyer_diag_mode_clear_keyer_does_not_send_to_keyer_diag(mut fixture: ApplicationFixture) {
         fixture.application.set_mode(ApplicationMode::KeyerDiag);
         let keyer: Arc<Mutex<StubBusWriter<KeyingEvent>>> = Arc::new(Mutex::new(StubBusWriter::new()));
         let test_keyer = keyer.clone();
@@ -745,7 +745,7 @@ mod application_spec {
 
     #[rstest]
     #[serial]
-    pub fn source_encoder_diag__source_encoder_sends_to_source_encoder_diag(mut fixture: ApplicationFixture) {
+    pub fn source_encoder_diag_mode_source_encoder_sends_to_source_encoder_diag(mut fixture: ApplicationFixture) {
         fixture.application.set_mode(ApplicationMode::SourceEncoderDiag);
         let source_encoder: Arc<Mutex<StubBusReaderWriter<KeyingEvent, SourceEncoding>>> = Arc::new(Mutex::new(StubBusReaderWriter::new()));
         let test_source_encoder = source_encoder.clone();
@@ -784,7 +784,7 @@ mod application_spec {
 
     #[rstest]
     #[serial]
-    pub fn source_encoder_diag__playback_sends_to_tone_generator(mut fixture: ApplicationFixture) {
+    pub fn source_encoder_diag_mode_playback_sends_to_tone_generator(mut fixture: ApplicationFixture) {
         fixture.application.set_mode(ApplicationMode::SourceEncoderDiag);
 
         let playback: Arc<Mutex<StubBusWriter<KeyingEventToneChannel>>> = Arc::new(Mutex::new(StubBusWriter::new()));
