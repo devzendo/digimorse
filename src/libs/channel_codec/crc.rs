@@ -41,11 +41,6 @@ const fn generate_table<const DIM: usize>() -> [CRC; DIM] {
     table
 }
 
-fn display_table() {
-    for dividend in 0 .. 256 {
-        debug!("CRC[{:>3}]=0x{:04X?}", dividend, CRC_TABLE[dividend]);
-    }
-}
 
 pub fn crc14(data: &[u8]) -> CRC {
     let mut remainder: CRC = 0;
@@ -74,7 +69,7 @@ pub fn crc14_slow(data: &[u8]) -> CRC {
         // Bring the next byte into the remainder.
         remainder ^= (data[byte] as u16) << (WIDTH - 8);
         // Perform modulo-2 division, a bit at a time.
-        for bit in (0 .. 8).rev() {
+        for _ in (0 .. 8).rev() {
             if (remainder & TOPBIT) != 0x0000 {
                 remainder = (remainder << 1) ^ POLYNOMIAL;
             } else {
@@ -88,3 +83,9 @@ pub fn crc14_slow(data: &[u8]) -> CRC {
 #[cfg(test)]
 #[path = "./crc_spec.rs"]
 mod crc_spec;
+
+fn display_table() {
+    for dividend in 0 .. 256 {
+        debug!("CRC[{:>3}]=0x{:04X?}", dividend, CRC_TABLE[dividend]);
+    }
+}

@@ -54,7 +54,7 @@ mod crc_spec {
         let shifted_crc = INPUT_CRC << 2; // Pack the 14 bits of CRC at the end of the INPUT.
         debug!("SHIFTED_CRC=0x{:04X?}", shifted_crc);
         input_with_crc.push((shifted_crc >> 8) as u8);
-        input_with_crc.push((shifted_crc as u8));
+        input_with_crc.push(shifted_crc as u8);
         let input_with_crc_bytes = vec_to_array::<u8, 70>(input_with_crc);
         let hexdump = pretty_hex(&input_with_crc_bytes);
         debug!("data: {}", hexdump);
@@ -69,7 +69,7 @@ mod crc_spec {
         let shifted_crc = INPUT_CRC << 2; // Pack the 14 bits of CRC at the end of the INPUT.
         debug!("SHIFTED_CRC=0x{:04X?}", shifted_crc);
         input_with_crc.push((shifted_crc >> 8) as u8);
-        input_with_crc.push((shifted_crc as u8));
+        input_with_crc.push(shifted_crc as u8);
         let input_with_crc_bytes = vec_to_array::<u8, 70>(input_with_crc);
         let hexdump = pretty_hex(&input_with_crc_bytes);
         debug!("data: {}", hexdump);
