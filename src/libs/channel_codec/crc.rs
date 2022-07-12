@@ -1,5 +1,3 @@
-use log::debug;
-
 pub type CRC = u16;
 
 pub const POLYNOMIAL: u16 = 0x2757;
@@ -83,9 +81,3 @@ pub fn crc14_slow(data: &[u8]) -> CRC {
 #[cfg(test)]
 #[path = "./crc_spec.rs"]
 mod crc_spec;
-
-fn display_table() {
-    for dividend in 0 .. 256 {
-        debug!("CRC[{:>3}]=0x{:04X?}", dividend, CRC_TABLE[dividend]);
-    }
-}

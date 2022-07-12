@@ -25,9 +25,15 @@ mod crc_spec {
     #[ctor::dtor]
     fn after_each() {}
 
+    fn display_table() {
+        for dividend in 0 .. 256 {
+            debug!("CRC[{:>3}]=0x{:04X?}", dividend, crc::CRC_TABLE[dividend]);
+        }
+    }
+
     #[test]
     fn initial_table_values() {
-        crc::display_table();
+        display_table();
         assert_that!(crc::CRC_TABLE[0],   equal_to(0x0000));
         assert_that!(crc::CRC_TABLE[1],   equal_to(0x6757));
         assert_that!(crc::CRC_TABLE[2],   equal_to(0xe9f9));
