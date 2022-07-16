@@ -429,7 +429,56 @@ This leads to $(4+7) + ((2*5 - 1) * (4*7))$ bits, or 110 bits, which, rounded up
 This block size is up for discussion!
     
 \section{Channel Encoder}
-Adding LDPC and CRC \& Costas Array. End of transmission marker (another Costas array?).
+\subsection{Error Detection}
+
+%TODO need proper citation for Anderson, painless CRC
+
+The block is then checksummed by a 14-bit CRC - the same as used in WSJT-X's FT8 encoder: using the polynomial 0x2757
+and initial value of zero with no reflection\cite{Anderson}. I used this as it is 'good enough' - see the appendices
+for further details of CRC design.
+
+The 14 bit CRC is appended to the 112 source encoder bits yielding a 126 bit messsage.
+
+\subsection{Forward Error Correction}
+The message size (126 bits) is greater than that in FT8 (91 bits), but I'd like to achieve similar excellent error
+correction, so am fixing the code rate to be very similar to FT8. I could not find discussion on how the FT8 LDPC
+dimensions were determined; I'm assuming that choosing a similar rate would yield similar performance - I'm still
+studying LDPC design. Perhaps a simulation should be done to determine whether the dimensions I have chosen here
+are suitable.
+
+The characteristics of LDPCs are:
+\begin{itemize}
+    \setlength\itemsep{-0.5em}
+    \item $k$ =number of information bits
+    \item $n$ =number of codeword bits
+    \item $R=k/n, n>k$ =rate of the code
+    \item $n-k$ =number of redundant bits
+\end{itemize}
+
+For FT8, this is: $(n=174,k=91)$ so $R={91 \over 174}=0.522988505747126 ~ 1/2$. There are $174-91=83$ redundant bits.
+
+Using this rate R in digimorse, ${126 \over n}=0.522988505747126$. So $n=240.923076923077124$ (not an integer). $n$ must
+also be divisible by 3, so it can be partitioned into groups of 3 bits. So choose $n=240$, which is divisible by 3, so
+that $n-k = 240 - 126 = 114.$
+
+$R=k/n = {126 \over 240} = 0.525$. So use a (240,126) LDPC, giving 114 bits of redundancy.
+
+So the 126 bits of payload plus CRC is then augmented with 114 bits of parity information from an (240,126) LDPC code.
+
+The LDPC generator matrix was created using the LDPC-Codes tools from Radford Neal\marginnote{https://github.com/radfordneal/LDPC-codes}.
+
+\subsection{Doppler Shift protection and Synchronisation}
+The resulting 240 bits are partitioned into 3-bit groups, and transformed by the following Gray code, to ensure that
+bit sequences with adjacent tones differ in only one position.
+
+% TODO read papers cited ini https://sourceforge.net/p/wsjt/mailman/wsjt-devel/thread/B8E1BD2D-D9DF-4B1F-8801-4DEE0A7665BC%40gmail.com/#msg36728038
+
+% TODO the gray code escapes the costas array?
+
+The start and end of the symbols are surrounded by a Costas Array of tones (x,x,x,x,x,x,x). \cite{Hasselbeck2019}
+
+% TODO choose a Costas Array pattern
+
 
 \section{Digital Modulator}
 8-GFSK modulation? Bandwidth vs transmission speed.
@@ -537,6 +586,28 @@ links to our \smallcaps{git} repository, mailing lists, bug tracker, and documen
         \caption{Morse code speed in words per minute and the timing of the elements in milliseconds.}
         \label{tab:morsetab}
     \end{table}
+
+\subsection{On the choice of CRC width and polynomial}
+
+% TODO proper citation for Koopman
+
+There are many possible CRCs, varying in width and choice of polynomial, to yield a specific Hamming Distance.
+Some of the most effective ones are evaluated in \cite{Koopman}. However Koopman's research is
+correct for CRCs that protect data that is otherwise unencoded with further error correction, such as you might have in
+a network protocol. In the case of FT8 and digimorse (and NASA deep-space applications), the data is further protected
+by a good forward error correction mechanism, such as an
+LDPC. \marginnote{See the discussion on the WSJT-X development mailing list that starts at https://sourceforge.net/p/wsjt/mailman/message/36204768/}
+
+The CRC is used to verify the output of the LDPC error correction, which only emits valid codewords (or none at all).
+The WSJT-X developers found that any incorrect decodes that were valid codewords (i.e. satisfy all the parity checks)
+were most likely to have 20 bit errors. There are no CRCs in Koopman's research with a Hamming Distance this large.
+The developers say they have no reason to believe that a polynomial with a decent HD (say, 4) would have any bearing on
+how it would perform with 20 bit errors.
+Also, the polynomial chosen was subjected to tests that showed its effectiveness: the undetected error rate is very low.
+The degree of the polynomial is more important than its coefficients - the probability of an error being undetected is
+inversely proportional to $2^{14} = 16384$. All the CRCs they tested (including from Koopman's list) reduced the number
+of incorrect decodes by a similar factor.
+
 
 \subsection{Overview of the digimorse protocol and characteristics}
 
