@@ -251,7 +251,7 @@ how the protocol decoder is wired to other block diagram elements.
 \section{Source Encoder}
 Given a stream of keying information from the input layer, this must be encoded into a compressed form to remove redundancy, ensuring that the minimum number of bits are used (since the transmission of bits takes time; fewer bits are better).
 
-The output of the source encoder is a fixed-length binary block of \hl{UNDECIDED} bits. Keying and other metadata frames are appended to this block until:
+The output of the source encoder is a fixed-length binary block of 112 bits\marginnote{See 'Block size', later}. Keying and other metadata frames are appended to this block until:
 \begin{itemize}
     \setlength\itemsep{-0.5em}
 	\item It is full.
@@ -431,16 +431,14 @@ This block size is up for discussion!
 \section{Channel Encoder}
 \subsection{Error Detection}
 
-%TODO need proper citation for Anderson, painless CRC
-
 The block is then checksummed by a 14-bit CRC - the same as used in WSJT-X's FT8 encoder: using the polynomial 0x2757
-and initial value of zero with no reflection\cite{Anderson}. I used this as it is 'good enough' - see the appendices
+and initial value of zero with no reflection\cite{Williams1993}. I used this as it is 'good enough' - see the appendices
 for further details of CRC design.
 
 The 14 bit CRC is appended to the 112 source encoder bits yielding a 126 bit messsage.
 
 \subsection{Forward Error Correction}
-The message size (126 bits) is greater than that in FT8 (91 bits), but I'd like to achieve similar excellent error
+The digimorse message size (126 bits) is greater than that in FT8 (91 bits), but I'd like to achieve similar excellent error
 correction, so am fixing the code rate to be very similar to FT8. I could not find discussion on how the FT8 LDPC
 dimensions were determined; I'm assuming that choosing a similar rate would yield similar performance - I'm still
 studying LDPC design. Perhaps a simulation should be done to determine whether the dimensions I have chosen here
@@ -449,21 +447,21 @@ are suitable.
 The characteristics of LDPCs are:
 \begin{itemize}
     \setlength\itemsep{-0.5em}
-    \item $k$ =number of information bits
-    \item $n$ =number of codeword bits
-    \item $R=k/n, n>k$ =rate of the code
-    \item $n-k$ =number of redundant bits
+    \item $k$ = number of information bits
+    \item $n$ = number of codeword bits
+    \item $R={k \over n}, n>k$ = rate of the code
+    \item $n-k$ = number of redundant bits
 \end{itemize}
 
-For FT8, this is: $(n=174,k=91)$ so $R={91 \over 174}=0.522988505747126 ~ 1/2$. There are $174-91=83$ redundant bits.
+For FT8, this is: $(n=174,k=91)$ so $R={91 \over 174}=0.522988505747126$. There are $174-91=83$ redundant bits.
 
-Using this rate R in digimorse, ${126 \over n}=0.522988505747126$. So $n=240.923076923077124$ (not an integer). $n$ must
+Using this rate R in digimorse, ${126 \over n}=0.522988505747126$. So $n=240.923076923077124$, which is not an integer. $n$ must
 also be divisible by 3, so it can be partitioned into groups of 3 bits. So choose $n=240$, which is divisible by 3, so
 that $n-k = 240 - 126 = 114.$
 
-$R=k/n = {126 \over 240} = 0.525$. So use a (240,126) LDPC, giving 114 bits of redundancy.
+$R={k \over n} = {126 \over 240} = 0.525$. 
 
-So the 126 bits of payload plus CRC is then augmented with 114 bits of parity information from an (240,126) LDPC code.
+Therefore digimorse uses a (240,126) LDPC, giving 114 bits of redundant parity information.
 
 The LDPC generator matrix was created using the LDPC-Codes tools from Radford Neal\marginnote{https://github.com/radfordneal/LDPC-codes}.
 
@@ -589,14 +587,13 @@ links to our \smallcaps{git} repository, mailing lists, bug tracker, and documen
 
 \subsection{On the choice of CRC width and polynomial}
 
-% TODO proper citation for Koopman
-
-There are many possible CRCs, varying in width and choice of polynomial, to yield a specific Hamming Distance.
-Some of the most effective ones are evaluated in \cite{Koopman}. However Koopman's research is
+There are many possible CRCs, varying in width and choice of polynomial, to yield a specific Hamming Distance.\cite{Williams1993}
+Some of the most effective ones are evaluated in Philip Koopman's work\cite{Koopman2002}. However Koopman's research is only
 correct for CRCs that protect data that is otherwise unencoded with further error correction, such as you might have in
 a network protocol. In the case of FT8 and digimorse (and NASA deep-space applications), the data is further protected
 by a good forward error correction mechanism, such as an
-LDPC. \marginnote{See the discussion on the WSJT-X development mailing list that starts at https://sourceforge.net/p/wsjt/mailman/message/36204768/}
+LDPC. \footnote{See the discussion on the WSJT-X development mailing list that starts at https://sourceforge.net/p/wsjt/mailman/
+message/36204768/}
 
 The CRC is used to verify the output of the LDPC error correction, which only emits valid codewords (or none at all).
 The WSJT-X developers found that any incorrect decodes that were valid codewords (i.e. satisfy all the parity checks)
