@@ -179,7 +179,7 @@ src/digimorse.bin/main.rs - the main application.
 docs - documentation, rough notes, references.
 
 ## Building
-You need Rust 1.47.0 or greater.
+You need Rust 1.62.1 or greater.
 
 * cargo test
 * cargo build --release

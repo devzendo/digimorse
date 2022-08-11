@@ -35,6 +35,9 @@ Other refactorings to do:
 
 
 # Known problems
+* Need to upgrade to rust edition 2021 - doing so causes test compilation failure in arduino_keyer_io_spec but this must
+  be corrected.
+
 * Tone generation has a faint artifact. Is this due to the waveform, should be able to regenerate it as floats?
 
 * Sidetone output via bluetooth headphones has appalling latency - investigate whether dropping the output sample 

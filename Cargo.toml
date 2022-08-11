@@ -3,6 +3,7 @@ name = "digimorse"
 version = "0.0.1"
 authors = ["Matt Gumbley <matt.gumbley@gmail.com>"]
 edition = "2018"
+# TODO SOON upgrade to 2021 - this causes test breakage in arduino_keyer_io_spec but this must be corrected
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
