@@ -463,8 +463,8 @@ $R={k \over n} = {126 \over 240} = 0.525$.
 
 Therefore digimorse uses a (240,126) LDPC, giving 114 bits of redundant parity information.
 
-The LDPC generator matrix was created using the LDPC-Codes tools from Radford Neal\marginnote{https://github.com/radfordneal/LDPC-codes}.
-
+The LDPC generator matrix was generated using the ldpc Rust library by Maxime Tremblay. 
+ 
 \subsection{Doppler Shift protection and Synchronisation}
 The resulting 240 bits are partitioned into 3-bit groups, and transformed by the following Gray code, to ensure that
 bit sequences with adjacent tones differ in only one position.

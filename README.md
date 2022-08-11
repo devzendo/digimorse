@@ -239,8 +239,13 @@ The authors of the Tufte-LaTeX package, from https://github.com/Tufte-LaTeX/tuft
 Wim Looman provided the initial LaTeX Makefile, from https://gist.github.com/Nemo157/539229
 
 Martin Nawrath for the Direct Digital Synthesis sine wave generator ported to Rust in ToneGenerator.rs.
-See http://interface.khm.de/index.php/lab/interfaces-advanced/arduino-dds-sinewave-generator/.
+See http://interface.khm.de/index.php/lab/interfaces-advanced/arduino-dds-sinewave-generator/
 
+Prof. Sarah J. Johnson for writing "Iterative Error Correction: Turbo, Low-Density Parity-Check and Repeat-
+Accumulate Codes".
+
+Maxime Tremblay for the LDPC and Sparse Binary Matrix crates at https://github.com/maxtremblay/ldpc and
+https://github.com/maxtremblay/sparse-binary-matrix
 
 # Bibliography
 TBC
