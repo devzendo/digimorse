@@ -24,7 +24,6 @@ use digimorse::libs::util::util::printable;
 
 use std::time::Duration;
 use bus::{Bus, BusReader};
-use csv::Writer;
 use portaudio::PortAudio;
 use syncbox::ScheduledThreadPool;
 use digimorse::libs::application::application::{Application, ApplicationMode, BusInput, BusOutput};
@@ -196,7 +195,7 @@ fn run(arguments: ArgMatches, mode: Mode) -> Result<i32, Box<dyn Error>> {
     transform_bus.set_input_rx(Arc::new(Mutex::new(tone_generator_keying_event_rx)));
     transform_bus.set_output_tx(arc_mutex_keying_event_tone_channel_tx);
     let arc_transform_bus = Arc::new(Mutex::new(transform_bus));
-    let keying_event_tone_channel_rx = arc_transform_bus.lock().unwrap().add_reader();
+    let _keying_event_tone_channel_rx = arc_transform_bus.lock().unwrap().add_reader();
 
     info!("Initialising audio callback...");
     let out_dev_string = config.get_audio_out_device();
@@ -220,7 +219,7 @@ fn run(arguments: ArgMatches, mode: Mode) -> Result<i32, Box<dyn Error>> {
     source_encoder.set_output_tx(Arc::new(Mutex::new(source_encoder_tx)));
     source_encoder.set_keyer_speed(config.get_wpm() as KeyerSpeed);
 
-    let mut source_decoder = SourceDecoder::new(SOURCE_ENCODER_BLOCK_SIZE_IN_BITS);
+    let source_decoder = SourceDecoder::new(SOURCE_ENCODER_BLOCK_SIZE_IN_BITS);
 
     if mode == Mode::SourceEncoderDiag {
         info!("Initialising SourceEncoderDiag mode");
@@ -425,42 +424,6 @@ fn serial_diag(serial_io: &mut DefaultSerialIO) -> Result<(), Box<dyn Error>> {
             }
         }
     }
-}
-
-fn keyer_diag(mut keying_event_rx: BusReader<KeyingEvent>, terminate: Arc<AtomicBool>) -> Result<(), Box<dyn Error>> {
-    let mut wtr = Writer::from_path("keying.csv")?;
-    loop {
-        if terminate.load(Ordering::SeqCst) {
-            break;
-        }
-        let result = keying_event_rx.recv_timeout(Duration::from_millis(250));
-        match result {
-            Ok(keying_event) => {
-                info!("KeyerDiag: Keying Event {}", keying_event);
-                match keying_event {
-                    // KeyingTimedEvents give the duration at the END of a (mark|space). If the
-                    // key is now up, then we've just heard a mark (key down), and if it's now down,
-                    // we've just heard a space (key up).
-                    // If we see a start, that's just the starting key down edge of a mark; an
-                    // end is actually meaningless in terms of keying - it's just a timeout after
-                    // the user has ended keying. In terms of generating a histogram of
-                    // keying, the stream should be a single long over - ie no END/STARTs in the
-                    // middle - otherwise you'll see two consecutive MARKs, which makes no sense.
-                    KeyingEvent::Timed(timed) => {
-                        wtr.write_record(&[if timed.up { "MARK" } else { "SPACE" }, format!("{}", timed.duration).as_str()])?;
-                        wtr.flush()?;
-                    }
-                    KeyingEvent::Start() => {}
-                    KeyingEvent::End() => {}
-                }
-            }
-            Err(_) => {
-                // be quiet, it's ok..
-            }
-        }
-    }
-    info!("KeyerDiag: terminating");
-    return Ok(());
 }
 
 fn source_encoder_diag(source_decoder: SourceDecoder, source_encoder_rx: BusReader<SourceEncoding>, terminate: Arc<AtomicBool>,

@@ -234,7 +234,7 @@ mod diag_application_spec {
     }
 
     struct SourceEncoderDiag {
-        delayed_source_encoding_bus: Arc<Mutex<Bus<SourceEncoding>>>,
+        _delayed_source_encoding_bus: Arc<Mutex<Bus<SourceEncoding>>>,
         delayed_source_encoding_bus_rx: BusReader<SourceEncoding>,
         delayed_bus: DelayedBus<SourceEncoding>,
         terminate: Arc<AtomicBool>,
@@ -261,7 +261,7 @@ mod diag_application_spec {
             let shared_delayed_source_encoding_bus = Arc::new(Mutex::new(delayed_source_encoding_bus));
             delayed_bus.set_output_tx(shared_delayed_source_encoding_bus.clone());
             Self {
-                delayed_source_encoding_bus: shared_delayed_source_encoding_bus,
+                _delayed_source_encoding_bus: shared_delayed_source_encoding_bus,
                 delayed_source_encoding_bus_rx,
                 delayed_bus,
                 terminate,

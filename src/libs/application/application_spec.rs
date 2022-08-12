@@ -91,6 +91,7 @@ mod application_spec {
             }
         }
 
+        #[allow(dead_code)]
         fn got_output_tx(&self) -> bool {
             self.bus_writer.is_some()
         }
@@ -135,6 +136,7 @@ mod application_spec {
             }
         }
 
+        #[allow(dead_code)]
         fn got_input_rx(&self) -> bool {
             self.bus_reader.is_some()
         }
@@ -199,14 +201,17 @@ mod application_spec {
             }
         }
 
+        #[allow(dead_code)]
         fn got_output_tx(&self) -> bool {
             self.bus_writer.is_some()
         }
 
+        #[allow(dead_code)]
         fn got_input_rx(&self) -> bool {
             self.bus_reader.is_some()
         }
 
+        #[allow(dead_code)]
         fn read(&mut self) -> Vec<I> {
             match &self.bus_reader {
                 None => {

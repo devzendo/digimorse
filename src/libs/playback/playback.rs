@@ -22,7 +22,7 @@ pub struct StationIdentifier {
 
 #[derive(Debug)]
 pub struct StationDetails {
-    frames: Vec<Frame>,
+    // not used yet frames: Vec<Frame>,
     timing: Option<Box<dyn KeyingTiming>>,
     next_playback_schedule_time: u32,
     last_playback_end_epoch_ms: u128,
@@ -96,7 +96,7 @@ impl Playback {
         if !self.playback_state.contains_key(&key) {
             debug!("New state for {:?}", key);
             let new_details = StationDetails {
-                frames: vec![],
+                // frames: vec![],
                 timing: None,
                 next_playback_schedule_time: 0,
                 last_playback_end_epoch_ms: start_time,

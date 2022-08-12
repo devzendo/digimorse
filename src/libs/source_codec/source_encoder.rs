@@ -168,13 +168,13 @@ impl SourceEncoder {
         self.shared.lock().unwrap().set_keyer_speed(speed);
     }
 
-    fn get_keyer_speed(&self) -> KeyerSpeed {
+    pub fn get_keyer_speed(&self) -> KeyerSpeed {
         self.keyer_speed
     }
 
     // Irrespective of how full the current frame is, pad it to SOURCE_ENCODER_BLOCK_SIZE and emit
     // it on the output Bus<SourceEncoding>.
-    fn emit(&mut self) {
+    pub fn emit(&mut self) {
         self.shared.lock().unwrap().emit();
     }
 }
