@@ -215,7 +215,14 @@ You also need portaudio (which needs pkg-config). Install from macports. There a
 .. not yet ..
 
 ### Building on Linux
-.. not yet ..
+e.g. on Ubuntu (I'm using Ubuntu 22.04 Budgie)
+apt install build-essential cmake
+apt install libudev1 libudev0 libudev-dev librust-libudev-dev 
+apt install libportaudio2
+apt install libxft-dev libxext-dev libxinerama-dev libxcursor-dev libpango1.0-dev
+apt install libfltk1.1 libfltk1.3 libfltk1.1-dev libfltk1.3-dev
+Install rustup.
+
 
 # Documentation
 Please see the 'docs' directory. The main document is ['The digimorse Communications Protocol'](docs/the-digimorse-communications-protocol.pdf).
