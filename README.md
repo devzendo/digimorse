@@ -179,7 +179,7 @@ src/digimorse.bin/main.rs - the main application.
 docs - documentation, rough notes, references.
 
 ## Building
-You need Rust 1.62.1 or greater.
+You need Rust 1.63.0 or greater.
 
 * cargo test
 * cargo build --release
@@ -208,6 +208,8 @@ drwxr-xr-x  7 root  wheel  224 Nov 19 22:25 MacOSX.sdk
 lrwxr-xr-x  1 root  wheel   10 Mar  8 07:44 MacOSX12.0.sdk -> MacOSX.sdk
 lrwxr-xr-x  1 root  wheel   10 Mar  7 10:03 MacOSX12.1.sdk -> MacOSX.sdk
 ```
+
+You also need portaudio (which needs pkg-config). Install from macports. There are brew variants, but I don't know brew.
 
 ### Building on Windows
 .. not yet ..
@@ -246,6 +248,10 @@ Accumulate Codes".
 
 Maxime Tremblay for the LDPC and Sparse Binary Matrix crates at https://github.com/maxtremblay/ldpc and
 https://github.com/maxtremblay/sparse-binary-matrix
+Used to encode and decode in the digimorse channel codec.
+
+Daniel Estévez for the LDPC Toolbox crate at https://github.com/daniestevez/ldpc-toolbox
+Used to create the parity check matrix used in the digimorse channel codec.
 
 # Bibliography
 TBC

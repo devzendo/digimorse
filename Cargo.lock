@@ -385,6 +385,7 @@ dependencies = [
  "serde_derive",
  "serial_test",
  "serialport",
+ "sparse-bin-mat",
  "spin_sleep",
  "syncbox",
  "temp_testdir",
