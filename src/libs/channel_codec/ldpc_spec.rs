@@ -5,6 +5,7 @@ mod ldpc_spec {
     use std::{env, fs, io};
     use std::path::Path;
     use hamcrest2::prelude::*;
+    use ldpc_toolbox::sparse;
     use ldpc_toolbox::sparse::SparseMatrix;
     use log::{debug, error, info};
     use pretty_hex::*;
@@ -98,19 +99,23 @@ graph G {
         fs::write(Path::new(output_filename), dot)
     }
 
+    // Given a matrix and an output filename (ending in .rs), create Rust code to instantiate
+    // the matrix as a SparseBinMat.
+    fn write_rust_generator(source: &SparseBinMat, output_filename: &str) -> io::Result<()> {
+        let mut code = String::new();
+        fs::write(Path::new(output_filename), code)
+    }
+    
+    fn load_parity_check_matrix() -> sparse::Result<SparseBinMat> {
+        let sm = SparseMatrix::from_alist(fs::read_to_string("src/libs/channel_codec/parity_check_matrix.alist").unwrap().as_str())?;
+        Ok(sparsematrix_to_sparsebinmat(sm))
+    }
+    
     #[test]
     #[ignore]
     fn load_alist_into_sparsebinmat() {
-        let sm = SparseMatrix::from_alist(fs::read_to_string("src/libs/channel_codec/parity_check_matrix.alist").unwrap().as_str());
-        match sm {
-            Ok(source) => {
-                let sparsebinmat = sparsematrix_to_sparsebinmat(source);
-                info!("{}", sparsebinmat.as_json().unwrap());
-            }
-            Err(err) => {
-                panic!("Could not load alist matrix: {}", err);
-            }
-        }
+        let sm = load_parity_check_matrix();
+        info!("{}", sm.unwrap().as_json().unwrap());
     }
 
     #[test]
@@ -130,18 +135,17 @@ graph G {
     #[test]
     #[ignore]
     fn draw_parity_check_matrix_as_tanner_graph() {
-        let sm = SparseMatrix::from_alist(fs::read_to_string("src/libs/channel_codec/parity_check_matrix.alist").unwrap().as_str());
-        match sm {
-            Ok(source) => {
-                let sparsebinmat = sparsematrix_to_sparsebinmat(source);
-                draw_tanner_graph(&sparsebinmat, "/tmp/digimorse_parity_check_matrix.dot");
-                // dot -Tpng /tmp/digimorse_parity_check_matrix.dot -o /tmp/digimorse_parity_check_matrix.png
-                // takes a few minutes to generate, complains about being too big, and scaling...
-                // and is quite unreadable!
-            }
-            Err(err) => {
-                panic!("Could not load alist matrix: {}", err);
-            }
-        }
+        let sm = load_parity_check_matrix();
+        draw_tanner_graph(&sm.unwrap(), "/tmp/digimorse_parity_check_matrix.dot");
+        // dot -Tpng /tmp/digimorse_parity_check_matrix.dot -o /tmp/digimorse_parity_check_matrix.png
+        // takes a few minutes to generate, complains about being too big, and scaling...
+        // and is quite unreadable!
+    }
+
+    #[test]
+    #[ignore]
+    fn generate_rust_for_parity_check_matrix() {
+        let sm = load_parity_check_matrix();
+        write_rust_generator(&sm.unwrap(), "src/libs/channel_codec/parity_check_matrix.rs");
     }
 }
