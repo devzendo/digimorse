@@ -39,14 +39,17 @@ mod ldpc_spec {
         let mut dot = String::new();
         dot += "
 graph G {
+   ranksep = 1.2;
+   nodesep = 1.2;
    splines=false;
+   rankdir = LR;
    node[shape=circle, style=filled]
    subgraph cluster_checks {
       node[shape=square, style=filled]
 ";
         // check nodes (one per row)
         for row in 0 .. source.number_of_rows() {
-            dot += format!("      check{} [fillcolor=lightgray]\n", row + 1).as_str();
+            dot += format!("      check{} [label=\"\",fillcolor=lightgray]\n", row + 1).as_str();
         }
         dot += "      ";
         for row in 0 .. source.number_of_rows() {
@@ -69,7 +72,7 @@ graph G {
    subgraph cluster_bits {\n";
         // bit nodes (one per column)
         for col in 0 .. source.number_of_columns() {
-            dot += format!("      bit{} [fillcolor=white]\n", col + 1).as_str();
+            dot += format!("      bit{} [label=\"\",fillcolor=white]\n", col + 1).as_str();
         }
         dot += "      ";
         for col in 0 .. source.number_of_columns() {
