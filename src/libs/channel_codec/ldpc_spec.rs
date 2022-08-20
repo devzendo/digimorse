@@ -43,7 +43,7 @@ graph G {
    nodesep = 1.2;
    splines=false;
    rankdir = LR;
-   node[shape=circle, style=filled]
+   peripheries = 0;
    subgraph cluster_checks {
       node[shape=square, style=filled]
 ";
@@ -69,7 +69,9 @@ graph G {
       color=invis;
       a22m [style=invisible]
    }
-   subgraph cluster_bits {\n";
+   subgraph cluster_bits {
+      node[shape=circle, style=filled]
+";
         // bit nodes (one per column)
         for col in 0 .. source.number_of_columns() {
             dot += format!("      bit{} [label=\"\",fillcolor=white]\n", col + 1).as_str();
