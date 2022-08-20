@@ -1,4 +1,4 @@
-use ldpc::codes::LinearCode;
+//use ldpc::codes::LinearCode;
 use sparse_bin_mat::SparseBinMat;
 
 // A (240,126) Low-Density Parity-Check code, giving 114 bits of redundant parity information.
@@ -22,13 +22,13 @@ use sparse_bin_mat::SparseBinMat;
 // compiled statically.
 
 // TODO generate many matrixes and evaluate their error correction performance
-pub static PARITY_CHECK_MATRIX: SparseBinMat = SparseBinMat::new(
-    7,
-    vec![vec![0, 1, 2, 4], vec![0, 1, 3, 5], vec![0, 2, 3, 6]]
-);
+// pub static PARITY_CHECK_MATRIX: SparseBinMat = SparseBinMat::new(
+//     7,
+//     vec![vec![0, 1, 2, 4], vec![0, 1, 3, 5], vec![0, 2, 3, 6]]
+// );
 // TODO error[E0010]: allocations are not allowed in statics
 
-pub static CODE_FROM_PARITY: LinearCode = LinearCode::from_parity_check_matrix(PARITY_CHECK_MATRIX);
+// pub static CODE_FROM_PARITY: LinearCode = LinearCode::from_parity_check_matrix(PARITY_CHECK_MATRIX);
 
 
 #[cfg(test)]
