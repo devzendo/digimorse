@@ -99,6 +99,7 @@ graph G {
     }
 
     #[test]
+    #[ignore]
     fn load_alist_into_sparsebinmat() {
         let sm = SparseMatrix::from_alist(fs::read_to_string("src/libs/channel_codec/parity_check_matrix.alist").unwrap().as_str());
         match sm {
@@ -113,6 +114,7 @@ graph G {
     }
 
     #[test]
+    #[ignore]
     fn draw_example_2_5_tanner_graph() {
         // From "Iterative Error Correction", Example 2.5 "A regular parity-check matrix, with
         // Wc = 2 and Wr = 3"
@@ -123,5 +125,23 @@ graph G {
             vec![2, 3, 5],
         ]);
         draw_tanner_graph(&ex2_5, "/tmp/example_2_5.dot");
+    }
+
+    #[test]
+    #[ignore]
+    fn draw_parity_check_matrix_as_tanner_graph() {
+        let sm = SparseMatrix::from_alist(fs::read_to_string("src/libs/channel_codec/parity_check_matrix.alist").unwrap().as_str());
+        match sm {
+            Ok(source) => {
+                let sparsebinmat = sparsematrix_to_sparsebinmat(source);
+                draw_tanner_graph(&sparsebinmat, "/tmp/digimorse_parity_check_matrix.dot");
+                // dot -Tpng /tmp/digimorse_parity_check_matrix.dot -o /tmp/digimorse_parity_check_matrix.png
+                // takes a few minutes to generate, complains about being too big, and scaling...
+                // and is quite unreadable!
+            }
+            Err(err) => {
+                panic!("Could not load alist matrix: {}", err);
+            }
+        }
     }
 }
