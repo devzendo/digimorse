@@ -9,6 +9,7 @@ mod ldpc_spec {
     use ldpc_toolbox::sparse::SparseMatrix;
     use log::info;
     use sparse_bin_mat::SparseBinMat;
+    use crate::libs::channel_codec::parity_check_matrix::LDPC;
 
     const PARITY_CHECK_MATRIX_ALIST: &'static str = "src/libs/channel_codec/parity_check_matrix.alist";
 
@@ -175,5 +176,12 @@ graph G {
     fn generate_rust_for_parity_check_matrix() {
         let sm = load_parity_check_matrix();
         assert_that!(generate_rust_for_matrix(&sm.unwrap(), PARITY_CHECK_MATRIX_ALIST, "src/libs/channel_codec/parity_check_matrix.rs").is_ok(), true);
+    }
+
+    #[test]
+    fn generated_parity_check_matrix_dimensions() {
+        let pcm = LDPC.parity_check_matrix();
+        assert_that!(pcm.number_of_columns(), equal_to(240));
+        assert_that!(pcm.number_of_rows(), equal_to(126));
     }
 }

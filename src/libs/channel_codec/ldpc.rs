@@ -1,8 +1,3 @@
-// extern crate lazy_static;
-// use lazy_static::lazy_static;
-// use ldpc::codes::LinearCode;
-// use sparse_bin_mat::SparseBinMat;
-
 // A (240,126) Low-Density Parity-Check code, giving 114 bits of redundant parity information.
 // Characteristics required: (From section 3.4 of "Iterative Error Correction", Prof. Sarah J.
 // Johnson. All page references are to this book.)
