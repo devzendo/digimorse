@@ -1,5 +1,7 @@
-//use ldpc::codes::LinearCode;
-use sparse_bin_mat::SparseBinMat;
+// extern crate lazy_static;
+// use lazy_static::lazy_static;
+// use ldpc::codes::LinearCode;
+// use sparse_bin_mat::SparseBinMat;
 
 // A (240,126) Low-Density Parity-Check code, giving 114 bits of redundant parity information.
 // Characteristics required: (From section 3.4 of "Iterative Error Correction", Prof. Sarah J.
@@ -17,18 +19,12 @@ use sparse_bin_mat::SparseBinMat;
 
 // Using ldpc-toolbox to generate a Mackay-Neal construction, with the following arguments:
 // ldpc-toolbox mackay-neal 126 240 6 3 0 --uniform --min-girth 8 --girth-trials 10000 --search
-// This found a seed of 512, and its output is in parity_check_matrix.alist
-// TODO convert this alist format into Rust code that'll construct a SparseBinMat, that'll be
-// compiled statically.
+// This found a seed of 512, and its output is in parity_check_matrix.alist.
+// The alist file is read and converted into generated Rust code in parity_check_matrix.rs
+// The code to do this conversion is the (ignored, manually invoked) test code in ldpc_spec.rs,
+// test generate_rust_for_parity_check_matrix().
 
 // TODO generate many matrixes and evaluate their error correction performance
-// pub static PARITY_CHECK_MATRIX: SparseBinMat = SparseBinMat::new(
-//     7,
-//     vec![vec![0, 1, 2, 4], vec![0, 1, 3, 5], vec![0, 2, 3, 6]]
-// );
-// TODO error[E0010]: allocations are not allowed in statics
-
-// pub static CODE_FROM_PARITY: LinearCode = LinearCode::from_parity_check_matrix(PARITY_CHECK_MATRIX);
 
 
 #[cfg(test)]
