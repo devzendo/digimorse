@@ -30,6 +30,7 @@ use digimorse::libs::application::application::{Application, ApplicationMode, Bu
 use digimorse::libs::config_file::config_file::ConfigurationStore;
 use digimorse::libs::audio::audio_devices::{list_audio_devices, output_audio_device_exists, input_audio_device_exists};
 use digimorse::libs::audio::tone_generator::{KeyingEventToneChannel, ToneGenerator};
+use digimorse::libs::channel_codec::ldpc::init_ldpc;
 use digimorse::libs::delayed_bus::delayed_bus::DelayedBus;
 use digimorse::libs::playback::playback::Playback;
 use digimorse::libs::source_codec::source_decoder::SourceDecoder;
@@ -243,6 +244,8 @@ fn run(arguments: ArgMatches, mode: Mode) -> Result<i32, Box<dyn Error>> {
     let rig_out_dev_str = rig_out_dev_string.as_str();
     let _rig_output_settings = application.open_input_audio_device(rig_out_dev_str);
 
+    info!("Initialising LDPC...");
+    init_ldpc();
 
     Ok(0)
 }

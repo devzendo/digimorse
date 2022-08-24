@@ -21,6 +21,16 @@
 
 // TODO generate many matrixes and evaluate their error correction performance
 
+use log::info;
+use metered::time_source::{Instant, StdInstant};
+use super::parity_check_matrix::LDPC;
+
+// Just to start the lazy_static, and log how long it takes to initialise.
+pub fn init_ldpc() {
+    let ldpc_init_duration = StdInstant::now();
+    info!("LDPC({}, {}) initialised", LDPC.parity_check_matrix().number_of_columns(), LDPC.parity_check_matrix().number_of_rows());
+    info!("LDPC initialised in {}ms", ldpc_init_duration.elapsed_time());
+}
 
 #[cfg(test)]
 #[path = "./ldpc_spec.rs"]
