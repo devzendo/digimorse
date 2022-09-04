@@ -49,7 +49,7 @@ pub fn crc14(data: &[u8]) -> CRC {
         remainder = CRC_TABLE[index] ^ (remainder << 8);
         // debug!("REMAINDER=0x{:04X?}", remainder);
     }
-    remainder & 0x3fff
+    remainder & 0x3fff // == 0b__111111_11111111
 }
 
 pub fn crc14_correct(data_with_crc_appended: &[u8]) -> bool {

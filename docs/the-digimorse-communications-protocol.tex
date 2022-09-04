@@ -424,8 +424,8 @@ Metadata encoding has not yet been incorporated into the code, so I'm not consid
 
 So how many average \emph{Keying} frames should each block contain? There should be sufficient to ensure that the overhead of \emph{WPM/Polarity}, and the extra bits added due to error correction and synchronisation do not dwarf the actual keying. Without doing any exhaustive simulation of this, I'm going to choose "two typical Morse characters" to be encodable in a block. Of the A-Z 0-9 , / ? AR . set of characters, 14 have 5 elements, 12 have 4, 8 have 3. So, two of the most common 5 element characters, which would require $(2*5 - 1)$ frames, with an average \emph{Keying} frame length of 4+7.
 
-This leads to $(4+7) + ((2*5 - 1) * (4*7))$ bits, or 110 bits, which, rounded up to a multiple of 8 bits gives a block size of 112 bits.
-    
+This leads to $(4+7) + ((2*5 - 1) * (4+7))$ bits, or 110 bits. I rounded this up to a multiple of 8 bits giving a block size of 112 bits.
+
 This block size is up for discussion!
     
 \section{Channel Encoder}
@@ -441,8 +441,9 @@ The 14 bit CRC is appended to the 112 source encoder bits yielding a 126 bit mes
 The digimorse message size (126 bits) is greater than that in FT8 (91 bits), but I'd like to achieve similar excellent error
 correction, so am fixing the code rate to be very similar to FT8. I could not find discussion on how the FT8 LDPC
 dimensions were determined; I'm assuming that choosing a similar rate would yield similar performance - I'm still
-studying LDPC design. Perhaps a simulation should be done to determine whether the dimensions I have chosen here
+studying LDPC design. A simulation should be done to determine whether the dimensions I have chosen here
 are suitable.
+
 
 The characteristics of LDPCs are:
 \begin{itemize}
@@ -451,22 +452,24 @@ The characteristics of LDPCs are:
     \item $n$ = number of codeword bits
     \item $R={k \over n}, n>k$ = rate of the code
     \item $n-k$ = number of redundant bits
+    \item $w_{c}$ = column weight; number of 1s present in each column in the parity check matrix
+    \item $w_{r}$ = row weight; number of 1s present in each row in the parity check matrix
 \end{itemize}
 
 For FT8, this is: $(n=174,k=91)$ so $R={91 \over 174}=0.522988505747126$. There are $174-91=83$ redundant bits.
 
-Using this rate R in digimorse, ${126 \over n}=0.522988505747126$. So $n=240.923076923077124$, which is not an integer. $n$ must
-also be divisible by 3, so it can be partitioned into groups of 3 bits. So choose $n=240$, which is divisible by 3, so
-that $n-k = 240 - 126 = 114.$
+I had chosen $w_{c}=3$ and $w_{r}=6$ \marginnote{Radford M. Neal's LDPC generator allows choice of $w_{c}$ but doubles this to provide $w_{r}$.}, with $k=126$ as the output from the source encoder.  
 
-$R={k \over n} = {126 \over 240} = 0.525$. 
+After reading \cite{Barry2001}, I realised that for a regular LDPC there is a  constraint on the number of 1s in the parity-check matrix $H$ such that $Mw_{r} = Nw_{c}$ where M is the redundancy and N the codeword length. Initially I chose dimensions that did not honour this constraint. I subsequently chose $k=126$ and doubled this for the codeword size $k=252$, giving a rate of ${1 \over 2}$.
 
-Therefore digimorse uses a (240,126) LDPC, giving 114 bits of redundant parity information.
+Also, 252 is divisible by 3 and so can be partitioned into groups of 3 bits.
 
-The LDPC generator matrix was generated using the ldpc Rust library by Maxime Tremblay. 
+Therefore digimorse uses a (252,126) LDPC, giving 126 bits of redundant parity information.
+
+The LDPC parity check matrix (of order (126,252)) was generated using the LDPC-codes software by Radford M. Neal.
  
 \subsection{Doppler Shift protection and Synchronisation}
-The resulting 240 bits are partitioned into 3-bit groups, and transformed by the following Gray code, to ensure that
+The resulting 252 bits are partitioned into 3-bit groups, and transformed by the following Gray code, to ensure that
 bit sequences with adjacent tones differ in only one position.
 
 % TODO read papers cited ini https://sourceforge.net/p/wsjt/mailman/wsjt-devel/thread/B8E1BD2D-D9DF-4B1F-8801-4DEE0A7665BC%40gmail.com/#msg36728038
@@ -479,7 +482,7 @@ The start and end of the symbols are surrounded by a Costas Array of tones (x,x,
 
 
 \section{Digital Modulator}
-8-GFSK modulation? Bandwidth vs transmission speed.
+8-GFSK modulation? Bandwidth vs transmission speed. The frequency shift between tones is 6.25Hz, the duration of one tone is 0.16s.
 
 \section{Channel}
 Typically HF or VHF, SSB 3kHz.

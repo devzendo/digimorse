@@ -32,6 +32,13 @@
 // X must be divisible by 3, as we use 3 bits per tone. There will be X/3 channel symbols.
 
 
+// TODO BusInput<SourceEncoding>
+// TODO take block: Vec<u8> from the SourceEncoding, CRC it, LDPC it and the CRC, Gray encode it
+// then the resulting Vec<Gray> is emitted as a ChannelEncoding. (Gray is a 3-bit quantity in a
+// u8). The Transmitter then modulates that.
+// TODO BusOutput<ChannelEncoding>
+
+
 #[cfg(test)]
 #[path = "./channel_encoder_spec.rs"]
 mod channel_encoder_spec;

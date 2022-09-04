@@ -253,12 +253,16 @@ See http://interface.khm.de/index.php/lab/interfaces-advanced/arduino-dds-sinewa
 Prof. Sarah J. Johnson for writing "Iterative Error Correction: Turbo, Low-Density Parity-Check and Repeat-
 Accumulate Codes".
 
+Radford M. Neal for his LDPC-Codes LDPC parity check generation code at
+https://github.com/radfordneal/LDPC-codes
+Used in generating the LDPC parity check matrix and converting it to alist format.
+
 Maxime Tremblay for the LDPC and Sparse Binary Matrix crates at https://github.com/maxtremblay/ldpc and
 https://github.com/maxtremblay/sparse-binary-matrix
 Used to encode and decode in the digimorse channel codec.
 
 Daniel Estévez for the LDPC Toolbox crate at https://github.com/daniestevez/ldpc-toolbox
-Used to create the parity check matrix used in the digimorse channel codec.
+Used to load the parity check matrix alist file, used in the digimorse channel codec.
 
 # Bibliography
 TBC

@@ -13,6 +13,7 @@ mod crc_spec {
     // 68 bytes of test data
     const INPUT: &[u8] = "This is a test of the emergency broadcast system. Do not be alarmed!".as_bytes();
     const INPUT_CRC: CRC = 0x06A9; // The CRC (verified) of INPUT.
+    // == 0b__000110_10101001
     // Verified with the custom CRC Calculator at
     // https://ninja-calc.mbedded.ninja/calculators/software/crc-calculator
 
