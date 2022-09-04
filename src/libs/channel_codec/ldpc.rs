@@ -55,10 +55,9 @@ pub fn init_ldpc() {
     info!("LDPC-parity ({}, {})", LDPC.parity_check_matrix().number_of_rows(), LDPC.parity_check_matrix().number_of_columns());
     info!("LDPC-generator ({}, {})", LDPC.generator_matrix().number_of_rows(), LDPC.generator_matrix().number_of_columns());
     info!("LDPC initialised in {}ms", ldpc_init_duration.elapsed_time());
+    // TODO may need to cache the transpose of matrices?
 }
 
-// Originally wanted the SparseBinVec encapsulated in here, but couldn't get its emplace_at method
-// working in a struct. So, pass it into append_bit.
 pub struct SparseBinVecAppender {
     capacity: usize,
     positions: Vec<usize>,
@@ -170,10 +169,6 @@ impl LocalFlipDecoder
             number_unsatisfied > checks.weight() / 2
         })
     }
-    //
-    // fn code(&self) -> &LinearCode {
-    //     self.code.borrow()
-    // }
 }
 
 impl fmt::Display for LocalFlipDecoder {
