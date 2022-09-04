@@ -4,8 +4,9 @@ extern crate hamcrest2;
 mod ldpc_spec {
     use hamcrest2::prelude::*;
     use std::env;
+    use ldpc::codes::LinearCode;
     use log::info;
-    use sparse_bin_mat::SparseBinMat;
+    use sparse_bin_mat::{SparseBinMat, SparseBinVec};
     use crate::libs::channel_codec::crc::crc14;
     use crate::libs::channel_codec::ldpc::{encode_message_to_sparsebinvec, init_ldpc, LocalFlipDecoder};
     use crate::libs::channel_codec::ldpc_util::{display_matrix, draw_tanner_graph, generate_rust_for_matrix, load_parity_check_matrix, PARITY_CHECK_MATRIX_ALIST, PARITY_CHECK_MATRIX_RS, sparsebinvec_to_display};
@@ -64,6 +65,24 @@ mod ldpc_spec {
 
     #[test]
     #[ignore]
+    fn permute_example_2_5() {
+        let ex2_5 = example_2_5_parity_check_matrix();
+        let ex2_5_echelon = ex2_5.echelon_form();
+        let ex2_5_display = display_matrix(&ex2_5_echelon);
+        info!("parity check");
+        for line in ex2_5_display.iter() {
+            info!("{}", line);
+        }
+        let ldpc = LinearCode::from_parity_check_matrix(ex2_5_echelon);
+        let g_display = display_matrix(ldpc.generator_matrix());
+        info!("generator");
+        for line in g_display.iter() {
+            info!("{}", line);
+        }
+    }
+
+    #[test]
+    #[ignore]
     fn draw_parity_check_matrix_as_tanner_graph() {
         let sm = load_parity_check_matrix();
         assert_that!(draw_tanner_graph(&sm.unwrap(), "/tmp/digimorse_parity_check_matrix.dot").is_ok(), true);
@@ -108,8 +127,7 @@ mod ldpc_spec {
         assert_that!(mult.is_zero(), equal_to(true));
     }
 
-    #[test]
-    fn source_encoding_to_sparsebinmat() {
+    fn generate_message() -> (SparseBinVec, String) {
         let source_encoding = encoded(SOURCE_ENCODER_BLOCK_SIZE_IN_BITS, 20, &[
             Frame::WPMPolarity { wpm: 20, polarity: true },
             Frame::KeyingPerfectDit,
@@ -125,7 +143,12 @@ mod ldpc_spec {
         let crc_binary = format!("{:#016b}", crc);
         info!("CRC={}", crc_binary);
 
-        let message = encode_message_to_sparsebinvec(source_encoding.as_slice(), crc);
+        (encode_message_to_sparsebinvec(source_encoding.as_slice(), crc), crc_binary)
+    }
+
+    #[test]
+    fn source_encoding_to_sparsebinmat() {
+        let (message, crc_binary) = generate_message();
         let mut message_string = sparsebinvec_to_display(&message);
         info!("message {}", message_string);
         assert_that!(message_string.len(), equal_to(126));
@@ -137,17 +160,7 @@ mod ldpc_spec {
     #[test]
     fn round_trip() {
         init_ldpc();
-        let source_encoding = encoded(SOURCE_ENCODER_BLOCK_SIZE_IN_BITS, 20, &[
-            Frame::WPMPolarity { wpm: 20, polarity: true },
-            Frame::KeyingPerfectDit,
-            Frame::KeyingPerfectDah,
-            Frame::KeyingPerfectWordgap,
-            Frame::KeyingDeltaDit { delta: 5 },
-            Frame::KeyingDeltaDah { delta: -5 },
-            Frame::KeyingDeltaWordgap { delta: 5 },
-        ]);
-        let crc = crc14(source_encoding.as_slice());
-        let message = encode_message_to_sparsebinvec(source_encoding.as_slice(), crc);
+        let (message, _) = generate_message();
         let message_string = sparsebinvec_to_display(&message);
         info!("message  {}", message_string);
 
