@@ -8,7 +8,7 @@ mod ldpc_spec {
     use log::info;
     use sparse_bin_mat::{SparseBinMat, SparseBinVec};
     use crate::libs::channel_codec::crc::crc14;
-    use crate::libs::channel_codec::ldpc::{encode_message_to_sparsebinvec, init_ldpc, LocalFlipDecoder};
+    use crate::libs::channel_codec::ldpc::{encode_message_to_sparsebinvec, init_ldpc, JohnsonFlipDecoder, LocalFlipDecoder};
     use crate::libs::channel_codec::ldpc_util::{display_matrix, draw_tanner_graph, generate_rust_for_matrix, load_parity_check_matrix, PARITY_CHECK_MATRIX_ALIST, PARITY_CHECK_MATRIX_RS, sparsebinvec_to_display};
     use crate::libs::channel_codec::parity_check_matrix::LDPC;
     use crate::libs::source_codec::source_encoding::{Frame, SOURCE_ENCODER_BLOCK_SIZE_IN_BITS};
@@ -172,6 +172,7 @@ mod ldpc_spec {
 
         // let decoder = BpDecoder::new(LDPC.parity_check_matrix(), Probability::new(0.0), 100);
         let decoder = LocalFlipDecoder::new();
+        // let decoder = JohnsonFlipDecoder::new(20);
         // The actual decoded message is the last 126 bits of 'decoded_message'?
         let decoded_message = decoder.decode(&codeword);
         let decoded_message_string = sparsebinvec_to_display(&decoded_message).split_off(126);
@@ -179,5 +180,22 @@ mod ldpc_spec {
         info!("decoded  {}", decoded_message_string);
         assert_that!(decoded_message_string.len(), equal_to(126));
         assert_that!(decoded_message_string, equal_to(message_string)); // BROKEN: 1-bit error
+    }
+
+    // From p56
+    #[test]
+    fn johnson_flip_decoder_example_2_21() {
+        let ex2_5 = example_2_5_parity_check_matrix();
+        let code = LinearCode::from_parity_check_matrix(ex2_5);
+
+        let y = SparseBinVec::new(6, vec![1, 2, 4, 5]); // 011011
+        let y_string = sparsebinvec_to_display(&y);
+        info!("y        {}", y_string);
+        let decoder = JohnsonFlipDecoder::new(2);
+        let decoded_message = decoder.decode(&y, &code);
+        let decoded_message_string = sparsebinvec_to_display(&decoded_message);
+        info!("y        {}", y_string);
+        info!("decoded  {}", decoded_message_string);
+        assert_that!(decoded_message_string, equal_to("001011"));
     }
 }

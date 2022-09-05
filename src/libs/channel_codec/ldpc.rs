@@ -43,9 +43,10 @@
 // TODO generate many matrixes and evaluate their error correction performance
 
 use std::fmt;
+use ldpc::codes::LinearCode;
 use log::{debug, info};
 use metered::time_source::{Instant, StdInstant};
-use sparse_bin_mat::{SparseBinVec, SparseBinVecBase};
+use sparse_bin_mat::{BinNum, SparseBinMat, SparseBinVec, SparseBinVecBase};
 use crate::libs::channel_codec::crc::CRC;
 use super::parity_check_matrix::LDPC;
 
@@ -178,6 +179,66 @@ impl fmt::Display for LocalFlipDecoder {
 }
 
 
+// An implementation the bit-flipping decoder from "Iterative Error Detection", p56.
+// Note that indices in the book start at 1; in this code they start at 0.
+#[allow(non_snake_case)]
+#[derive(Debug, Clone)]
+pub struct JohnsonFlipDecoder {
+    Imax: usize,
+}
+
+#[allow(non_snake_case)]
+impl JohnsonFlipDecoder {
+    pub fn new(Imax: usize) -> Self {
+        Self { Imax }
+    }
+}
+
+#[allow(non_snake_case)]
+impl JohnsonFlipDecoder
+{
+    pub fn decode<T>(&self, y: &SparseBinVecBase<T>, code: &LinearCode) -> SparseBinVec
+        where
+            T: std::ops::Deref<Target=[usize]>,
+    {
+        let m = code.parity_check_matrix().number_of_rows();
+        let N = y.len(); // message length
+        debug!("m={}, N={}", m, N);
+        // Initialisation
+        let mut Mi = SparseBinVec::new(y.len(), y.as_slice().to_vec());
+        let mut iteration = 0;
+
+        // Iterate
+        loop {
+            debug!("iteration {}", iteration);
+
+            // Step 1: Check messages
+            debug!("Step 1: Check messages");
+            let mut Eji = SparseBinMat::zeros(m, N);
+            for j in 0..m {
+                let Bj = code.parity_check_matrix().row(j).unwrap();
+                let Bj_positions = Bj.non_trivial_positions().into_iter().collect::<Vec<usize>>();
+                debug!("B_{}={}", j, Bj);
+                for i in Bj_positions.iter() {
+                    let i_primes = Bj_positions.clone().into_iter()
+                        .filter(|x| *x != *i)
+                        .collect::<Vec<usize>>();
+                    let sigma = i_primes.iter().fold(BinNum::zero(), |sum, Mi_prime| sum + Mi.get(*Mi_prime).unwrap());
+                    debug!("i={}, i'={:?}, E{},{}=={}", i, i_primes, j, i, sigma);
+                    Eji = Eji.emplace_at(sigma, j, *i);
+                }
+            }
+
+            // Step 2: Bit messages
+            debug!("Step 2: Bit messages");
+
+            debug!("to be continued");
+            break;
+
+        }
+        Mi
+    }
+}
 
 
 #[cfg(test)]
