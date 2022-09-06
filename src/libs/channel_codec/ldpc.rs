@@ -231,7 +231,11 @@ impl JohnsonFlipDecoder
 
             // Step 2: Bit messages
             debug!("Step 2: Bit messages");
-
+            for i in 0..N {
+                let yi = y.get(i).unwrap();
+                // ∀ Bj, j in 0..m, if i ∈ Bj, count those Eji
+                //let Ei = code.parity_check_matrix().
+            }
             debug!("to be continued");
             break;
 
