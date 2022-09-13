@@ -6,9 +6,9 @@ mod ldpc_spec {
     use std::env;
     use ldpc::codes::LinearCode;
     use log::info;
-    use sparse_bin_mat::{SparseBinMat, SparseBinVec};
+    use sparse_bin_mat::{SparseBinMat, SparseBinSlice, SparseBinVec};
     use crate::libs::channel_codec::crc::crc14;
-    use crate::libs::channel_codec::ldpc::{encode_message_to_sparsebinvec, init_ldpc, JohnsonFlipDecoder, LocalFlipDecoder};
+    use crate::libs::channel_codec::ldpc::{ColumnAccess, encode_message_to_sparsebinvec, init_ldpc, JohnsonFlipDecoder, LocalFlipDecoder};
     use crate::libs::channel_codec::ldpc_util::{display_matrix, draw_tanner_graph, generate_rust_for_matrix, load_parity_check_matrix, PARITY_CHECK_MATRIX_ALIST, PARITY_CHECK_MATRIX_RS, sparsebinvec_to_display};
     use crate::libs::channel_codec::parity_check_matrix::LDPC;
     use crate::libs::source_codec::source_encoding::{Frame, SOURCE_ENCODER_BLOCK_SIZE_IN_BITS};
@@ -197,5 +197,18 @@ mod ldpc_spec {
         info!("y        {}", y_string);
         info!("decoded  {}", decoded_message_string);
         assert_that!(decoded_message_string, equal_to("001011"));
+    }
+
+    #[test]
+    fn column_access() {
+        let ex2_5 = example_2_5_parity_check_matrix();
+        let row = ex2_5.row(1).unwrap(); // 011010
+        info!("B2={}", row); // 1, 2, 4 ie positions where there's a 1 in the row
+        let expected_row = SparseBinVec::new(6, vec![1, 2, 4]);
+        assert_that!(row, equal_to(expected_row.as_view()));
+        let column = ex2_5.column(1).unwrap();
+        info!("A2={}", column);
+        let expected_column = SparseBinVec::new(4, vec![0, 1]);
+        assert_that!(column, equal_to(expected_column.as_view()));
     }
 }

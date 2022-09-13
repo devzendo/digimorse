@@ -46,7 +46,7 @@ use std::fmt;
 use ldpc::codes::LinearCode;
 use log::{debug, info};
 use metered::time_source::{Instant, StdInstant};
-use sparse_bin_mat::{BinNum, SparseBinMat, SparseBinVec, SparseBinVecBase};
+use sparse_bin_mat::{BinNum, SparseBinMat, SparseBinSlice, SparseBinVec, SparseBinVecBase};
 use crate::libs::channel_codec::crc::CRC;
 use super::parity_check_matrix::LDPC;
 
@@ -133,6 +133,24 @@ pub fn encode_message_to_sparsebinvec(source_encoding: &[u8], crc: CRC) -> Spars
     appender.to_sparse_bin_vec()
 }
 
+// TODO submit as a PR to sparse-binary-matrix?
+pub trait ColumnAccess {
+    fn column(&self, column: usize) -> Option<SparseBinSlice>;
+}
+
+impl ColumnAccess for SparseBinMat {
+    fn column(&self, column: usize) -> Option<SparseBinSlice> {
+        if column < self.number_of_columns() {
+            let mut column_positions: Vec<usize> = vec![];
+            (0..self.number_of_rows()).for_each(|y| if self.row(y).unwrap().get(column).is_some() { column_positions.push(y) } );
+            // Some(SparseBinVec::new(self.number_of_columns(), column_positions).as_view())
+            Some(SparseBinSlice::new(0, &[]))
+        } else {
+            None
+        }
+
+    }
+}
 
 // A copy of Maxime Tremblay's ldpc FlipDecoder, but directly using our LDPC static LinearCode.
 #[derive(Debug, Clone)]
@@ -232,6 +250,7 @@ impl JohnsonFlipDecoder
             // Step 2: Bit messages
             debug!("Step 2: Bit messages");
             for i in 0..N {
+                let Ai = code.parity_check_matrix().column(i).unwrap();
                 let yi = y.get(i).unwrap();
                 // ∀ Bj, j in 0..m, if i ∈ Bj, count those Eji
                 //let Ei = code.parity_check_matrix().
