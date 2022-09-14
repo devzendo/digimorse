@@ -50,6 +50,7 @@ use metered::time_source::{Instant, StdInstant};
 use sparse_bin_mat::{BinNum, SparseBinMat, SparseBinSlice, SparseBinVec, SparseBinVecBase};
 
 use crate::libs::channel_codec::crc::CRC;
+use crate::libs::sparse_binary_matrix::ColumnAccess;
 
 use super::parity_check_matrix::LDPC;
 
