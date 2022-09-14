@@ -1,21 +1,24 @@
-use sparse_bin_mat::{SparseBinMat, SparseBinSlice};
+// use log::debug;
+use sparse_bin_mat::{BinNum, SparseBinMat, SparseBinVec};
 
-// TODO submit as a PR to sparse-binary-matrix?
+// TODO submit as a PR to sparse-binary-matrix? Unsure how to get this to return an Option<SparseBinSlice>.
 pub trait ColumnAccess {
-    fn column(&self, column: usize) -> Option<SparseBinSlice>;
+    fn column(&self, column: usize) -> Option<SparseBinVec>;
 }
 
 impl ColumnAccess for SparseBinMat {
-    fn column(&self, column: usize) -> Option<SparseBinSlice> {
+    fn column(&self, column: usize) -> Option<SparseBinVec> {
         if column < self.number_of_columns() {
             let mut column_positions: Vec<usize> = vec![];
-            (0..self.number_of_rows()).for_each(|y| if self.row(y).unwrap().get(column).is_some() { column_positions.push(y) } );
-            // Some(SparseBinVec::new(self.number_of_columns(), column_positions).as_view())
-            Some(SparseBinSlice::new(0, &[]))
+            (0..self.number_of_rows()).for_each(|y| {
+                let bit = self.row(y).unwrap().get(column).unwrap_or(BinNum::zero());
+                // debug!("y={}, row[{}] = {}, matrix[{}, {}]={:?} {}", y, y, self.row(y).unwrap(), y, column, self.row(y).unwrap().get(column), bit);
+                if bit.is_one() { column_positions.push(y) }
+            });
+            Some(SparseBinVec::try_new(self.number_of_rows(), column_positions).unwrap())
         } else {
             None
         }
-
     }
 }
 

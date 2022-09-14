@@ -47,7 +47,7 @@ use std::fmt;
 use ldpc::codes::LinearCode;
 use log::{debug, info};
 use metered::time_source::{Instant, StdInstant};
-use sparse_bin_mat::{BinNum, SparseBinMat, SparseBinSlice, SparseBinVec, SparseBinVecBase};
+use sparse_bin_mat::{BinNum, SparseBinMat, SparseBinVec, SparseBinVecBase};
 
 use crate::libs::channel_codec::crc::CRC;
 use crate::libs::sparse_binary_matrix::ColumnAccess;
