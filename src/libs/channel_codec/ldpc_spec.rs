@@ -2,17 +2,20 @@ extern crate hamcrest2;
 
 #[cfg(test)]
 mod ldpc_spec {
-    use hamcrest2::prelude::*;
     use std::env;
+
+    use hamcrest2::prelude::*;
     use ldpc::codes::LinearCode;
     use log::info;
     use sparse_bin_mat::{SparseBinMat, SparseBinSlice, SparseBinVec};
+
     use crate::libs::channel_codec::crc::crc14;
     use crate::libs::channel_codec::ldpc::{ColumnAccess, encode_message_to_sparsebinvec, init_ldpc, JohnsonFlipDecoder, LocalFlipDecoder};
     use crate::libs::channel_codec::ldpc_util::{display_matrix, draw_tanner_graph, generate_rust_for_matrix, load_parity_check_matrix, PARITY_CHECK_MATRIX_ALIST, PARITY_CHECK_MATRIX_RS, sparsebinvec_to_display};
     use crate::libs::channel_codec::parity_check_matrix::LDPC;
     use crate::libs::source_codec::source_encoding::{Frame, SOURCE_ENCODER_BLOCK_SIZE_IN_BITS};
     use crate::libs::source_codec::test_encoding_builder::encoded;
+    use crate::libs::sparse_binary_matrix::ColumnAccess;
 
     #[ctor::ctor]
     fn before_each() {
