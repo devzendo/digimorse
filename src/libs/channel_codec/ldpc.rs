@@ -236,7 +236,22 @@ impl JohnsonFlipDecoder
             debug!("Step 2: Bit messages");
             for i in 0..N {
                 let Ai = code.parity_check_matrix().column(i).unwrap();
-                let yi = y.get(i).unwrap();
+                let yi = y.get(i).unwrap().is_one();
+                debug!("i={}, yi={}, Ai={} Ai.len={}", i, yi, Ai, Ai.weight());
+                // If a majority of Eji [j in Ai] disagree with yi, flip Mi.
+                let disagreements = Ai.non_trivial_positions()
+                    .filter(|j| {
+                        let bit = Eji.is_one_at(*j, i).unwrap();
+                        debug!("Eji({}, {})={}", *j, i, bit);
+                        bit != yi
+                    })
+                    .count();
+                debug!("yi={}, #disagreements={}", yi, disagreements);
+                if disagreements > (Ai.weight() / 2) {
+                    let update = SparseBinVec::new(code.len(), vec![i]);
+                    Mi = &Mi + &update;
+                    debug!("Flipped Mi to {}", Mi.get(i).unwrap())
+                }
                 // ∀ Bj, j in 0..m, if i ∈ Bj, count those Eji
                 //let Ei = code.parity_check_matrix().
             }
