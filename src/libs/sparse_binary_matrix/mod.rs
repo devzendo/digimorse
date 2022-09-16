@@ -1,5 +1,5 @@
 // use log::debug;
-use sparse_bin_mat::{BinNum, SparseBinMat, SparseBinVec};
+use sparse_bin_mat::{SparseBinMat, SparseBinVec};
 
 // TODO submit as a PR to sparse-binary-matrix? Unsure how to get this to return an Option<SparseBinSlice>.
 pub trait ColumnAccess {
