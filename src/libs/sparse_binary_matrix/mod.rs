@@ -11,9 +11,9 @@ impl ColumnAccess for SparseBinMat {
         if column < self.number_of_columns() {
             let mut column_positions: Vec<usize> = vec![];
             (0..self.number_of_rows()).for_each(|y| {
-                let bit = self.row(y).unwrap().get(column).unwrap_or(BinNum::zero());
+                let bit = self.row(y).unwrap().is_one_at(column).unwrap();
                 // debug!("y={}, row[{}] = {}, matrix[{}, {}]={:?} {}", y, y, self.row(y).unwrap(), y, column, self.row(y).unwrap().get(column), bit);
-                if bit.is_one() { column_positions.push(y) }
+                if bit { column_positions.push(y) }
             });
             Some(SparseBinVec::try_new(self.number_of_rows(), column_positions).unwrap())
         } else {
