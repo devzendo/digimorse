@@ -11,7 +11,7 @@ mod ldpc_spec {
 
     use crate::libs::channel_codec::crc::crc14;
     use crate::libs::channel_codec::ldpc::{encode_message_to_sparsebinvec, init_ldpc, JohnsonFlipDecoder, LocalFlipDecoder};
-    use crate::libs::channel_codec::ldpc_util::{display_matrix, draw_tanner_graph, generate_rust_for_matrix, load_parity_check_matrix, PARITY_CHECK_MATRIX_ALIST, PARITY_CHECK_MATRIX_RS, sparsebinvec_to_display};
+    use crate::libs::channel_codec::ldpc_util::{display_matrix, display_numpy_matrix, draw_tanner_graph, generate_rust_for_matrix, load_parity_check_matrix, PARITY_CHECK_MATRIX_ALIST, PARITY_CHECK_MATRIX_RS, sparsebinvec_to_display};
     use crate::libs::channel_codec::parity_check_matrix::LDPC;
     use crate::libs::source_codec::source_encoding::{Frame, SOURCE_ENCODER_BLOCK_SIZE_IN_BITS};
     use crate::libs::source_codec::test_encoding_builder::encoded;
@@ -130,6 +130,17 @@ mod ldpc_spec {
         assert_that!(mult.is_zero(), equal_to(true));
     }
 
+    #[test]
+    #[ignore]
+    fn display_transposed_generator_matrix() {
+        init_ldpc();
+        let gen_t = LDPC.generator_matrix().transposed();
+        let g_display = display_numpy_matrix(&gen_t, "G");
+        for line in g_display.iter() {
+            println!("{}", line);
+        }
+    }
+
     fn generate_message() -> (SparseBinVec, String) {
         let source_encoding = encoded(SOURCE_ENCODER_BLOCK_SIZE_IN_BITS, 20, &[
             Frame::WPMPolarity { wpm: 20, polarity: true },
@@ -176,13 +187,55 @@ mod ldpc_spec {
         // let decoder = BpDecoder::new(LDPC.parity_check_matrix(), Probability::new(0.0), 100);
         let decoder = LocalFlipDecoder::new();
         // let decoder = JohnsonFlipDecoder::new(20);
-        // The actual decoded message is the last 126 bits of 'decoded_message'?
+
         let decoded_message = decoder.decode(&codeword);
+        // The actual decoded message is the last 126 bits of 'decoded_message'?
         let decoded_message_string = sparsebinvec_to_display(&decoded_message).split_off(126);
         info!("message  {}", message_string);
         info!("decoded  {}", decoded_message_string);
         assert_that!(decoded_message_string.len(), equal_to(126));
+        assert_that!(decoded_message, equal_to(codeword));
         assert_that!(decoded_message_string, equal_to(message_string)); // BROKEN: 1-bit error
+    }
+
+    #[test]
+    fn round_trip_johnson_flip_decoder() {
+        init_ldpc();
+        let (message, _) = generate_message();
+        info!("message      {}", message);
+        let message_string = sparsebinvec_to_display(&message);
+        info!("message_str  {}", message_string);
+
+        let gen_t = LDPC.generator_matrix().transposed();
+        let codeword = &gen_t * &message;
+        let codeword_string = sparsebinvec_to_display(&codeword);
+        info!("codeword_str {}", codeword_string);
+        assert_that!(codeword_string.len(), equal_to(252));
+
+        let decoder = JohnsonFlipDecoder::new(20);
+        let decoded_codeword = decoder.decode(&codeword, &LDPC);
+        assert_that!(decoded_codeword.clone(), equal_to(codeword));
+
+        // To get the decoded message out of the decoded codeword, multiply the decoded codeword by
+        // the parity check matrix. This was not obvious to me; not mentioned in "Iterative Error
+        // Correction" or other introductions; It was however made clear in..
+        // (p.28 of https://core.ac.uk/download/pdf/37320505.pdf
+        // An LDPC Error Control Strategy for Low Earth Orbit
+        // Satellite Communication Link Applications
+        // F.J. Olivier )
+        let par = LDPC.parity_check_matrix().transposed();
+        let decoded_codeword_matrix = SparseBinMat::new(decoded_codeword.len(), vec![decoded_codeword.to_positions_vec()]);
+        let decoded_message =  &decoded_codeword_matrix * &par;
+        assert_that!(decoded_message.number_of_rows(), equal_to(1));
+        assert_that!(decoded_message.number_of_columns(), equal_to(126));
+        let decoded_message_string = sparsebinvec_to_display(&decoded_message.row(0).unwrap().to_vec());
+
+        info!("message_str          {}", message_string);
+        info!("codeword_str         {}", codeword_string);
+        info!("decoded_message_str  {}", decoded_message_string);
+        assert_that!(decoded_message_string.len(), equal_to(126));
+
+        assert_that!(decoded_message_string, equal_to(message_string)); // BROKEN: decoded_message is all zeros
     }
 
     // From p56

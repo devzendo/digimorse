@@ -247,18 +247,44 @@ impl JohnsonFlipDecoder
                     })
                     .count();
                 debug!("yi={}, #disagreements={}", yi, disagreements);
-                if disagreements > (Ai.weight() / 2) {
+                if disagreements > (Ai.weight() / 2) { // TODO OPTIMISE Ai.weight should be constant, ∀i∈[0..N)
                     let update = SparseBinVec::new(code.len(), vec![i]);
                     Mi = &Mi + &update;
                     debug!("Flipped Mi to {}", Mi.get(i).unwrap())
                 }
-                // ∀ Bj, j in 0..m, if i ∈ Bj, count those Eji
-                //let Ei = code.parity_check_matrix().
             }
-            debug!("to be continued");
-            break;
 
+            // Stopping criteria: are the parity-check equations satisfied?
+            debug!("Step 3: Stopping criteria");
+            let mut all_parity_check_equations_satisfied = true;
+            for j in 0..m {
+                // sj = Sigma_i∈Bj(Mi mod 2)
+                let Bj = code.parity_check_matrix().row(j).unwrap();
+                debug!("B{}={}", j, Bj);
+                let sigma = Bj
+                    .non_trivial_positions()
+                    .into_iter()
+                    .fold(BinNum::zero(), | acc, el| {
+                        let bit = Mi.get(el).unwrap();
+                        debug!("Message bit {}={}", el, bit);
+                        acc + bit
+                    } );
+                debug!("sigma={}", sigma);
+                if sigma.is_one() {
+                    all_parity_check_equations_satisfied = false;
+                    debug!("Parity check {} not satisfied", j);
+                    break;
+                }
+            }
+            if all_parity_check_equations_satisfied || (iteration == self.Imax) {
+                debug!("All parity check equations satisfied or reached {} iteration", self.Imax);
+                break;
+            } else {
+                iteration += 1;
+                debug!("Next iteration {}", iteration);
+            }
         }
+        debug!("Returning {}", Mi);
         Mi
     }
 }
