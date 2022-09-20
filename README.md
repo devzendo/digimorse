@@ -15,8 +15,10 @@ has remained unchanged.
 This project is an attempt to modernise that.
 
 ## Project Status
-Project started September 2020. Currently in its early development / feasibility study phase. There's no graphical
-user interface at the moment - the system is configured and used via a command line interface.
+Project started September 2020. Currently in its early development / feasibility study phase. I'm working on the channel
+encoder, and am pretty much stuck at the moment, trying to encode/decode messages via low-density parity-check (LDPC)
+codes. 
+There's no graphical user interface at the moment - the system is configured and used via a command line interface.
 
 # Overview
 This is an EXPERIMENT in taking Morse code, in real-time, encoding it, wrapping
