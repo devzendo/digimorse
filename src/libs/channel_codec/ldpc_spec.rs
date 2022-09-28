@@ -10,8 +10,9 @@ mod ldpc_spec {
     use sparse_bin_mat::{SparseBinMat, SparseBinVec};
 
     use crate::libs::channel_codec::crc::crc14;
+    use crate::libs::channel_codec::ex_2_5::example_2_5_parity_check_matrix;
     use crate::libs::channel_codec::ldpc::{encode_message_to_sparsebinvec, init_ldpc, JohnsonFlipDecoder, LocalFlipDecoder};
-    use crate::libs::channel_codec::ldpc_util::{display_matrix, display_numpy_matrix, draw_tanner_graph, generate_rust_for_matrix, load_parity_check_matrix, PARITY_CHECK_MATRIX_ALIST, PARITY_CHECK_MATRIX_RS, sparsebinvec_to_display};
+    use crate::libs::channel_codec::ldpc_util::{display_numpy_matrix, generate_rust_for_matrix, load_parity_check_matrix, PARITY_CHECK_MATRIX_ALIST, PARITY_CHECK_MATRIX_RS, sparsebinvec_to_display};
     use crate::libs::channel_codec::parity_check_matrix::LDPC;
     use crate::libs::source_codec::source_encoding::{Frame, SOURCE_ENCODER_BLOCK_SIZE_IN_BITS};
     use crate::libs::source_codec::test_encoding_builder::encoded;
@@ -29,69 +30,6 @@ mod ldpc_spec {
     #[test]
     fn run_init_ldpc() {
         init_ldpc();
-    }
-
-    #[test]
-    #[ignore]
-    fn load_alist_into_sparsebinmat() {
-        let sm = load_parity_check_matrix();
-        info!("{}", sm.unwrap().as_json().unwrap());
-    }
-
-    // From "Iterative Error Correction", Example 2.5 "A regular parity-check matrix, with
-    // Wc = 2 and Wr = 3"
-    fn example_2_5_parity_check_matrix() -> SparseBinMat {
-        SparseBinMat::new(6, vec![
-            vec![0, 1, 3],
-            vec![1, 2, 4],
-            vec![0, 4, 5],
-            vec![2, 3, 5],
-        ])
-    }
-
-    #[test]
-    #[ignore]
-    fn draw_example_2_5_tanner_graph() {
-        let ex2_5 = example_2_5_parity_check_matrix();
-        assert_that!(draw_tanner_graph(&ex2_5, "/tmp/example_2_5.dot").is_ok(), true);
-    }
-
-    #[test]
-    #[ignore]
-    fn draw_example_2_5_as_matrix() {
-        let ex2_5 = example_2_5_parity_check_matrix();
-        let ex2_5_display = display_matrix(&ex2_5);
-        for line in ex2_5_display.iter() {
-            info!("{}", line);
-        }
-    }
-
-    #[test]
-    #[ignore]
-    fn permute_example_2_5() {
-        let ex2_5 = example_2_5_parity_check_matrix();
-        let ex2_5_echelon = ex2_5.echelon_form();
-        let ex2_5_display = display_matrix(&ex2_5_echelon);
-        info!("parity check");
-        for line in ex2_5_display.iter() {
-            info!("{}", line);
-        }
-        let ldpc = LinearCode::from_parity_check_matrix(ex2_5_echelon);
-        let g_display = display_matrix(ldpc.generator_matrix());
-        info!("generator");
-        for line in g_display.iter() {
-            info!("{}", line);
-        }
-    }
-
-    #[test]
-    #[ignore]
-    fn draw_parity_check_matrix_as_tanner_graph() {
-        let sm = load_parity_check_matrix();
-        assert_that!(draw_tanner_graph(&sm.unwrap(), "/tmp/digimorse_parity_check_matrix.dot").is_ok(), true);
-        // dot -Tpng /tmp/digimorse_parity_check_matrix.dot -o /tmp/digimorse_parity_check_matrix.png
-        // takes a few minutes to generate, complains about being too big, and scaling...
-        // and is quite unreadable!
     }
 
     // Generate the rust code containing the parity check matrix that's been constructed via the
