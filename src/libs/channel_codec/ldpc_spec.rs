@@ -99,8 +99,11 @@ mod ldpc_spec {
     #[test]
     #[ignore]
     fn generate_rust_for_parity_check_matrix() {
-        let sm = load_parity_check_matrix();
-        assert_that!(generate_rust_for_matrix(&sm.unwrap(), PARITY_CHECK_MATRIX_ALIST, PARITY_CHECK_MATRIX_RS).is_ok(), true);
+        let pcm = load_parity_check_matrix().unwrap();
+        info!("parity check matrix is ({}, {})", pcm.number_of_rows(), pcm.number_of_columns());
+        assert_that!(pcm.number_of_rows(), equal_to(126));
+        assert_that!(pcm.number_of_columns(), equal_to(252));
+        assert_that!(generate_rust_for_matrix(&pcm, PARITY_CHECK_MATRIX_ALIST, PARITY_CHECK_MATRIX_RS).is_ok(), true);
     }
 
     #[test]

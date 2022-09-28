@@ -263,8 +263,9 @@ Maxime Tremblay for the LDPC and Sparse Binary Matrix crates at https://github.c
 https://github.com/maxtremblay/sparse-binary-matrix
 Used to encode and decode in the digimorse channel codec.
 
-Daniel Estévez for the LDPC Toolbox crate at https://github.com/daniestevez/ldpc-toolbox
-Used to load the parity check matrix alist file, used in the digimorse channel codec.
+Daniel Estévez's LDPC Toolbox crate at https://github.com/daniestevez/ldpc-toolbox was used
+in early development to process alist files, although the code to do this is now in this project,
+in modified form (it uses the alist variant format of Radford M. Neal's tools).
 
 # Bibliography
 TBC

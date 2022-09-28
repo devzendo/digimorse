@@ -1,26 +1,10 @@
 use std::{fs, io};
 use std::path::Path;
-use ldpc_toolbox::sparse;
-use ldpc_toolbox::sparse::SparseMatrix;
+use log::debug;
 use sparse_bin_mat::{SparseBinMat, SparseBinVec};
 
 pub const PARITY_CHECK_MATRIX_ALIST: &'static str = "src/libs/channel_codec/parity_check_matrix.alist";
 pub const PARITY_CHECK_MATRIX_RS: &'static str = "src/libs/channel_codec/parity_check_matrix.rs";
-
-// I use Radford M. Neal's LDPC-Codes make-ldpc and pchk-to-alist tools to construct the parity
-// check matrix. This is then saved into an alist file, reloaded, and passed in here, to convert
-// into the ldpc SparseBinMat, from which I'll construct Rust code to instantiate at runtime.
-pub fn sparsematrix_to_sparsebinmat(source: SparseMatrix) -> SparseBinMat {
-    let mut destination = SparseBinMat::zeros(source.num_rows(), source.num_cols());
-    for row in 0 .. source.num_rows() {
-        for col in 0 .. source.num_cols() {
-            if source.contains(row, col) {
-                destination = destination.emplace_at(1, row, col);
-            }
-        }
-    }
-    destination
-}
 
 // Given a matrix and an output filename (ending in .dot), create the output file for graphviz'
 // dot to convert to a suitable output file e.g.
@@ -88,9 +72,103 @@ graph G {
     fs::write(Path::new(output_filename), dot)
 }
 
-pub fn load_parity_check_matrix() -> sparse::Result<SparseBinMat> {
-    let sm = SparseMatrix::from_alist(fs::read_to_string(PARITY_CHECK_MATRIX_ALIST).unwrap().as_str())?;
-    Ok(sparsematrix_to_sparsebinmat(sm))
+// Based on from_alist in Daniel Estévez' LDPC-Toolbox, but corrected w.r.t. row/column ordering
+// as per Radford M. Neal's LDPC-Codes' pchk-to-alist.c
+// Also returns a SparseBinMat.
+//
+// The alist "spec" at http://www.inference.org.uk/mackay/codes/alist.html is vague, as it talks of
+// M and N - very cryptic. (M should be rows? N should be cols?) It's also different to
+// Radford Neal's code - possibly Daniel's reader conforms to this.
+//
+// The alist format, as I interpret it from pchk-to-alist.c:
+// num-rows num-cols
+// max-row-weight max-col-weight
+// [row-weights]    // there are num-rows entries: how many 1's on each row
+// [column weights] // there are num-cols entries: how many 1's on each col
+// for each row 0..num-rows:
+//   [1-based indices of 1s in the row]
+// for each column 0..num-cols:
+//   [1-based indices of 1s in the column]
+pub fn from_alist(alist: &str) -> Result<SparseBinMat, String> {
+    let mut alist = alist.split('\n');
+    let sizes = alist
+        .next()
+        .ok_or_else(|| String::from("alist first line not found"))?;
+    let mut sizes = sizes.split_whitespace();
+    let nrows = sizes
+        .next()
+        .ok_or_else(|| String::from("alist first line (dimensions) does not contain enough elements"))?
+        .parse()
+        .map_err(|_| String::from("nrows is not a number"))?;
+    let ncols = sizes
+        .next()
+        .ok_or_else(|| String::from("alist first line (dimensions) does not contain enough elements"))?
+        .parse()
+        .map_err(|_| String::from("ncols is not a number"))?;
+    let mut h = SparseBinMat::zeros(nrows, ncols);
+    alist.next(); // skip max weights
+    alist.next(); // skip row weights
+    alist.next(); // skip column weights
+    // position of 1's in each row
+    for row in 0..nrows {
+        let row_data = alist
+            .next()
+            .ok_or_else(|| String::from("alist does not contain expected number of lines (expecting row data)"))?;
+        let row_data = row_data.split_whitespace();
+        for col in row_data {
+            let col: usize = col
+                .parse()
+                .map_err(|_| String::from("col value is not a number"))?;
+            h = h.emplace_at(1, row, col -1);
+        }
+    }
+    // position of 1's in eech column
+    // may not be necessary
+    for col in 0..ncols {
+        let col_data = alist
+            .next()
+            .ok_or_else(|| String::from("alist does not contain expected number of lines (expecting column data)"))?;
+        let col_data = col_data.split_whitespace();
+        for row in col_data {
+            let row: usize = row
+                .parse()
+                .map_err(|_| String::from("row value is not a number"))?;
+            h = h.emplace_at(1, row - 1, col);
+        }
+    }
+    Ok(h)
+}
+
+/*
+Example small_parity_check_matrix.pchk:
+Parity check matrix in small_parity_check_matrix.pchk (dense format):
+
+ 1 0 1 1 1 1
+ 1 1 1 1 1 0
+ 1 1 1 0 0 1
+ 0 1 0 1 1 1
+
+And small_parity_check_matrix.alist:
+4 6
+5 3
+5 5 4 4
+3 3 3 3 3 3
+1 3 4 5 6
+1 2 3 4 5
+1 2 3 6 0
+2 4 5 6 0
+1 2 3
+2 3 4
+1 2 3
+1 2 4
+1 2 4
+1 3 4
+
+ */
+pub fn load_parity_check_matrix() -> Result<SparseBinMat, String> {
+    let sbm = from_alist(fs::read_to_string(PARITY_CHECK_MATRIX_ALIST).unwrap().as_str())?;
+    debug!("SparseBinMat is ({}, {})", sbm.number_of_rows(), sbm.number_of_columns());
+    Ok(sbm)
 }
 
 // Given a vector, construct a displayable representation of it
@@ -189,3 +267,7 @@ pub fn generate_rust_for_matrix(source: &SparseBinMat, source_name: &str, output
     fs::write(Path::new(output_filename), code)
 }
 
+
+#[cfg(test)]
+#[path = "./ldpc_util_spec.rs"]
+mod ldpc_util_spec;
