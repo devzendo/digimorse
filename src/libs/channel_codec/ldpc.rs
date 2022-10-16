@@ -1,4 +1,4 @@
-// A (252,126) Low-Density Parity-Check code, giving 126 bits of redundant parity information.
+// A (252, 126) Low-Density Parity-Check code, giving 126 bits of redundant parity information.
 // Characteristics required: (From section 3.4 of "Iterative Error Correction", Prof. Sarah J.
 // Johnson. All page references are to this book.)
 // * At least a girth of 6: there should be no 4-cycles in the Tanner graph.
@@ -30,6 +30,12 @@
 // 4) The alist file is read and converted into generated Rust code in parity_check_matrix.rs
 //    The code to do this conversion is the (ignored, manually invoked) test code in ldpc_spec.rs,
 //    test generate_rust_for_parity_check_matrix().
+// 5) Generate a generator matrix from the parity-check matrix using Radford M. Neal's LDPC-codes
+//    with the following commands:
+//    make-gen parity_check_matrix.pchk generator_matrix.gen dense
+//    print-gen generator_matrix.gen > generator_matrix.txt
+//    This matrix is (126, 126), where "The first K columns of the K by N generator matrix will then
+//    be the identity matrix." (LDPC-Codes/encoding.html). The .gen file does NOT contain I.
 //
 // Unknowns:
 // a) Why, when the above has generated Rust, and this is used to create a LinearCode, does the
