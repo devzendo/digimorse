@@ -17,8 +17,9 @@ This project is an attempt to modernise that.
 ## Project Status
 Project started September 2020. Currently in its early development / feasibility study phase. I'm working on the channel
 encoder, and am pretty much stuck at the moment, trying to encode/decode messages via low-density parity-check (LDPC)
-codes. I'm trying to use a pre-generated generator matrix currently - if this doesn't work, I may put the project on
-hold.....
+codes. I'm trying to use a pre-generated generator matrix, adding an identity matrix to this, and using the list of
+information-carrying columns to correctly decode a previously-encoded message - if this doesn't work, I may put the
+project on hold.....
 There's no graphical user interface at the moment - the system is configured and used via a command line interface.
 
 # Overview
