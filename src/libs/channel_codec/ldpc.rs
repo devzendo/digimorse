@@ -27,15 +27,16 @@
 //    Note: alist format has rows columns as its first line. So this should be 126 252
 // 3) Convert the .pchk to a (dense) text format file with the LDPC-codes command:
 //    print-pchk -d parity_check_matrix.pchk > parity_check_matrix.txt
-// 4) The alist file is read and converted into generated Rust code in parity_check_matrix.rs
-//    The code to do this conversion is the (ignored, manually invoked) test code in ldpc_spec.rs,
-//    test generate_rust_for_parity_check_matrix().
-// 5) Generate a generator matrix from the parity-check matrix using Radford M. Neal's LDPC-codes
-//    with the following commands:
+// 4) Generate a generator matrix from the parity-check matrix using LDPC-codes with the following
+//    commands:
 //    make-gen parity_check_matrix.pchk generator_matrix.gen dense
 //    print-gen generator_matrix.gen > generator_matrix.txt
 //    This matrix is (126, 126), where "The first K columns of the K by N generator matrix will then
 //    be the identity matrix." (LDPC-Codes/encoding.html). The .gen file does NOT contain I.
+// 5) The alist file is read; the .txt is read - both are converted into generated Rust code in
+//    parity_check_matrix.rs and generator_matrix.rs. The code to do this conversion is the
+//    (ignored, manually invoked) test code in ldpc_spec.rs, test
+//    generate_rust_for_parity_check_and_generator_matrices().
 //
 // Unknowns:
 // a) Why, when the above has generated Rust, and this is used to create a LinearCode, does the
@@ -53,7 +54,7 @@ use sparse_bin_mat::{BinNum, SparseBinMat, SparseBinVec, SparseBinVecBase};
 use crate::libs::channel_codec::crc::CRC;
 use crate::libs::sparse_binary_matrix::ColumnAccess;
 
-use super::parity_check_matrix::LDPC;
+use super::ldpc_init::LDPC;
 
 // Just to start the lazy_static, and log how long it takes to initialise.
 pub fn init_ldpc() {

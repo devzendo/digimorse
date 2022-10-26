@@ -12,8 +12,8 @@ mod ldpc_spec {
     use crate::libs::channel_codec::crc::crc14;
     use crate::libs::channel_codec::ex_2_5::example_2_5_parity_check_matrix;
     use crate::libs::channel_codec::ldpc::{encode_message_to_sparsebinvec, init_ldpc, JohnsonFlipDecoder, LocalFlipDecoder};
-    use crate::libs::channel_codec::ldpc_util::{display_numpy_matrix, generate_rust_for_matrix, load_parity_check_matrix, PARITY_CHECK_MATRIX_ALIST, PARITY_CHECK_MATRIX_RS, sparsebinvec_to_display};
-    use crate::libs::channel_codec::parity_check_matrix::LDPC;
+    use crate::libs::channel_codec::ldpc_util::{display_numpy_matrix, generate_rust_for_matrix, generate_rust_for_ldpc_init, GENERATOR_MATRIX_TXT, LDPC_INIT_RS, load_generator_matrix_and_columns, load_parity_check_matrix, PARITY_CHECK_MATRIX_ALIST, PARITY_CHECK_MATRIX_RS, sparsebinvec_to_display, display_matrix};
+    use crate::libs::channel_codec::ldpc_init::LDPC;
     use crate::libs::source_codec::source_encoding::{Frame, SOURCE_ENCODER_BLOCK_SIZE_IN_BITS};
     use crate::libs::source_codec::test_encoding_builder::encoded;
     use crate::libs::sparse_binary_matrix::ColumnAccess;
@@ -42,6 +42,60 @@ mod ldpc_spec {
         assert_that!(pcm.number_of_rows(), equal_to(126));
         assert_that!(pcm.number_of_columns(), equal_to(252));
         assert_that!(generate_rust_for_matrix(&pcm, PARITY_CHECK_MATRIX_ALIST, PARITY_CHECK_MATRIX_RS).is_ok(), true);
+    }
+
+    // Generate the rust code containing the parity check and generator matrices that have been
+    // constructed via the techniques described at the top of ldpc.rs.
+    #[test]
+    #[ignore]
+    fn generate_rust_for_parity_check_and_generator_matrices() {
+        let pcm = load_parity_check_matrix().unwrap();
+        info!("parity check matrix is ({}, {})", pcm.number_of_rows(), pcm.number_of_columns());
+        assert_that!(pcm.number_of_rows(), equal_to(126));
+        assert_that!(pcm.number_of_columns(), equal_to(252));
+
+        let (gm, cols) = load_generator_matrix_and_columns().unwrap();
+        assert_that!(gm.number_of_rows(), equal_to(126));
+        assert_that!(gm.number_of_columns(), equal_to(126));
+        assert_that!(cols.len(), equal_to(252));
+
+        let reordered_pcm = pcm.permute_columns(&cols.as_slice());
+
+        // Prefix the generator with an Identity matrix to make it systematic.
+        let i126 = SparseBinMat::identity(126);
+        let systematic_gm = i126.horizontal_concat_with(&gm);
+        assert_that!(systematic_gm.number_of_rows(), equal_to(126));
+        assert_that!(systematic_gm.number_of_columns(), equal_to(252));
+        display_matrix(&systematic_gm).iter().for_each(|f| info!("systematic generator {}", f));
+
+        // Parity * generator(transposed) is zero
+        let gm_t = systematic_gm.transposed();
+        let mult = &reordered_pcm * &gm_t;
+        info!("mult is ({}, {})", mult.number_of_rows(), mult.number_of_columns()); // (126, 126)
+        display_matrix(&mult).iter().for_each(|f| info!("mult {}", f));
+        //assert_that!(mult.is_zero(), equal_to(true));
+
+
+        assert_that!(generate_rust_for_ldpc_init(&reordered_pcm, &systematic_gm, &cols, PARITY_CHECK_MATRIX_ALIST, GENERATOR_MATRIX_TXT, LDPC_INIT_RS).is_ok(), true);
+    }
+
+    #[test]
+    #[ignore]
+    fn parity_check_matrix_meets_density_requirements() {
+        let pcm = load_parity_check_matrix().unwrap();
+        for r in 0..pcm.number_of_rows() {
+            let row = pcm.row(r);
+            let weight = row.unwrap().weight();
+            info!("row {} has weight {}", r, weight);
+            // the row weights vary. is that right?
+            //assert_that!(weight, equal_to(3));
+        }
+        for c in 0..pcm.number_of_columns() {
+            let col = pcm.column(c);
+            let weight = col.unwrap().weight();
+            info!("col {} has weight {}", c, weight);
+            assert_that!(weight, equal_to(3));
+        }
     }
 
     #[test]
