@@ -11,3 +11,6 @@ pub fn example_2_5_parity_check_matrix() -> SparseBinMat {
     ])
 }
 
+#[cfg(test)]
+#[path = "./ex_2_5_spec.rs"]
+mod ex_2_5_spec;

@@ -243,6 +243,39 @@ pub fn display_numpy_matrix(source: &SparseBinMat, variable_name: &str) -> Vec<S
     out
 }
 
+// Given a matrix, and a variable name, construct sagemath instantiation  it
+pub fn display_sagemath_matrix(source: &SparseBinMat, variable_name: &str) -> Vec<String> {
+    let mut out = vec![];
+    // H = matrix(GF(2),[  [1, 1, 0, 1, 0, 0, ], [0, 1, 1, 0, 1, 0, ], [1, 0, 0, 0, 1, 1, ], [0, 0, 1, 1, 0, 1, ]  ] )
+    // print("Parity check matrix")
+    // print(H)
+    // print("RREF of parity check matrix")
+    // print(H.rref())
+    out.push(format!("{} = matrix(GF(2), [", variable_name));
+    for row in 0 .. source.number_of_rows() {
+        let mut line = String::new();
+        line += "[";
+        for col in 0 .. source.number_of_columns() {
+            if source.is_one_at(row, col).unwrap() {
+                line += "1";
+            } else {
+                line += "0";
+            }
+            if col != source.number_of_columns() - 1 {
+                line += ", ";
+            }
+        }
+        line += "]";
+        if row != source.number_of_rows() - 1 {
+            line += ",";
+        }
+        out.push(line);
+    }
+    out.push("])".to_string());
+    out
+}
+
+
 // Given a matrix and an output filename (ending in .rs), create Rust code to instantiate
 // the matrix as a SparseBinMat.
 pub fn generate_rust_for_matrix(source: &SparseBinMat, source_name: &str, output_filename: &str) -> io::Result<()> {

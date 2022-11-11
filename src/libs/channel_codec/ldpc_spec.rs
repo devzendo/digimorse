@@ -12,7 +12,7 @@ mod ldpc_spec {
     use crate::libs::channel_codec::crc::crc14;
     use crate::libs::channel_codec::ex_2_5::example_2_5_parity_check_matrix;
     use crate::libs::channel_codec::ldpc::{encode_message_to_sparsebinvec, init_ldpc, JohnsonFlipDecoder, LocalFlipDecoder};
-    use crate::libs::channel_codec::ldpc_util::{display_numpy_matrix, generate_rust_for_matrix, generate_rust_for_ldpc_init, GENERATOR_MATRIX_TXT, LDPC_INIT_RS, load_generator_matrix_and_columns, load_parity_check_matrix, PARITY_CHECK_MATRIX_ALIST, PARITY_CHECK_MATRIX_RS, sparsebinvec_to_display, display_matrix};
+    use crate::libs::channel_codec::ldpc_util::{display_numpy_matrix, generate_rust_for_matrix, generate_rust_for_ldpc_init, GENERATOR_MATRIX_TXT, LDPC_INIT_RS, load_generator_matrix_and_columns, load_parity_check_matrix, PARITY_CHECK_MATRIX_ALIST, PARITY_CHECK_MATRIX_RS, sparsebinvec_to_display, display_matrix, display_sagemath_matrix};
     use crate::libs::channel_codec::ldpc_init::LDPC;
     use crate::libs::source_codec::source_encoding::{Frame, SOURCE_ENCODER_BLOCK_SIZE_IN_BITS};
     use crate::libs::source_codec::test_encoding_builder::encoded;
@@ -30,6 +30,8 @@ mod ldpc_spec {
     #[test]
     fn run_init_ldpc() {
         init_ldpc();
+
+        // FAILS
     }
 
     // Generate the rust code containing the parity check matrix that's been constructed via the
@@ -61,23 +63,65 @@ mod ldpc_spec {
 
         let reordered_pcm = pcm.permute_columns(&cols.as_slice());
 
-        // Prefix the generator with an Identity matrix to make it systematic.
+        // Pre/Suffix the generator with an Identity matrix to make it systematic. (as per Prof Johnson)
         let i126 = SparseBinMat::identity(126);
-        let systematic_gm = i126.horizontal_concat_with(&gm);
+        let systematic_gm = gm.horizontal_concat_with(&i126); // suffix (Johnson)
+        // let systematic_gm = i126.horizontal_concat_with(&gm); // prefix (Neal)
         assert_that!(systematic_gm.number_of_rows(), equal_to(126));
         assert_that!(systematic_gm.number_of_columns(), equal_to(252));
         display_matrix(&systematic_gm).iter().for_each(|f| info!("systematic generator {}", f));
 
-        // Parity * generator(transposed) is zero
-        let gm_t = systematic_gm.transposed();
-        let mult = &reordered_pcm * &gm_t;
+        // Parity * generator(transposed) is zero (Neal)
+        // let gm_t = systematic_gm.transposed();
+        // let mult = &reordered_pcm * &gm_t;
+
+        // Generator * parity(transposed) is zero (Johnson)
+        let pcm_t = pcm.transposed();
+        let mult = &systematic_gm * &pcm_t;
+
         info!("mult is ({}, {})", mult.number_of_rows(), mult.number_of_columns()); // (126, 126)
         display_matrix(&mult).iter().for_each(|f| info!("mult {}", f));
-        //assert_that!(mult.is_zero(), equal_to(true));
+        assert_that!(mult.is_zero(), equal_to(true));
 
 
         assert_that!(generate_rust_for_ldpc_init(&reordered_pcm, &systematic_gm, &cols, PARITY_CHECK_MATRIX_ALIST, GENERATOR_MATRIX_TXT, LDPC_INIT_RS).is_ok(), true);
     }
+
+
+    #[test]
+    #[ignore]
+    fn generate_sagemath_for_parity_check_matrix() {
+        let pcm = load_parity_check_matrix().unwrap();
+
+        let g_display = display_sagemath_matrix(&pcm, "H");
+        for line in g_display.iter() {
+            println!("{}", line);
+        }
+        // I pasted the sage definition of the parity check matrix printed above into sage, then:
+        // print(H.rref())
+        // However the output of this shows almost a perfect identity matrix on the left hand side
+        // but the lowest 7 rows' 1s are shifted right, not on the diagonal.
+        // Does this mean that to extract the message from a decoded codeword, I can't take exactly
+        // the first 126 bits, but must take 119 then odd bits from the rest of the message - ie
+        // do the columns that the leftmost 1s occur indicate the position of the message bits?
+        // Not sure - the troublesome part of the matrix looks like this:
+        //  0 1 0 0 0 0 0 0 1 0 0 0 1 0 0 0 0 0 0 1 1 0 0 1 0 1 1 0 0 0 0
+        //  0 0 1 0 0 0 0 0 1 0 0 0 0 0 0 1 0 0 1 1 1 1 0 1 0 1 0 0 1 0 1
+        //  0 0 0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0 0
+        //  0 0 0 0 1 0 0 0 1 0 0 0 0 0 1 1 0 0 0 0 1 1 1 0 0 1 1 1 0 0 0
+        //  0 0 0 0 0 1 0 0 0 0 0 0 0 0 0 1 0 0 0 0 0 0 1 1 0 1 0 1 1 0 1
+        //  0 0 0 0 0 0 1 0 0 0 0 0 0 0 1 1 0 0 0 0 1 0 1 0 0 1 1 1 0 0 1
+        //  0 0 0 0 0 0 0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0 0 0 0 0 0
+        //  0 0 0 0 0 0 0 0 0 1 0 0 0 0 0 1 0 0 1 0 0 1 0 1 1 1 1 0 1 0 1
+        //  0 0 0 0 0 0 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 1 1 1 0 0 0 1 1 0 0
+        //  0 0 0 0 0 0 0 0 0 0 0 1 0 0 0 0 0 0 1 0 1 0 1 0 0 1 0 1 1 0 0
+        //  0 0 0 0 0 0 0 0 0 0 0 0 0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+        //  0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0 0 0 0 0 1 0 1 0 0 0 0 0 0
+        //  0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0 0 0 0 0 0 0 0 0 0 0 0 0
+        //  0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0
+
+    }
+
 
     #[test]
     #[ignore]
@@ -104,6 +148,8 @@ mod ldpc_spec {
         let pcm = LDPC.parity_check_matrix();
         assert_that!(pcm.number_of_rows(), equal_to(126));
         assert_that!(pcm.number_of_columns(), equal_to(252));
+
+        // FAILS
     }
 
     #[test]
@@ -113,6 +159,8 @@ mod ldpc_spec {
         let gen = LDPC.generator_matrix().transposed();
         assert_that!(gen.number_of_rows(), equal_to(252));
         assert_that!(gen.number_of_columns(), equal_to(126));
+
+        // FAILS
     }
 
     #[test]
@@ -123,6 +171,8 @@ mod ldpc_spec {
         let mult = par * &gen_t;
         info!("mult is ({}, {})", mult.number_of_rows(), mult.number_of_columns()); // (126, 126)
         assert_that!(mult.is_zero(), equal_to(true));
+
+        // FAILS
     }
 
     #[test]
@@ -191,6 +241,8 @@ mod ldpc_spec {
         assert_that!(decoded_message_string.len(), equal_to(126));
         assert_that!(decoded_message, equal_to(codeword));
         assert_that!(decoded_message_string, equal_to(message_string)); // BROKEN: 1-bit error
+
+        // FAILS
     }
 
     #[test]
@@ -231,6 +283,8 @@ mod ldpc_spec {
         assert_that!(decoded_message_string.len(), equal_to(126));
 
         assert_that!(decoded_message_string, equal_to(message_string)); // BROKEN: decoded_message is all zeros
+
+        // FAILS
     }
 
     // From p56
