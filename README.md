@@ -16,10 +16,8 @@ This project is an attempt to modernise that.
 
 ## Project Status
 Project started September 2020. Currently in its early development / feasibility study phase. I'm working on the channel
-encoder, and am pretty much stuck at the moment, trying to encode/decode messages via low-density parity-check (LDPC)
-codes. I'm trying to use a pre-generated generator matrix, adding an identity matrix to this, and using the list of
-information-carrying columns to correctly decode a previously-encoded message - if this doesn't work, I may put the
-project on hold......
+encoder, encoding/decoding messages via low-density parity-check (LDPC) codes. 
+
 There's no graphical user interface at the moment - the system is configured and used via a command line interface.
 
 # Overview
@@ -257,17 +255,20 @@ See http://interface.khm.de/index.php/lab/interfaces-advanced/arduino-dds-sinewa
 Prof. Sarah J. Johnson for writing "Iterative Error Correction: Turbo, Low-Density Parity-Check and Repeat-
 Accumulate Codes".
 
-Radford M. Neal for his LDPC-Codes LDPC parity check generation code at
+Adam Greig for his labrador-ldpc LDPC encoder/decoder at
+https://github.com/adamgreig/labrador-ldpc
+Used in the digimorse channel codec.
+
+Radford M. Neal for his LDPC-Codes LDPC parity check matrix generation code at
 https://github.com/radfordneal/LDPC-codes
-Used in generating the LDPC parity check matrix and converting it to alist format.
+Used in early experiments in generating the LDPC parity check and generator matrices.
 
 Maxime Tremblay for the LDPC and Sparse Binary Matrix crates at https://github.com/maxtremblay/ldpc and
 https://github.com/maxtremblay/sparse-binary-matrix
-Used to encode and decode in the digimorse channel codec.
+Used in early experiments encoding and decoding in the digimorse channel codec.
 
-Daniel Estévez's LDPC Toolbox crate at https://github.com/daniestevez/ldpc-toolbox was used
-in early development to process alist files, although the code to do this is now in this project,
-in modified form (it uses the alist variant format of Radford M. Neal's tools).
+Daniel Estévez's LDPC Toolbox crate at https://github.com/daniestevez/ldpc-toolbox
+Used in initial experiments encoding and decoding in the digimorse channel codec.
 
 # Bibliography
 TBC

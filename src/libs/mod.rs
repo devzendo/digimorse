@@ -10,7 +10,6 @@ pub mod patterns;
 pub mod playback;
 pub mod serial_io;
 pub mod source_codec;
-pub mod sparse_binary_matrix;
 pub mod transform_bus;
 pub mod transmitter;
 pub mod util;
