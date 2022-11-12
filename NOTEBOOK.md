@@ -119,13 +119,15 @@ Current attempt is to use Radford Neal's LDPC-Codes tools to generate the genera
 
 This doesn't construct, since the two matrices are not orthogonal.
 
+Also, using his encode/decode tools is unsuccessful, saying something to the effect that codewords over 32 bits are absurd (perhaps his implementation is only effective for those small lengths?)
+
 The list of information-carrying columns reported by the `make-gen` and `print-gen` tool shows that there's not a contiguous range of columns on the right-hand side: as observed (16 Oct 2022) the generated matrix does not contain $I$. 
 
 
 
 Unsure how to proceed; re-read (Johnson p42), which states: 
 
-"In general, a generator matrix for a code with parity-check matrix $H$ can be found by performing Gauss-Jordan eliminatino on $H$ to obtain it in the form
+"In general, a generator matrix for a code with parity-check matrix $H$ can be found by performing Gauss-Jordan elimination on $H$ to obtain it in the form
 
 $H = [A \space \space \space \space I_{N-K}]$.
 
@@ -167,10 +169,33 @@ Re-state my requirements - I need a sparse parity check matrix in $GF(2)$ that i
 
 ### Possible ways forward
 
-* Write my own parity matrix generator - MacKay Neal method? Would make experimentation easier, less conversion between alist and SparseBinMat etc.
-* Look again at *ldpc* method of generating parity check matrix - RandomRegularCode. Would have to write persistence code for this - to generate a random code, test its efficacy then generate rust for it, if OK. *But how to know which bits are the message bits in a decoded codeword?*
-* Investigate *ldpc-labrador*. Looks like the message size would have to increase to 128 bits (no biggie). Benefit of this is that the matrices are already generated, and since this has been extensively used/peer reviewed, will work. It would mean scrapping all current work so far, but that's OK.
-* Investigate LDPC code in other languages.
-* Give up the idea of using error correction - recent Practical Wireless article describes how EC was added to PSK31, but that it isn't the mode-variant that became the most used. This would mean losing the coding gain, which is impressive for LDPC. It would also halve the modulation / transmission time, making the mode better, interactively - reducing the round-trip time for a QSO. Sunk cost fallacy? It may be possible to add a UI flag to control whether EC is used, or not, and have metrics to see whether it's popular.
-* Use some other error correction scheme that's easier to work with, has a lower coding gain but reduces the amount of error correction information that's transmitted.
-* Point to note: TRIZ has a creative trigger where you imagine the feature done, and move beyond your stuckness; you see the problem in the rear-view mirror, and this can lead to insights.
+* A. Write my own parity matrix generator - MacKay Neal method? Would make experimentation easier, less conversion between alist and SparseBinMat etc.
+
+* B. Look again at *ldpc* method of generating parity check matrix - RandomRegularCode. Would have to write persistence code for this - to generate a random code, test its efficacy then generate rust for it, if OK. *But how to know which bits are the message bits in a decoded codeword?*
+
+* C. Investigate *labrador-ldpc*. Looks like the message size would have to increase to 128 bits (no biggie). Benefit of this is that the matrices are already generated, and since this has been extensively used/peer reviewed, will work. The matrices in this LDPC are systematic, so the message bits in the decoded codeword are known and can be easily extracted. It would mean scrapping all current work so far, but that's OK - it's got to *work*, that's the primary objective here!
+
+* D. Investigate LDPC code in other languages.
+
+* E. Give up the idea of using error correction - recent Practical Wireless article describes how EC was added to PSK31, but that it isn't the mode-variant that became the most used. This would mean losing the coding gain, which is impressive for LDPC. It would also halve the modulation / transmission time, making the mode better, interactively - reducing the round-trip time for a QSO, which is something that will put CW aficionados off. Sunk cost fallacy? It may be possible to add a UI flag to control whether EC is used, or not, and have metrics to see whether it's popular.
+
+* F. Use some other error correction scheme that's easier to work with, has a lower coding gain but reduces the amount of error correction information that's transmitted.
+
+  
+
+Point to note: TRIZ has a creative trigger where you imagine the feature done, and move beyond your stuckness; you see the problem in the rear-view mirror, and this can lead to insights.
+
+Considering C, and E (optional error correction). 
+
+
+
+## 12 November 2022
+
+Started using the *labrador-ldpc* crate, which solves all my problems! I've added two extra (currently spare) bits to the packed message format:
+
+* 112 bits of source encoded data
+* 2 spare bits
+* 14 bits of CRC
+
+This is then encoded with the 256 bit codeword variant 'TC256', giving 128 bits of parity check data.
+

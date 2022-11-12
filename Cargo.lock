@@ -475,6 +475,7 @@ dependencies = [
  "env_logger",
  "fltk",
  "hamcrest2",
+ "labrador-ldpc",
  "lazy_static",
  "ldpc",
  "log 0.4.11",
@@ -494,6 +495,7 @@ dependencies = [
  "serialport",
  "sparse-bin-mat",
  "spin_sleep",
+ "substring",
  "syncbox",
  "temp_testdir",
  "tempfile",
@@ -729,6 +731,12 @@ name = "itoa"
 version = "1.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6c8af84674fe1f223a982c933a0ee1086ac4d4052aa0fb8060c12c6ad838e754"
+
+[[package]]
+name = "labrador-ldpc"
+version = "1.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6b75d0c49c4f11b13114cdbc3425f9e1faa017b62aa302e6d368801c13500649"
 
 [[package]]
 name = "lazy_static"
@@ -1696,6 +1704,15 @@ name = "strsim"
 version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8ea5119cdb4c55b55d432abb513a0429384878c15dde60cc77b1c99de1a95a6a"
+
+[[package]]
+name = "substring"
+version = "1.4.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "42ee6433ecef213b2e72f587ef64a2f5943e7cd16fbd82dbe8bc07486c534c86"
+dependencies = [
+ "autocfg",
+]
 
 [[package]]
 name = "syn"
