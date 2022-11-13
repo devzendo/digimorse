@@ -119,11 +119,13 @@ impl BitVecAppender {
 }
 
 // 112 bits of source encoded data; 2 spare unused bits ; 14 bits of CRC - gives 128 bits of message
-// TODO ideally, add a type for the Vec<u8> output
-pub fn pack_message(source_encoding: &Vec<u8>, unused_flag_1: bool, unused_flag_2: bool, crc: CRC) -> Vec<u8> {
+pub type PackedMessage = Vec<u8>;
+pub type SourceEncodingData = Vec<u8>;
+pub fn pack_message(source_encoding: &SourceEncodingData, unused_flag_1: bool, unused_flag_2: bool, crc: CRC) -> PackedMessage {
     if source_encoding.len() != 14 {
         panic!("Expecting 14 bytes of source encoding data");
     }
+    // TODO the BitVecAppender might be overkill for packing; look at how easy unpacking was..
     let mut appender = BitVecAppender::new(128);
     for i in 0..source_encoding.len() {
         appender.add_8_bits(source_encoding[i], 8);
@@ -131,13 +133,13 @@ pub fn pack_message(source_encoding: &Vec<u8>, unused_flag_1: bool, unused_flag_
     appender.add_bool(unused_flag_1);
     appender.add_bool(unused_flag_2);
     appender.append_crc(crc);
-    appender.build()
+    appender.build() as PackedMessage
 }
 
 // The 128 bits of packed_message from pack_message above is encoded into 256 bits (32 bytes) of
 // codeword.
-// TODO ideally, add a type for the Vec<u8> input and another for the Vec<u8> output.
-pub fn encode_packed_message(packed_message: &Vec<u8>) -> Vec<u8> {
+pub type CodeWord = Vec<u8>;
+pub fn encode_packed_message(packed_message: &PackedMessage) -> CodeWord {
     if packed_message.len() != 16 {
         panic!("Expecting 16 bytes of packed message data");
     }
@@ -151,8 +153,7 @@ pub fn encode_packed_message(packed_message: &Vec<u8>) -> Vec<u8> {
 }
 
 // 256 bits (32 bytes) of data (a potential codeword) are decoded into 128 bits of packed message.
-// TODO ideally, add a type for the Vec<u8> input and another for the Vec<u8> output.
-pub fn decode_codeword(codeword: &Vec<u8>) -> Option<Vec<u8>> {
+pub fn decode_codeword(codeword: &CodeWord) -> Option<CodeWord> {
     if codeword.len() != 32 {
         panic!("Expecting to decode 32 bytes of codeword");
     }
@@ -176,8 +177,7 @@ pub fn decode_codeword(codeword: &Vec<u8>) -> Option<Vec<u8>> {
 
 // Unpack a packed message of 128 bits into message, flags and CRC
 // 112 bits of source encoded data; 2 spare unused bits ; 14 bits of CRC - gives 128 bits of message
-// TODO ideally, add a type for the Vec<u8> input and message output
-pub fn unpack_message(packed_message: &Vec<u8>) -> (Vec<u8>, bool, bool, CRC) {
+pub fn unpack_message(packed_message: &PackedMessage) -> (SourceEncodingData, bool, bool, CRC) {
     let message = packed_message[0..14].to_vec();
     let crc_msb = packed_message[14] as u16;
     let crc_lsb = packed_message[15] as u16;
