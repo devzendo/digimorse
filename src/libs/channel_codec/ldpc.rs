@@ -1,48 +1,6 @@
-// A (252, 126) Low-Density Parity-Check code, giving 126 bits of redundant parity information.
-// Characteristics required: (From section 3.4 of "Iterative Error Correction", Prof. Sarah J.
-// Johnson. All page references are to this book.)
-// * At least a girth of 6: there should be no 4-cycles in the Tanner graph.
-// * Wc (column weight) of 3 (see p. 77)
-// * Wr (row weight) of 6: (set by generator software: a doubling of Wc)
-// * Regular (irregular could have an improved threshold performance; however the library I'm using
-//   only supports regular).
-// * Randomly-allocated: "in many cases, randomly allocating the entries in H will produce a
-//   reasonable LDPC code" (p75)
-// Parity-check matrix: M x N where
-// M = #rows = the redundancy or number of parity check constraints (126)
-// N = #columns = number of codeword bits (252)
-// Generator matrix: N x K where
-// N = #rows = number of codeword bits (252)
-// K = #columns = number of message bits (126 = 112 encoder bits + 14 CRC bits)
-//
-// 1) Generate a Mackay-Neal constructed parity-check matrix:
-//    Using Radford M. Neal's LDPC-codes with the following command:
-//    make-ldpc parity_check_matrix.pchk 126 252 22020 evenboth 3 no4cycle
-//                               rows ___/    \    \____ seed
-//                                             \___ cols
-//    (The 22020 here is a random seed)
-// 2) Convert this to alist format file with the command:
-//    Using LDPC-codes:
-//    pchk-to-alist -z parity_check_matrix.pchk parity_check_matrix.alist
-//    Note: alist format has rows columns as its first line. So this should be 126 252
-// 3) Convert the .pchk to a (dense) text format file with the LDPC-codes command:
-//    print-pchk -d parity_check_matrix.pchk > parity_check_matrix.txt
-// 4) Generate a generator matrix from the parity-check matrix using LDPC-codes with the following
-//    commands:
-//    make-gen parity_check_matrix.pchk generator_matrix.gen dense
-//    print-gen generator_matrix.gen > generator_matrix.txt
-//    This matrix is (126, 126), where "The first K columns of the K by N generator matrix will then
-//    be the identity matrix." (LDPC-Codes/encoding.html). The .gen file does NOT contain I.
-// 5) The alist file is read; the .txt is read - both are converted into generated Rust code in
-//    parity_check_matrix.rs and generator_matrix.rs. The code to do this conversion is the
-//    (ignored, manually invoked) test code in ldpc_spec.rs, test
-//    generate_rust_for_parity_check_and_generator_matrices().
-//
-// Unknowns:
-// a) Why, when the above has generated Rust, and this is used to create a LinearCode, does the
-//    generator matrix have the dimensions swapped?
-//
-// TODO generate many matrixes and evaluate their error correction performance
+// A (256, 128) Low-Density Parity-Check code, giving 128 bits of redundant parity information.
+// Using the CCSDS (Consultative Committee for Space Data Systems) 231.1-O-1 TC (Telecommand) code
+// at rate r=1/2 with a codeword size of 256 bits.
 
 extern crate lazy_static;
 use lazy_static::lazy_static;
