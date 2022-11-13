@@ -257,7 +257,7 @@ Accumulate Codes".
 
 Adam Greig for his labrador-ldpc LDPC encoder/decoder at
 https://github.com/adamgreig/labrador-ldpc
-Used in the digimorse channel codec.
+Used in the digimorse channel codec. Thanks also to Ed W8EMV for suggesting it on the mastodon.radio instance. 
 
 Radford M. Neal for his LDPC-Codes LDPC parity check matrix generation code at
 https://github.com/radfordneal/LDPC-codes
