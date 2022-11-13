@@ -435,41 +435,41 @@ The block is then checksummed by a 14-bit CRC - the same as used in WSJT-X's FT8
 and initial value of zero with no reflection\cite{Williams1993}. I used this as it is 'good enough' - see the appendices
 for further details of CRC design.
 
-The 14 bit CRC is appended to the 112 source encoder bits yielding a 126 bit messsage.
+The 14 bit CRC is appended to the 112 source encoder bits, with two additional bits that are currently unused - yielding a 128 bit messsage.
 
 \subsection{Forward Error Correction}
-The digimorse message size (126 bits) is greater than that in FT8 (91 bits), but I'd like to achieve similar excellent error
-correction, so am fixing the code rate to be very similar to FT8. I could not find discussion on how the FT8 LDPC
-dimensions were determined; I'm assuming that choosing a similar rate would yield similar performance - I'm still
-studying LDPC design. A simulation should be done to determine whether the dimensions I have chosen here
-are suitable.
+In order to correct any errors due to noise, fading, etc., the 128-bit digimorse message is augmented by a Low-Density Parity Check (LDPC) code. This adds a further 128 bits of parity information to the outgoing message.
 
+I initially tried to produce my own sparse parity check matrix and generator matrix for decoding and encoding the message. This was for the original 126-bit message, yielding a 252-bit output message. However I am not an expert in LDPC design, and I did not succeed - I could not find a pair of matrices that had the properties required. 
 
-The characteristics of LDPCs are:
-\begin{itemize}
-    \setlength\itemsep{-0.5em}
-    \item $k$ = number of information bits
-    \item $n$ = number of codeword bits
-    \item $R={k \over n}, n>k$ = rate of the code
-    \item $n-k$ = number of redundant bits
-    \item $w_{c}$ = column weight; number of 1s present in each column in the parity check matrix
-    \item $w_{r}$ = row weight; number of 1s present in each row in the parity check matrix
-\end{itemize}
+Instead of producing my own LDPC codec, I now use a pre-existing LDPC, from the CCSDS (Consultative Committee for Space Data Systems) 231.1-O-1 TC (Telecommand) code at rate r=1/2 with a codeword size of 256 bits. \marginnote{See https://public.ccsds.org/Pubs/231x0b4e0.pdf for the specification of this LDPC}
 
-For FT8, this is: $(n=174,k=91)$ so $R={91 \over 174}=0.522988505747126$. There are $174-91=83$ redundant bits.
+The output frame looks like:
 
-I had chosen $w_{c}=3$ and $w_{r}=6$ \marginnote{Radford M. Neal's LDPC generator allows choice of $w_{c}$ but doubles this to provide $w_{r}$.}, with $k=126$ as the output from the source encoder.  
-
-After reading \cite{Barry2001}, I realised that for a regular LDPC there is a  constraint on the number of 1s in the parity-check matrix $H$ such that $Mw_{r} = Nw_{c}$ where M is the redundancy and N the codeword length. Initially I chose dimensions that did not honour this constraint. I subsequently chose $k=126$ and doubled this for the codeword size $k=252$, giving a rate of ${1 \over 2}$.
-
-Also, 252 is divisible by 3 and so can be partitioned into groups of 3 bits.
-
-Therefore digimorse uses a (252,126) LDPC, giving 126 bits of redundant parity information.
-
-The LDPC parity check matrix (of order (126,252)) was generated using the LDPC-codes software by Radford M. Neal.
+    \begin{table}[h]
+        \fontfamily{ppl}\selectfont
+        \begin{tabular}{llll}
+            \toprule
+            Data & Number of bits \\
+            \midrule
+            Source Encoded data & 112 \\
+            Unused bits & 2 \\
+            CRC  & 14 \\
+            LDPC & 128 \\
+		\end{tabular}
+		\caption{Bits of the channel encoded output.}
+		\label{table:channel-encoding}
+	\end{table}
  
+\subsection{Protection against burst errors}
+The 256 bits (32 bytes) of channel encoded data start with the source encoded data and CRC, and are then followed by the 16 bytes of the LDPC. 
+
+If noise bursts occur, would the error correction abilities of the LDPC be diminished equally, if the noise occurred during transmission of the data, or the parity information? i.e. would corruption of the parity information be more detrimental to error correction?
+
+I don't know - need to experiment here.
+
 \subsection{Doppler Shift protection and Synchronisation}
-The resulting 252 bits are partitioned into 3-bit groups, and transformed by the following Gray code, to ensure that
+The resulting 256 bits are partitioned into 4-bit groups, and transformed by the following Gray code, to ensure that
 bit sequences with adjacent tones differ in only one position.
 
 % TODO read papers cited ini https://sourceforge.net/p/wsjt/mailman/wsjt-devel/thread/B8E1BD2D-D9DF-4B1F-8801-4DEE0A7665BC%40gmail.com/#msg36728038
@@ -482,7 +482,7 @@ The start and end of the symbols are surrounded by a Costas Array of tones (x,x,
 
 
 \section{Digital Modulator}
-8-GFSK modulation? Bandwidth vs transmission speed. The frequency shift between tones is 6.25Hz, the duration of one tone is 0.16s.
+16-GFSK modulation? Bandwidth vs transmission speed. The frequency shift between tones is 6.25Hz, the duration of one tone is 0.16s.
 
 \section{Channel}
 Typically HF or VHF, SSB 3kHz.
