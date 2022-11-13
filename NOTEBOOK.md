@@ -199,3 +199,27 @@ Started using the *labrador-ldpc* crate, which solves all my problems! I've adde
 
 This is then encoded with the 256 bit codeword variant 'TC256', giving 128 bits of parity check data.
 
+
+
+## 13 November 2022
+
+LDPC encoder now works. Now need to flesh out the channel encoder. It'll be an active object that takes a SourceEncoding (binary data + end flag), and produces a ChannelEncoding (binary data + end flag). It will do the following transforms:
+
+* Adding the LDPC
+* Shuffling the bytes/nybbles of the data+unused+crc+ldpc to mitigate burst errors - this needs quantifying, is it necessary? Research required.
+* Mapping the data through a Gray code. Research required.
+* Emitting:
+  * Ramp up
+  * Costas array tone symbols
+  * Data tone symbols
+  * Costas array tone symbols
+  * Ramp down
+
+Next: Burst error mitigation
+
+After that: Gray code research
+
+After that: Costas array research
+
+
+
