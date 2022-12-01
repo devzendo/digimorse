@@ -80,8 +80,8 @@ enum AmplitudeRamping {
     RampingUp, RampingDown, Stable
 }
 
-impl fmt::Display for AmplitudeRamping {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+impl Display for AmplitudeRamping {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match *self {
             AmplitudeRamping::RampingUp => write!(f, "^"),
             AmplitudeRamping::RampingDown => write!(f, "v"),
@@ -166,10 +166,11 @@ impl ToneGenerator {
                     }
 
                     // Can be updated by the BusInput<KeyingEventToneChannel> above
+                    let mut need_sleep = false;
                     match move_clone_input_rx_holder.lock().unwrap().as_deref() {
                         None => {
-                            // Input channel hasn't been set yet
-                            thread::sleep(Duration::from_millis(100));
+                            // Input channel hasn't been set yet; sleep after releasing lock
+                            need_sleep = true;
                         }
                         Some(input_rx) => {
                             match input_rx.lock().unwrap().recv_timeout(Duration::from_millis(50)) {
@@ -204,6 +205,9 @@ impl ToneGenerator {
                                 }
                             }
                         }
+                    }
+                    if need_sleep {
+                        thread::sleep(Duration::from_millis(100));
                     }
                 }
                 debug!("Tone generator keying listener thread stopped");
@@ -272,7 +276,7 @@ impl ToneGenerator {
                     let sine_float = ((sine_byte as i16 - 127) as f32) / 127.0;
                     let sine_val = sine_float * locked_callback_data.amplitude;
 
-                    std::mem::drop(locked_callback_data);
+                    drop(locked_callback_data);
 
                     total_sine_val += sine_val;
                 }
@@ -364,7 +368,7 @@ impl ToneGenerator {
             callback_datas.push(Mutex::new(callback_data.clone()));
         }
         // Nothing disabled, so add..
-        mem::drop(callback_datas);
+        drop(callback_datas);
         self.set_timing_word(tone_index);
         tone_index
     }

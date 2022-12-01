@@ -240,7 +240,7 @@ impl SourceEncoderShared {
                             let mut storage = self.storage.write().unwrap();
                             let remaining = storage.remaining();
                             if remaining < 11 {
-                                mem::drop(storage);
+                                drop(storage);
                                 debug!("Insufficient space ({}) to encode WPM|Polarity", remaining);
                                 self.emit();
                             } else {
@@ -250,7 +250,7 @@ impl SourceEncoderShared {
                                 storage.add_8_bits(frame_type as u8, 4);
                                 storage.add_8_bits(self.keying_speed, 6);
                                 storage.add_bool(self.is_mark);
-                                mem::drop(storage);
+                                drop(storage);
                                 break;
                             }
                         }
@@ -268,7 +268,7 @@ impl SourceEncoderShared {
                         // TODO write access needed?
                         let storage = self.storage.write().unwrap();
                         let remaining = storage.remaining();
-                        mem::drop(storage);
+                        drop(storage);
                         debug!("Insufficient space ({}) to encode keying", remaining);
                         self.emit();
                         // Go round the loop again...
@@ -280,7 +280,7 @@ impl SourceEncoderShared {
                     let mut storage = self.storage.write().unwrap();
                     let remaining = storage.remaining();
                     if remaining < 4 {
-                        mem::drop(storage);
+                        drop(storage);
                         debug!("Insufficient space ({}) to encode End", remaining);
                         self.emit();
                         // Go round the loop again...
@@ -290,7 +290,7 @@ impl SourceEncoderShared {
                         storage.add_8_bits(frame_type as u8, 4);
                         // Set the end of the storage
                         storage.set_end();
-                        mem::drop(storage);
+                        drop(storage);
                         self.emit();
                         break;
                     }
@@ -335,10 +335,11 @@ impl SourceEncoderKeyerThread {
                 break;
             }
 
+            let mut need_sleep = false;
             match self.keying_event_rx.lock().unwrap().as_deref() {
                 None => {
-                    // Input channel hasn't been set yet
-                    thread::sleep(Duration::from_millis(100));
+                    // Input channel hasn't been set yet; sleep, after releasing lock
+                    need_sleep = true;
                 }
                 Some(input_rx) => {
                     match input_rx.lock().unwrap().recv_timeout(Duration::from_millis(100)) {
@@ -351,6 +352,9 @@ impl SourceEncoderKeyerThread {
                         }
                     }
                 }
+            }
+            if need_sleep {
+                thread::sleep(Duration::from_millis(100));
             }
         }
         info!("Encoding thread stopped");

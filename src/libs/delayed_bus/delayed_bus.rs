@@ -151,10 +151,11 @@ impl<T: Send + Display + Clone + Sync + 'static> DelayedBusReadThread<T> {
                 break;
             }
 
+            let mut need_sleep = false;
             match self.input_rx.lock().unwrap().as_deref() {
                 None => {
-                    // Input channel hasn't been set yet
-                    thread::sleep(Duration::from_millis(100));
+                    // Input channel hasn't been set yet; sleep after releasing lock
+                    need_sleep = true;
                 }
                 Some(input_rx) => {
                     match input_rx.lock().unwrap().recv_timeout(Duration::from_millis(100)) {
@@ -177,6 +178,9 @@ impl<T: Send + Display + Clone + Sync + 'static> DelayedBusReadThread<T> {
                     }
 
                 }
+            }
+            if need_sleep {
+                thread::sleep(Duration::from_millis(100));
             }
         }
         info!("DelayedBus thread stopped");

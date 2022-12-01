@@ -90,8 +90,8 @@ impl<I: Clone + Sync + Send + 'static, O: Clone + Sync + Send + 'static> Transfo
                                 Ok(input) => {
                                     match thread_output_tx_holder.lock().unwrap().as_ref() {
                                         None => {
-                                            // Output channel hasn't been set yet
-                                            thread::sleep(Duration::from_millis(100));
+                                            // Output channel hasn't been set yet, sleep, after releasing lock.
+                                            need_sleep = true;
                                         }
                                         Some(output_tx) => {
                                             output_tx.lock().unwrap().broadcast(transform(input));
@@ -119,7 +119,7 @@ impl<I: Clone + Sync + Send + 'static, O: Clone + Sync + Send + 'static> Transfo
     // method other than this for blocking until it has actually stopped.
     pub fn terminate(&mut self) {
         debug!("Terminating TransformBus");
-        self.terminate_flag.store(true, core::sync::atomic::Ordering::SeqCst);
+        self.terminate_flag.store(true, Ordering::SeqCst);
         debug!("TransformBus joining read thread handle...");
         self.thread_handle.take().map(JoinHandle::join);
         debug!("TransformBus ...joined thread handle");
@@ -135,14 +135,18 @@ impl<I: Clone + Sync + Send + 'static, O: Clone + Sync + Send + 'static> Transfo
 
     pub fn add_reader(&mut self) -> BusReader<O> {
         loop {
+            let mut need_sleep = false;
             match self.output_tx.lock().unwrap().as_ref() {
                 None => {
-                    // Output channel hasn't been set yet
-                    thread::sleep(Duration::from_millis(100));
+                    // Output channel hasn't been set yet, sleep after releasing lock
+                    need_sleep = true;
                 }
                 Some(output_tx) => {
                     return output_tx.lock().unwrap().add_rx();
                 }
+            }
+            if need_sleep {
+                thread::sleep(Duration::from_millis(100));
             }
         }
     }
