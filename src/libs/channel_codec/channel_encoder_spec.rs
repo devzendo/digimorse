@@ -3,13 +3,23 @@ extern crate hamcrest2;
 #[cfg(test)]
 mod channel_encoder_spec {
     use std::env;
-    use std::sync::Arc;
+    use std::sync::{Arc, Mutex};
     use std::sync::atomic::{AtomicBool, Ordering};
+    use std::time::Duration;
+    use bus::{Bus, BusReader};
+    use hamcrest2::prelude::*;
 
     use log::{debug, info};
     use rstest::*;
+    use crate::libs::application::application::{BusInput, BusOutput};
+    use crate::libs::channel_codec::channel_encoder::{ChannelEncoder, source_encoding_to_channel_encoding};
+    use crate::libs::channel_codec::channel_encoding::ChannelEncoding;
+    use crate::libs::source_codec::source_encoding::{Frame, SourceEncoding};
+    use crate::libs::source_codec::test_encoding_builder::encoded;
 
     use crate::libs::util::test_util;
+
+    const TEST_SOURCE_ENCODER_BLOCK_SIZE_IN_BITS: usize = 64;
 
     #[ctor::ctor]
     fn before_each() {
@@ -22,11 +32,22 @@ mod channel_encoder_spec {
 
     pub struct ChannelEncoderFixture {
         terminate: Arc<AtomicBool>,
+        source_encoding_tx: Bus<SourceEncoding>,
+        channel_encoder_rx: BusReader<ChannelEncoding>,
+        channel_encoder: ChannelEncoder,
     }
 
     #[fixture]
     fn fixture() -> ChannelEncoderFixture {
         let terminate = Arc::new(AtomicBool::new(false));
+        let mut source_encoding_tx = Bus::new(16);
+        let source_encoding_rx = source_encoding_tx.add_rx();
+        let mut channel_encoder_tx = Bus::new(16);
+        let channel_encoder_rx = channel_encoder_tx.add_rx();
+        let mut channel_encoder = ChannelEncoder::new(source_encoding_to_channel_encoding, terminate.clone());
+        channel_encoder.set_input_rx(Arc::new(Mutex::new(source_encoding_rx)));
+        channel_encoder.set_output_tx(Arc::new(Mutex::new(channel_encoder_tx)));
+
         info!("Fixture setup sleeping");
         test_util::wait_5_ms();
         // give things time to start
@@ -34,6 +55,9 @@ mod channel_encoder_spec {
 
         ChannelEncoderFixture {
             terminate,
+            source_encoding_tx,
+            channel_encoder_rx,
+            channel_encoder
         }
     }
 
@@ -47,5 +71,43 @@ mod channel_encoder_spec {
     }
 
     #[rstest]
-    pub fn do_something(_fixture: ChannelEncoderFixture) {}
+    pub fn transform_encodings_with_channel_encoder_active_object(mut fixture: ChannelEncoderFixture) {
+        let source_encoding = generate_sample_source_encoding();
+        fixture.source_encoding_tx.broadcast(source_encoding);
+        info!("source encoding sent; waiting for channel encoding");
+
+        let result = fixture.channel_encoder_rx.recv_timeout(Duration::from_millis(250));
+        let expected_channel_encoding = generate_expected_channel_encoding();
+        info!("channel encoding is {}", result.clone().unwrap());
+        assert_that!(result, has(expected_channel_encoding));
+    }
+
+    #[test]
+    pub fn transform_encodings_with_channel_encoder_function() {
+        let source_encoding = generate_sample_source_encoding();
+        let result = source_encoding_to_channel_encoding(source_encoding);
+
+        let expected_channel_encoding = generate_expected_channel_encoding();
+        info!("channel encoding is {}", result.clone());
+        assert_that!(result, equal_to(expected_channel_encoding));
+    }
+
+
+    fn generate_sample_source_encoding() -> SourceEncoding {
+        let keying_frames = &[
+            Frame::WPMPolarity { wpm: 5, polarity: true },
+            Frame::KeyingDeltaDah { delta: 5 },
+            Frame::WPMPolarity { wpm: 60, polarity: true },
+            Frame::KeyingDeltaDah { delta: 5 },
+            Frame::Extension, // It stands out as 1111 in the debug output below.
+            Frame::Padding
+        ];
+        let block = encoded(TEST_SOURCE_ENCODER_BLOCK_SIZE_IN_BITS, 20, keying_frames);
+        let source_encoding = SourceEncoding { block, is_end: true };
+        source_encoding
+    }
+
+    fn generate_expected_channel_encoding() -> ChannelEncoding {
+        ChannelEncoding { block: vec![], is_end: true }
+    }
 }

@@ -11,7 +11,7 @@
 // Thanks to BartMassey's PortAudio-rs examples at https://github.com/BartMassey/portaudio-rs-demos
 
 use core::fmt;
-use std::{mem, thread};
+use std::thread;
 use std::error::Error;
 use std::fmt::{Debug, Display, Formatter};
 use std::sync::{Arc, Mutex, RwLock};

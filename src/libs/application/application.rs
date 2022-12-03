@@ -15,6 +15,8 @@ use crate::libs::audio::tone_generator::KeyingEventToneChannel;
 use crate::libs::keyer_io::keyer_io::KeyingEvent;
 use crate::libs::transform_bus::transform_bus::TransformBus;
 use crate::libs::audio::audio_devices::{open_input_audio_device, open_output_audio_device};
+use crate::libs::channel_codec::channel_encoder::ChannelEncoder;
+use crate::libs::channel_codec::channel_encoding::ChannelEncoding;
 use crate::libs::source_codec::source_encoder::SourceEncoderTrait;
 use crate::libs::source_codec::source_encoding::SourceEncoding;
 
@@ -23,8 +25,7 @@ arg_enum! {
     pub enum ApplicationMode {
         Full,
         KeyerDiag,
-        SourceEncoderDiag,
-        ChannelDiag
+        SourceEncoderDiag
     }
 }
 
@@ -63,9 +64,11 @@ pub struct Application {
     source_encoder: Option<Arc<Mutex<dyn SourceEncoderTrait>>>,
     source_encoding_bus: Option<Arc<Mutex<Bus<SourceEncoding>>>>,
     source_encoder_keying_event_rx: Option<Arc<Mutex<BusReader<KeyingEvent>>>>,
-    source_encoder_source_encoding_rx: Option<Arc<Mutex<BusReader<SourceEncoding>>>>,
     source_encoder_diag: Option<Arc<Mutex<dyn BusInput<SourceEncoding>>>>,
     source_encoder_diag_source_encoding_rx: Option<Arc<Mutex<BusReader<SourceEncoding>>>>,
+    channel_encoder: Option<Arc<Mutex<ChannelEncoder>>>,
+    channel_encoding_bus: Option<Arc<Mutex<Bus<ChannelEncoding>>>>,
+    channel_encoder_source_encoding_rx: Option<Arc<Mutex<BusReader<SourceEncoding>>>>,
     playback: Option<Arc<Mutex<dyn BusOutput<KeyingEventToneChannel>>>>,
 }
 
@@ -99,6 +102,11 @@ impl Application {
             self.source_encoding_bus = Some(Arc::new(Mutex::new(source_encoding_bus)));
         }
 
+        if mode == ApplicationMode::Full {
+            let channel_encoding_bus = Bus::new(16);
+            self.channel_encoding_bus = Some(Arc::new(Mutex::new(channel_encoding_bus)));
+        }
+
         match mode {
             ApplicationMode::KeyerDiag => {
                 self.keyer_diag_keying_event_rx = Some(Arc::new(Mutex::new(self.keying_event_bus.as_ref().unwrap().lock().unwrap().add_rx())));
@@ -107,7 +115,9 @@ impl Application {
                 self.source_encoder_keying_event_rx = Some(Arc::new(Mutex::new(self.keying_event_bus.as_ref().unwrap().lock().unwrap().add_rx())));
                 self.source_encoder_diag_source_encoding_rx = Some(Arc::new(Mutex::new(self.source_encoding_bus.as_ref().unwrap().lock().unwrap().add_rx())));
             }
-            _ => {
+            ApplicationMode::Full => {
+                self.source_encoder_keying_event_rx = Some(Arc::new(Mutex::new(self.keying_event_bus.as_ref().unwrap().lock().unwrap().add_rx())));
+                self.channel_encoder_source_encoding_rx = Some(Arc::new(Mutex::new(self.source_encoding_bus.as_ref().unwrap().lock().unwrap().add_rx())));
             }
         }
     }
@@ -276,7 +286,7 @@ impl Application {
             Some(source_encoder) => {
                 info!("Clearing source encooder");
                 source_encoder.lock().unwrap().clear_input_rx();
-                // TODO need to clear_output_tx too
+                source_encoder.lock().unwrap().clear_output_tx();
             }
         }
         self.source_encoder = None;
@@ -290,10 +300,6 @@ impl Application {
         self.source_encoder_keying_event_rx.is_some()
     }
 
-
-    pub fn got_source_encoder_source_encoding_rx(&self) -> bool {
-        self.source_encoder_source_encoding_rx.is_some()
-    }
 
     pub fn got_source_encoder_diag_source_encoding_rx(&self) -> bool {
         self.source_encoder_diag_source_encoding_rx.is_some()
@@ -340,6 +346,61 @@ impl Application {
     pub fn got_source_encoder_diag_rx(&self) -> bool {
         self.source_encoder_diag_source_encoding_rx.is_some()
     }
+
+
+
+    pub fn set_channel_encoder(&mut self, channel_encoder: Arc<Mutex<ChannelEncoder>>) {
+        if self.mode.is_none() || self.mode.unwrap() != ApplicationMode::Full {
+            panic!("Can't set channel_encoder in mode {:?}", self.mode);
+        }
+        info!("Starting to set channel encoder");
+        match &self.channel_encoder_source_encoding_rx {
+            None => {
+                panic!("Cannot set a channel_encoder with no channel_encoder_source_encoding_rx");
+            }
+            Some(source_encoding_bus) => {
+                info!("Setting channel encoder");
+                self.channel_encoder = Some(channel_encoder.clone());
+                info!("Setting channel encoder input");
+                let bus_reader = source_encoding_bus.clone();
+                channel_encoder.lock().as_mut().unwrap().set_input_rx(bus_reader);
+            }
+        }
+        match &self.channel_encoding_bus {
+            None => {
+                panic!("Cannot set a channel_encoder's output with no channel_encoding_bus");
+            }
+            Some(channel_encoding_bus) => {
+                info!("Setting channel encoder output");
+                channel_encoder.lock().as_mut().unwrap().set_output_tx(channel_encoding_bus.clone());
+            }
+        }
+    }
+
+    pub fn clear_channel_encoder(&mut self) {
+        if self.mode.is_none() ||
+            self.mode.unwrap() != ApplicationMode::Full {
+            panic!("Can't clear channel_encoder in mode {:?}", self.mode);
+        }
+        match &self.channel_encoder {
+            None => {}
+            Some(channel_encoder) => {
+                info!("Clearing channel encoder");
+                channel_encoder.lock().unwrap().clear_input_rx();
+                channel_encoder.lock().unwrap().clear_output_tx();
+            }
+        }
+        self.channel_encoder = None;
+    }
+
+    pub fn got_channel_encoder(&self) -> bool {
+        self.channel_encoder.is_some()
+    }
+
+    pub fn got_channel_encoder_source_encoding_rx(&self) -> bool {
+        self.channel_encoder_source_encoding_rx.is_some()
+    }
+
 
 
     pub fn set_playback(&mut self, playback: Arc<Mutex<dyn BusOutput<KeyingEventToneChannel>>>) {
@@ -416,9 +477,11 @@ impl Application {
             source_encoder: None,
             source_encoding_bus: None,
             source_encoder_keying_event_rx: None,
-            source_encoder_source_encoding_rx: None,
             source_encoder_diag: None,
             source_encoder_diag_source_encoding_rx: None,
+            channel_encoder: None,
+            channel_encoding_bus: None,
+            channel_encoder_source_encoding_rx: None,
             playback: None,
         }
     }

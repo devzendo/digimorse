@@ -16,6 +16,7 @@ mod application_spec {
 
     use crate::libs::application::application::{Application, ApplicationMode, BusInput, BusOutput};
     use crate::libs::audio::tone_generator::{KeyingEventToneChannel, ToneChannel};
+    use crate::libs::channel_codec::channel_encoder::{ChannelEncoder, source_encoding_to_channel_encoding};
     use crate::libs::keyer_io::keyer_io::KeyingEvent;
     use crate::libs::source_codec::source_encoding::{Frame, SourceEncoding};
     use crate::libs::source_codec::test_encoding_builder::encoded;
@@ -91,7 +92,6 @@ mod application_spec {
             }
         }
 
-        #[allow(dead_code)]
         fn got_output_tx(&self) -> bool {
             self.bus_writer.is_some()
         }
@@ -201,12 +201,10 @@ mod application_spec {
             }
         }
 
-        #[allow(dead_code)]
         fn got_output_tx(&self) -> bool {
             self.bus_writer.is_some()
         }
 
-        #[allow(dead_code)]
         fn got_input_rx(&self) -> bool {
             self.bus_reader.is_some()
         }
@@ -275,7 +273,8 @@ mod application_spec {
         assert_eq!(fixture.application.got_tone_generator_rx(), false);
         assert_eq!(fixture.application.got_source_encoder(), false);
         assert_eq!(fixture.application.got_source_encoder_keying_event_rx(), false);
-        assert_eq!(fixture.application.got_source_encoder_source_encoding_rx(), false);
+        assert_eq!(fixture.application.got_channel_encoder_source_encoding_rx(), false);
+        assert_eq!(fixture.application.got_channel_encoder(), false);
     }
 
     #[rstest]
@@ -289,8 +288,9 @@ mod application_spec {
         assert_eq!(fixture.application.got_tone_generator_rx(), true);
         assert_eq!(fixture.application.got_source_encoder(), false);
         assert_eq!(fixture.application.got_source_encoder_keying_event_rx(), false);
-        assert_eq!(fixture.application.got_source_encoder_source_encoding_rx(), false);
         assert_eq!(fixture.application.got_source_encoder_diag_source_encoding_rx(), false);
+        assert_eq!(fixture.application.got_channel_encoder_source_encoding_rx(), false);
+        assert_eq!(fixture.application.got_channel_encoder(), false);
     }
 
     #[rstest]
@@ -304,22 +304,43 @@ mod application_spec {
         assert_eq!(fixture.application.got_tone_generator_rx(), true);
         assert_eq!(fixture.application.got_source_encoder(), false);
         assert_eq!(fixture.application.got_source_encoder_keying_event_rx(), true);
-        assert_eq!(fixture.application.got_source_encoder_source_encoding_rx(), false);
         assert_eq!(fixture.application.got_source_encoder_diag_source_encoding_rx(), true);
+        assert_eq!(fixture.application.got_channel_encoder_source_encoding_rx(), false);
+        assert_eq!(fixture.application.got_channel_encoder(), false);
+    }
+
+    #[rstest]
+    #[serial]
+    pub fn mode_full(mut fixture: ApplicationFixture) {
+        fixture.application.set_mode(ApplicationMode::Full);
+        assert_that!(fixture.application.get_mode(), has(ApplicationMode::Full));
+        assert_eq!(fixture.application.got_keyer(), false);
+        assert_eq!(fixture.application.got_keyer_diag_rx(), false);
+        assert_eq!(fixture.application.got_tone_generator(), false);
+        assert_eq!(fixture.application.got_tone_generator_rx(), true);
+        assert_eq!(fixture.application.got_source_encoder(), false);
+        assert_eq!(fixture.application.got_source_encoder_keying_event_rx(), true);
+        assert_eq!(fixture.application.got_source_encoder_diag_source_encoding_rx(), false);
+        assert_eq!(fixture.application.got_channel_encoder_source_encoding_rx(), true);
+        assert_eq!(fixture.application.got_channel_encoder(), false);
     }
 
 
     #[rstest]
     #[serial]
     pub fn set_clear_keyer(mut fixture: ApplicationFixture) {
+        let keyer = Arc::new(Mutex::new(StubBusWriter::new()));
+        let test_keyer = keyer.clone();
+        assert_eq!(test_keyer.lock().unwrap().got_output_tx(), false);
         fixture.application.set_mode(ApplicationMode::KeyerDiag);
         assert_eq!(fixture.application.got_keyer(), false);
         assert_eq!(fixture.application.got_keyer_diag_rx(), true);
-        let keyer = Arc::new(Mutex::new(StubBusWriter::new()));
         fixture.application.set_keyer(keyer);
+        assert_eq!(test_keyer.lock().unwrap().got_output_tx(), true);
         assert_eq!(fixture.application.got_keyer(), true);
         assert_eq!(fixture.application.got_keyer_diag_rx(), true);
         fixture.application.clear_keyer();
+        assert_eq!(test_keyer.lock().unwrap().got_output_tx(), false);
         assert_eq!(fixture.application.got_keyer(), false);
         assert_eq!(fixture.application.got_keyer_diag_rx(), true);
     }
@@ -327,73 +348,112 @@ mod application_spec {
     #[rstest]
     #[serial]
     pub fn set_clear_tone_generator(mut fixture: ApplicationFixture) {
+        let tone_generator = Arc::new(Mutex::new(StubBusReader::new()));
+        let test_tone_generator = tone_generator.clone();
         fixture.application.set_mode(ApplicationMode::KeyerDiag);
         assert_eq!(fixture.application.got_tone_generator(), false);
         assert_eq!(fixture.application.got_tone_generator_rx(), true);
-        let tone_generator = Arc::new(Mutex::new(StubBusReader::new()));
+        assert_eq!(test_tone_generator.lock().unwrap().got_input_rx(), false);
         fixture.application.set_tone_generator(tone_generator);
         assert_eq!(fixture.application.got_tone_generator(), true);
         assert_eq!(fixture.application.got_tone_generator_rx(), true);
+        assert_eq!(test_tone_generator.lock().unwrap().got_input_rx(), true);
         fixture.application.clear_tone_generator();
         assert_eq!(fixture.application.got_tone_generator(), false);
         assert_eq!(fixture.application.got_tone_generator_rx(), true);
+        assert_eq!(test_tone_generator.lock().unwrap().got_input_rx(), false);
     }
 
     #[rstest]
     #[serial]
     pub fn set_clear_keyer_diag(mut fixture: ApplicationFixture) {
+        let keyer_diag = Arc::new(Mutex::new(StubBusReader::new()));
+        let test_keyer_diag = keyer_diag.clone();
         fixture.application.set_mode(ApplicationMode::KeyerDiag);
         assert_eq!(fixture.application.got_keyer_diag(), false);
         assert_eq!(fixture.application.got_keyer_diag_rx(), true);
-        let keyer_diag = Arc::new(Mutex::new(StubBusReader::new()));
+        assert_eq!(test_keyer_diag.lock().unwrap().got_input_rx(), false);
         fixture.application.set_keyer_diag(keyer_diag);
         assert_eq!(fixture.application.got_keyer_diag(), true);
         assert_eq!(fixture.application.got_keyer_diag_rx(), true);
+        assert_eq!(test_keyer_diag.lock().unwrap().got_input_rx(), true);
         fixture.application.clear_keyer_diag();
         assert_eq!(fixture.application.got_keyer_diag(), false);
         assert_eq!(fixture.application.got_keyer_diag_rx(), true);
+        assert_eq!(test_keyer_diag.lock().unwrap().got_input_rx(), false);
     }
 
     #[rstest]
     #[serial]
     pub fn set_clear_source_encoder(mut fixture: ApplicationFixture) {
+        let source_encoder: Arc<Mutex<StubBusReaderWriter<KeyingEvent, SourceEncoding>>> = Arc::new(Mutex::new(StubBusReaderWriter::new()));
+        let test_source_encoder = source_encoder.clone();
         fixture.application.set_mode(ApplicationMode::SourceEncoderDiag);
         assert_eq!(fixture.application.got_source_encoder(), false);
         assert_eq!(fixture.application.got_source_encoder_keying_event_rx(), true);
-        let source_encoder: Arc<Mutex<StubBusReaderWriter<KeyingEvent, SourceEncoding>>> = Arc::new(Mutex::new(StubBusReaderWriter::new()));
+        assert_eq!(test_source_encoder.lock().unwrap().got_input_rx(), false);
+        assert_eq!(test_source_encoder.lock().unwrap().got_output_tx(), false);
         fixture.application.set_source_encoder(source_encoder);
         assert_eq!(fixture.application.got_source_encoder(), true);
         assert_eq!(fixture.application.got_source_encoder_keying_event_rx(), true);
+        assert_eq!(test_source_encoder.lock().unwrap().got_input_rx(), true);
+        assert_eq!(test_source_encoder.lock().unwrap().got_output_tx(), true);
         fixture.application.clear_source_encoder();
         assert_eq!(fixture.application.got_source_encoder(), false);
         assert_eq!(fixture.application.got_source_encoder_keying_event_rx(), true);
+        assert_eq!(test_source_encoder.lock().unwrap().got_input_rx(), false);
+        assert_eq!(test_source_encoder.lock().unwrap().got_output_tx(), false);
     }
 
     #[rstest]
     #[serial]
     pub fn set_clear_source_encoder_diag(mut fixture: ApplicationFixture) {
+        let source_encoder_diag = Arc::new(Mutex::new(StubBusReader::new()));
+        let test_source_encoder_diag = source_encoder_diag.clone();
         fixture.application.set_mode(ApplicationMode::SourceEncoderDiag);
         assert_eq!(fixture.application.got_source_encoder_diag(), false);
         assert_eq!(fixture.application.got_source_encoder_diag_source_encoding_rx(), true);
-        let source_encoder_diag = Arc::new(Mutex::new(StubBusReader::new()));
+        assert_eq!(test_source_encoder_diag.lock().unwrap().got_input_rx(), false);
         fixture.application.set_source_encoder_diag(source_encoder_diag);
         assert_eq!(fixture.application.got_source_encoder_diag(), true);
         assert_eq!(fixture.application.got_source_encoder_diag_source_encoding_rx(), true);
+        assert_eq!(test_source_encoder_diag.lock().unwrap().got_input_rx(), true);
         fixture.application.clear_source_encoder_diag();
         assert_eq!(fixture.application.got_source_encoder_diag(), false);
         assert_eq!(fixture.application.got_source_encoder_diag_source_encoding_rx(), true);
+        assert_eq!(test_source_encoder_diag.lock().unwrap().got_input_rx(), false);
     }
 
     #[rstest]
     #[serial]
     pub fn set_clear_playback(mut fixture: ApplicationFixture) {
+        let playback = Arc::new(Mutex::new(StubBusWriter::new()));
+        let test_playback = playback.clone();
         fixture.application.set_mode(ApplicationMode::SourceEncoderDiag);
         assert_eq!(fixture.application.got_playback(), false);
-        let playback = Arc::new(Mutex::new(StubBusWriter::new()));
+        assert_eq!(test_playback.lock().unwrap().got_output_tx(), false);
         fixture.application.set_playback(playback);
         assert_eq!(fixture.application.got_playback(), true);
+        assert_eq!(test_playback.lock().unwrap().got_output_tx(), true);
         fixture.application.clear_playback();
         assert_eq!(fixture.application.got_playback(), false);
+        assert_eq!(test_playback.lock().unwrap().got_output_tx(), false);
+    }
+
+    #[rstest]
+    #[serial]
+    pub fn set_clear_channel_encoder(mut fixture: ApplicationFixture) {
+        let channel_encoder= Arc::new(Mutex::new(ChannelEncoder::new(source_encoding_to_channel_encoding, fixture.terminate.clone())));
+        fixture.application.set_mode(ApplicationMode::Full);
+        assert_eq!(fixture.application.got_channel_encoder(), false);
+        assert_eq!(fixture.application.got_channel_encoder_source_encoding_rx(), true);
+        test_util::wait_5_ms();
+        fixture.application.set_channel_encoder(channel_encoder);
+        assert_eq!(fixture.application.got_channel_encoder(), true);
+        assert_eq!(fixture.application.got_channel_encoder_source_encoding_rx(), true);
+        fixture.application.clear_channel_encoder();
+        // assert_eq!(fixture.application.got_channel_encoder(), false);
+        // assert_eq!(fixture.application.got_channel_encoder_source_encoding_rx(), true);
     }
 
     // Mode/Component set/clear validation tests
@@ -475,6 +535,21 @@ mod application_spec {
 
     #[rstest]
     #[serial]
+    #[should_panic(expected="Can't set channel_encoder in mode None")]
+    pub fn none_mode_cannot_set_channel_encoder(mut fixture: ApplicationFixture) {
+        let channel_encoder = Arc::new(Mutex::new(ChannelEncoder::new(source_encoding_to_channel_encoding, fixture.terminate.clone())));
+        fixture.application.set_channel_encoder(channel_encoder);
+    }
+
+    #[rstest]
+    #[serial]
+    #[should_panic(expected="Can't clear channel_encoder in mode None")]
+    pub fn none_mode_cannot_clear_channel_encoder(mut fixture: ApplicationFixture) {
+        fixture.application.clear_channel_encoder();
+    }
+
+    #[rstest]
+    #[serial]
     #[should_panic(expected="Can't set playback in mode None")]
     pub fn none_mode_cannot_set_playback(mut fixture: ApplicationFixture) {
         let playback: Arc<Mutex<StubBusWriter<KeyingEventToneChannel>>> = Arc::new(Mutex::new(StubBusWriter::new()));
@@ -526,6 +601,23 @@ mod application_spec {
 
     #[rstest]
     #[serial]
+    #[should_panic(expected="Can't set channel_encoder in mode Some(KeyerDiag)")]
+    pub fn keyer_diag_mode_cannot_set_channel_encoder(mut fixture: ApplicationFixture) {
+        fixture.application.set_mode(ApplicationMode::KeyerDiag);
+        let channel_encoder = Arc::new(Mutex::new(ChannelEncoder::new(source_encoding_to_channel_encoding, fixture.terminate.clone())));
+        fixture.application.set_channel_encoder(channel_encoder);
+    }
+
+    #[rstest]
+    #[serial]
+    #[should_panic(expected="Can't clear channel_encoder in mode Some(KeyerDiag)")]
+    pub fn keyer_diag_mode_cannot_clear_channel_encoder(mut fixture: ApplicationFixture) {
+        fixture.application.set_mode(ApplicationMode::KeyerDiag);
+        fixture.application.clear_channel_encoder();
+    }
+
+    #[rstest]
+    #[serial]
     #[should_panic(expected="Can't set playback in mode Some(KeyerDiag)")]
     pub fn keyer_diag_mode_cannot_set_playback(mut fixture: ApplicationFixture) {
         fixture.application.set_mode(ApplicationMode::KeyerDiag);
@@ -559,6 +651,22 @@ mod application_spec {
         fixture.application.clear_keyer_diag();
     }
 
+    #[rstest]
+    #[serial]
+    #[should_panic(expected="Can't set channel_encoder in mode Some(SourceEncoderDiag)")]
+    pub fn source_encoder_diag_mode_cannot_set_channel_encoder(mut fixture: ApplicationFixture) {
+        fixture.application.set_mode(ApplicationMode::SourceEncoderDiag);
+        let channel_encoder = Arc::new(Mutex::new(ChannelEncoder::new(source_encoding_to_channel_encoding, fixture.terminate.clone())));
+        fixture.application.set_channel_encoder(channel_encoder);
+    }
+
+    #[rstest]
+    #[serial]
+    #[should_panic(expected="Can't clear channel_encoder in mode Some(SourceEncoderDiag)")]
+    pub fn source_encoder_diag_mode_cannot_clear_channel_encoder(mut fixture: ApplicationFixture) {
+        fixture.application.set_mode(ApplicationMode::SourceEncoderDiag);
+        fixture.application.clear_channel_encoder();
+    }
 
     #[rstest]
     #[serial]
@@ -762,16 +870,7 @@ mod application_spec {
 
         test_util::wait_5_ms();
 
-        let keying_frames = &[
-            Frame::WPMPolarity { wpm: 5, polarity: true },
-            Frame::KeyingDeltaDah { delta: 5 },
-            Frame::WPMPolarity { wpm: 60, polarity: true },
-            Frame::KeyingDeltaDah { delta: 5 },
-            Frame::Extension, // It stands out as 1111 in the debug output below.
-            Frame::Padding
-        ];
-        let block = encoded(TEST_SOURCE_ENCODER_BLOCK_SIZE_IN_BITS, 20, keying_frames);
-        let source_encoding = SourceEncoding{ block, is_end: true };
+        let source_encoding = generate_sample_source_encoding();
         let vec_source_encoding = vec![source_encoding];
         let test_vec_source_encoding = vec_source_encoding.clone();
 
@@ -817,5 +916,50 @@ mod application_spec {
             KeyingEventToneChannel { keying_event: KeyingEvent::End(), tone_channel: 0 as ToneChannel} ];
 
         assert_eq!(tone_generator_received_keying, expected_tone_generator_received_keying);
+    }
+
+    #[rstest]
+    #[serial]
+    pub fn full_mode_source_encoder_sends_to_channel_encoder(mut fixture: ApplicationFixture) {
+        fixture.application.set_mode(ApplicationMode::Full);
+
+
+        let source_encoder: Arc<Mutex<StubBusReaderWriter<KeyingEvent, SourceEncoding>>> = Arc::new(Mutex::new(StubBusReaderWriter::new()));
+        let test_source_encoder = source_encoder.clone();
+        fixture.application.set_source_encoder(source_encoder);
+
+        // let channel_encoder: Arc<Mutex<StubBusReaderWriter<SourceEncoding, ChannelEncoding>>> = Arc::new(Mutex::new(StubBusReaderWriter::new()));
+        let channel_encoder= Arc::new(Mutex::new(ChannelEncoder::new(source_encoding_to_channel_encoding, fixture.terminate.clone())));
+        // let test_channel_encoder = channel_encoder.clone();
+        fixture.application.set_channel_encoder(channel_encoder);
+
+        test_util::wait_5_ms();
+
+        let source_encoding = generate_sample_source_encoding();
+        let vec_source_encoding = vec![source_encoding];
+        let _test_vec_source_encoding = vec_source_encoding.clone();
+
+        test_source_encoder.lock().unwrap().write(vec_source_encoding);
+
+
+        //let channel_encoder_received = test_channel_encoder.lock().unwrap().read();
+
+        //assert_eq!(channel_encoder_received, test_vec_source_encoding);
+        panic!("can't test this until the transceiver input bus is in the application");
+        // since the TransformBus is bus-only, it's not a mock.
+    }
+
+    fn generate_sample_source_encoding() -> SourceEncoding {
+        let keying_frames = &[
+            Frame::WPMPolarity { wpm: 5, polarity: true },
+            Frame::KeyingDeltaDah { delta: 5 },
+            Frame::WPMPolarity { wpm: 60, polarity: true },
+            Frame::KeyingDeltaDah { delta: 5 },
+            Frame::Extension, // It stands out as 1111 in the debug output below.
+            Frame::Padding
+        ];
+        let block = encoded(TEST_SOURCE_ENCODER_BLOCK_SIZE_IN_BITS, 20, keying_frames);
+        let source_encoding = SourceEncoding { block, is_end: true };
+        source_encoding
     }
 }

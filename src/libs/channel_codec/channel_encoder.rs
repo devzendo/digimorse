@@ -21,23 +21,123 @@
  */
 
 
-// why did ft8 choose a 14 bit CRC? They upgraded from 12 to 14 with version 2.0. It doesn't seem
-// critical, as the LDPC always returns valid codewords. The CRC just allows the wrong codeword to
-// be corrected.
-// source_encodinp.rs SOURCE_ENCODER_BLOCK_SIZE_IN_BITS is currently 112.
-
-
-// geometry of the LDPC (X, Y) where Y is source encoder frame length in bits + CRC length.
-// X is Y+number of parity bits.
-// X must be divisible by 3, as we use 3 bits per tone. There will be X/3 channel symbols.
-
-
 // TODO BusInput<SourceEncoding>
 // TODO take block: Vec<u8> from the SourceEncoding, CRC it, LDPC it and the CRC, Gray encode it
 // then the resulting Vec<Gray> is emitted as a ChannelEncoding. (Gray is a 3-bit quantity in a
 // u8). The Transmitter then modulates that.
 // TODO BusOutput<ChannelEncoding>
 
+
+use crate::libs::channel_codec::channel_encoding::ChannelEncoding;
+use crate::libs::source_codec::source_encoding::SourceEncoding;
+use crate::libs::transform_bus::transform_bus::TransformBus;
+
+/*
+#[readonly::make]
+pub struct ChannelEncoder {
+    terminate: Arc<AtomicBool>,
+    // Shared between thread and ChannelEncoder
+    input_rx: Arc<Mutex<Option<Arc<Mutex<BusReader<SourceEncoding>>>>>>,
+    // Shared between thread and ChannelEncoder and ChannelEncoderShared
+    output_tx: Arc<Mutex<Option<Arc<Mutex<Bus<ChannelEncoding>>>>>>,
+    // storage: Arc<RwLock<Box<dyn SourceEncodingBuilder + Send + Sync>>>, // ?? Is it Send + Sync?
+    // Send + Sync are here so the DefaultSourceEncoder can be stored in an rstest fixture that
+    // is moved into a panic_after test's thread.
+    // thread_handle: Mutex<Option<JoinHandle<()>>>,
+    // shared: Arc<Mutex<SourceEncoderShared>>,
+    // block_size_in_bits: usize,
+}
+*/
+
+pub fn source_encoding_to_channel_encoding(source_encoding: SourceEncoding) -> ChannelEncoding {
+    return ChannelEncoding { block: vec![], is_end: source_encoding.is_end };
+}
+
+
+pub type ChannelEncoder = TransformBus<SourceEncoding, ChannelEncoding>;
+
+// Multiple traits: using supertraits and a blanket implementation ... thanks to
+// https://tousu.in/qa/?qa=424751/
+/*
+pub trait ChannelEncoderTrait: BusInput<SourceEncoding> + BusOutput<ChannelEncoding> {}
+impl<T: BusInput<SourceEncoding> + BusOutput<ChannelEncoding>> ChannelEncoderTrait for T {}
+
+impl BusInput<SourceEncoding> for ChannelEncoder {
+    fn clear_input_rx(&mut self) {
+        match self.input_rx.lock() {
+            Ok(mut locked) => { *locked = None; }
+            Err(_) => {}
+        }
+    }
+
+    fn set_input_rx(&mut self, input_rx: Arc<Mutex<BusReader<SourceEncoding>>>) {
+        match self.input_rx.lock() {
+            Ok(mut locked) => { *locked = Some(input_rx); }
+            Err(_) => {}
+        }
+    }
+}
+
+impl BusOutput<ChannelEncoding> for ChannelEncoder {
+    fn clear_output_tx(&mut self) {
+        match self.output_tx.lock() {
+            Ok(mut locked) => {
+                *locked = None;
+            }
+            Err(_) => {}
+        }
+    }
+
+    fn set_output_tx(&mut self, output_tx: Arc<Mutex<Bus<ChannelEncoding>>>) {
+        match self.output_tx.lock() {
+            Ok(mut locked) => { *locked = Some(output_tx); }
+            Err(_) => {}
+        }
+    }
+}
+
+impl ChannelEncoder {
+    pub fn new(terminate: Arc<AtomicBool>) -> Self {
+        let arc_terminate = terminate.clone();
+
+        // Share this holder between the ChannelEncoder and its thread
+        let input_rx_holder: Arc<Mutex<Option<Arc<Mutex<BusReader<SourceEncoding>>>>>> = Arc::new(Mutex::new(None));
+        let move_clone_input_rx_holder = input_rx_holder.clone();
+
+        // Share this holder between the ChannelEncoder and the ChannelEncoderShared
+        let output_tx_holder: Arc<Mutex<Option<Arc<Mutex<Bus<ChannelEncoding>>>>>> = Arc::new(Mutex::new(None));
+        let move_clone_output_tx_holder = output_tx_holder.clone();
+
+        let shared = Mutex::new(ChannelEncoderShared {
+            storage: arc_storage.clone(),
+            keying_encoder: encoder,
+            source_encoder_tx: move_clone_output_tx_holder,
+            is_mark: true,
+            sent_wpm_polarity: false,
+            keying_speed: 0,
+        });
+        let arc_shared = Arc::new(shared);
+        let arc_shared_cloned = arc_shared.clone();
+        let thread_handle = thread::spawn(move || {
+            let mut keyer_thread = SourceEncoderKeyerThread::new(move_clone_input_rx_holder,
+                                                                 arc_terminate,
+                                                                 arc_shared.clone());
+            keyer_thread.thread_runner();
+        });
+
+        Self {
+            keyer_speed: 12,
+            terminate,
+            input_rx: input_rx_holder,    // Modified by BusInput
+            output_tx: output_tx_holder,  // Modified by BusOutput
+            storage: arc_storage_cloned,
+            thread_handle: Mutex::new(Some(thread_handle)),
+            shared: arc_shared_cloned,
+            block_size_in_bits
+        }
+
+}
+*/
 
 #[cfg(test)]
 #[path = "./channel_encoder_spec.rs"]

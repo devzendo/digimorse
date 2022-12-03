@@ -1,6 +1,6 @@
 use std::sync::{Arc, Mutex, RwLock};
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::{mem, thread};
+use std::thread;
 use std::thread::JoinHandle;
 use std::time::Duration;
 use bus::{Bus, BusReader};
