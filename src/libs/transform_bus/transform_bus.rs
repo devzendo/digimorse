@@ -135,6 +135,7 @@ impl<I: Clone + Sync + Send + 'static, O: Clone + Sync + Send + 'static> Transfo
 
     pub fn add_reader(&mut self) -> BusReader<O> {
         loop {
+            // I don't understand why there's a complaint that need_sleep is never read.
             let mut need_sleep = false;
             match self.output_tx.lock().unwrap().as_ref() {
                 None => {
