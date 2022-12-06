@@ -223,3 +223,19 @@ After that: Costas array research
 
 
 
+## 5 December 2022
+
+Outstanding: Burst error mitigation
+
+Currently: Gray code research
+
+After that: Costas array research
+
+
+
+Gray code - is this still patented? No, it was granted in 1953 and expired in 1970 - see https://patents.google.com/patent/US2632058?oq=US+2632058+A
+
+
+
+Makes the transmission less susceptible to noise; nybbles assigned to different tones differ in only one position, improving decode performance where Doppler spread of the incoming frequencies is near the tone separation.
+
