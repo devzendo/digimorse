@@ -28,9 +28,15 @@
 // TODO BusOutput<ChannelEncoding>
 
 
-use crate::libs::channel_codec::channel_encoding::ChannelEncoding;
+use log::debug;
+use metered::time_source::{Instant, StdInstant};
+use crate::libs::channel_codec::channel_encoding::{ChannelEncoding, ChannelSymbol};
+use crate::libs::channel_codec::crc::crc14;
+use crate::libs::channel_codec::ldpc::{encode_packed_message, pack_message};
 use crate::libs::source_codec::source_encoding::SourceEncoding;
 use crate::libs::transform_bus::transform_bus::TransformBus;
+use pretty_hex::*;
+use crate::libs::channel_codec::gray::to_gray_code;
 
 /*
 #[readonly::make]
@@ -50,7 +56,34 @@ pub struct ChannelEncoder {
 */
 
 pub fn source_encoding_to_channel_encoding(source_encoding: SourceEncoding) -> ChannelEncoding {
-    return ChannelEncoding { block: vec![], is_end: source_encoding.is_end };
+    let encode_duration = StdInstant::now();
+    let crc = crc14(&source_encoding.block.as_slice());
+    let packed_message = pack_message(&source_encoding.block, false, false, crc);
+    let code_word = encode_packed_message(&packed_message);
+
+    let hexdump = pretty_hex(&code_word.as_slice());
+    let hexdump_lines = hexdump.split("\n");
+    for line in hexdump_lines {
+        debug!("Code word {}", line);
+    }
+
+    // Now convert the code_word into a Vec<ChannelSymbol>
+    let mut channel_symbols: Vec<ChannelSymbol> = Vec::new();
+    channel_symbols.push(ChannelSymbol::RampUp);
+    // TODO interleave nybbles of the codeword? Does fading more adversely affect different parts of
+    // the code word - e.g. if the LDPC data is damaged, does that make recovery harder than if
+    // the source data is damaged?
+
+    // Convert each nybble of the codeword into its Gray code.
+    for byte in code_word {
+        channel_symbols.push(ChannelSymbol::Tone { value: to_gray_code(byte >> 4) } );
+        channel_symbols.push(ChannelSymbol::Tone { value: to_gray_code(byte & 0x0f) } )
+    }
+    channel_symbols.push(ChannelSymbol::RampDown);
+
+    let out = ChannelEncoding { block: channel_symbols, is_end: source_encoding.is_end };
+    debug!("Channel encoding done in {}ms", encode_duration.elapsed_time());
+    return out;
 }
 
 

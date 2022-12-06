@@ -13,13 +13,11 @@ mod channel_encoder_spec {
     use rstest::*;
     use crate::libs::application::application::{BusInput, BusOutput};
     use crate::libs::channel_codec::channel_encoder::{ChannelEncoder, source_encoding_to_channel_encoding};
-    use crate::libs::channel_codec::channel_encoding::ChannelEncoding;
-    use crate::libs::source_codec::source_encoding::{Frame, SourceEncoding};
+    use crate::libs::channel_codec::channel_encoding::{ChannelEncoding, ChannelSymbol};
+    use crate::libs::source_codec::source_encoding::{Frame, SOURCE_ENCODER_BLOCK_SIZE_IN_BITS, SourceEncoding};
     use crate::libs::source_codec::test_encoding_builder::encoded;
 
     use crate::libs::util::test_util;
-
-    const TEST_SOURCE_ENCODER_BLOCK_SIZE_IN_BITS: usize = 64;
 
     #[ctor::ctor]
     fn before_each() {
@@ -85,11 +83,13 @@ mod channel_encoder_spec {
     #[test]
     pub fn transform_encodings_with_channel_encoder_function() {
         let source_encoding = generate_sample_source_encoding();
-        let result = source_encoding_to_channel_encoding(source_encoding);
-
+        let channel_encoding = source_encoding_to_channel_encoding(source_encoding);
+        let channel_encoding_clone = channel_encoding.clone();
+        for line in channel_encoding_clone.block {
+            debug!("Channel encoding {:?}", line);
+        }
         let expected_channel_encoding = generate_expected_channel_encoding();
-        info!("channel encoding is {}", result.clone());
-        assert_that!(result, equal_to(expected_channel_encoding));
+        assert_that!(channel_encoding, equal_to(expected_channel_encoding));
     }
 
 
@@ -102,12 +102,79 @@ mod channel_encoder_spec {
             Frame::Extension, // It stands out as 1111 in the debug output below.
             Frame::Padding
         ];
-        let block = encoded(TEST_SOURCE_ENCODER_BLOCK_SIZE_IN_BITS, 20, keying_frames);
+        let block = encoded(SOURCE_ENCODER_BLOCK_SIZE_IN_BITS, 20, keying_frames);
         let source_encoding = SourceEncoding { block, is_end: true };
         source_encoding
     }
 
     fn generate_expected_channel_encoding() -> ChannelEncoding {
-        ChannelEncoding { block: vec![], is_end: true }
+        ChannelEncoding { block: vec![
+            ChannelSymbol::RampUp,
+            ChannelSymbol::Tone { value: 1 },
+            ChannelSymbol::Tone { value: 1 },
+            ChannelSymbol::Tone { value: 4 },
+            ChannelSymbol::Tone { value: 5 },
+            ChannelSymbol::Tone { value: 0 },
+            ChannelSymbol::Tone { value: 3 },
+            ChannelSymbol::Tone { value: 12 },
+            ChannelSymbol::Tone { value: 8 },
+            ChannelSymbol::Tone { value: 13 },
+            ChannelSymbol::Tone { value: 14 },
+            ChannelSymbol::Tone { value: 0 },
+            ChannelSymbol::Tone { value: 14 },
+            ChannelSymbol::Tone { value: 9 },
+            ChannelSymbol::Tone { value: 0 },
+            ChannelSymbol::Tone { value: 0 },
+            ChannelSymbol::Tone { value: 0 },
+            ChannelSymbol::Tone { value: 0 },
+            ChannelSymbol::Tone { value: 0 },
+            ChannelSymbol::Tone { value: 0 },
+            ChannelSymbol::Tone { value: 0 },
+            ChannelSymbol::Tone { value: 0 },
+            ChannelSymbol::Tone { value: 0 },
+            ChannelSymbol::Tone { value: 0 },
+            ChannelSymbol::Tone { value: 0 },
+            ChannelSymbol::Tone { value: 0 },
+            ChannelSymbol::Tone { value: 0 },
+            ChannelSymbol::Tone { value: 0 },
+            ChannelSymbol::Tone { value: 0 },
+            ChannelSymbol::Tone { value: 3 },
+            ChannelSymbol::Tone { value: 8 },
+            ChannelSymbol::Tone { value: 15 },
+            ChannelSymbol::Tone { value: 1 },
+            ChannelSymbol::Tone { value: 2 },
+            ChannelSymbol::Tone { value: 11 },
+            ChannelSymbol::Tone { value: 13 },
+            ChannelSymbol::Tone { value: 11 },
+            ChannelSymbol::Tone { value: 4 },
+            ChannelSymbol::Tone { value: 10 },
+            ChannelSymbol::Tone { value: 3 },
+            ChannelSymbol::Tone { value: 4 },
+            ChannelSymbol::Tone { value: 10 },
+            ChannelSymbol::Tone { value: 10 },
+            ChannelSymbol::Tone { value: 9 },
+            ChannelSymbol::Tone { value: 6 },
+            ChannelSymbol::Tone { value: 7 },
+            ChannelSymbol::Tone { value: 8 },
+            ChannelSymbol::Tone { value: 10 },
+            ChannelSymbol::Tone { value: 9 },
+            ChannelSymbol::Tone { value: 1 },
+            ChannelSymbol::Tone { value: 13 },
+            ChannelSymbol::Tone { value: 14 },
+            ChannelSymbol::Tone { value: 5 },
+            ChannelSymbol::Tone { value: 2 },
+            ChannelSymbol::Tone { value: 3 },
+            ChannelSymbol::Tone { value: 1 },
+            ChannelSymbol::Tone { value: 5 },
+            ChannelSymbol::Tone { value: 8 },
+            ChannelSymbol::Tone { value: 5 },
+            ChannelSymbol::Tone { value: 0 },
+            ChannelSymbol::Tone { value: 0 },
+            ChannelSymbol::Tone { value: 10 },
+            ChannelSymbol::Tone { value: 9 },
+            ChannelSymbol::Tone { value: 2 },
+            ChannelSymbol::Tone { value: 3 },
+            ChannelSymbol::RampDown
+        ], is_end: true }
     }
 }

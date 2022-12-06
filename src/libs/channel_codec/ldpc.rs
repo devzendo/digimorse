@@ -123,7 +123,7 @@ pub type PackedMessage = Vec<u8>;
 pub type SourceEncodingData = Vec<u8>;
 pub fn pack_message(source_encoding: &SourceEncodingData, unused_flag_1: bool, unused_flag_2: bool, crc: CRC) -> PackedMessage {
     if source_encoding.len() != 14 {
-        panic!("Expecting 14 bytes of source encoding data");
+        panic!("Expecting 14 bytes of source encoding data, not {}", source_encoding.len());
     }
     // TODO the BitVecAppender might be overkill for packing; look at how easy unpacking was..
     let mut appender = BitVecAppender::new(128);
