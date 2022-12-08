@@ -89,6 +89,7 @@ mod channel_encoder_spec {
             debug!("Channel encoding {:?}", line);
         }
         let expected_channel_encoding = generate_expected_channel_encoding();
+        info!("There are {} elements in the channel encoding", expected_channel_encoding.block.len()); // 66
         assert_that!(channel_encoding, equal_to(expected_channel_encoding));
     }
 

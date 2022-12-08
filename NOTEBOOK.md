@@ -239,3 +239,35 @@ Gray code - is this still patented? No, it was granted in 1953 and expired in 19
 
 Makes the transmission less susceptible to noise; nybbles assigned to different tones differ in only one position, improving decode performance where Doppler spread of the incoming frequencies is near the tone separation.
 
+
+
+## 6 December 2022
+
+Done the Gray coding; now onto Costas Array research.
+
+FT8 uses a 7x7 array with one of its 8 tones unused to modulate the array.
+
+## 8 December 2022
+
+Possible tasks today:
+
+* More Costas array research
+* Investigate the playback DDS odd frequency anomalies
+* Start the Transceiver subsystem
+
+Why does FT8 use a 7 x 7 array [3, 1, 4, 0, 6, 5, 2], when there are 8 tones? Using an 8 x 8 array would 'fit better'  but use one more time period.. is 7 x 7 sufficient to synchronise (certainly seems to!). Could the 7 x 7 array of FT8 be used, modulated using tones 0-6 of digimorse's 0-15?
+
+I've asked Mike Hasselbeck WB2FKO, who presented on FT8's use of Costas arrays, after reversing their use from the Fortran FT8 code, and asking questions of the developers. In his presentation of his research at https://www.youtube.com/watch?v=rjLhTN59Bg4, Phil Karn KA9Q asked Mike whether so much data needs to be devoted to synch.
+
+Phil: "the whole point of all this [synch] is to tell the decoder to go ahead and decode.. the data part of the packet... sometimes I wonder if it's really necessary - some of the [systems] I've devised, I don't put in any synchronisation at all, just try all possible offsets until something falls out"
+
+Mike speculates that the Costas array could be used to prevent decodes by other implementations.
+
+I think I _do_ need synchronisation, in order to allocate decoders at the appropriate part of the FFT data. If these decoders don't detect a valid array, or if they do but then fail to decode a codeword, or if they do decode a codeword but its CRC doesn't match, then they won't emit the source encoding to the playback. The array is the first line of defence.
+
+But how to reliably build up an incoming array? How to place a newly-initialised decoder at a frequency? Iterate over all positions where there's no current decoder, and if there's a tone 3 (say, if using the FT8 array), allocate and let that decoder have all subsequent tones at that frequency? Destroy the decoder after array recording if the synch signal is weaker than the baseline (midway point in the sorted synch signal strength array). Signals stronger than this are candidates for further decoding.
+
+Once the n tones of the array have been received, the $\Delta f$ and $\Delta t$ can be searched for, and these used in more precisely locating the rest of the frame's tones.
+
+Outstanding: Costas array size
+

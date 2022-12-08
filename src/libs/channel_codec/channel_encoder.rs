@@ -74,6 +74,8 @@ pub fn source_encoding_to_channel_encoding(source_encoding: SourceEncoding) -> C
     // the code word - e.g. if the LDPC data is damaged, does that make recovery harder than if
     // the source data is damaged?
 
+    // TODO Costas Array - possibly just use the same 7x7 array as FT8, using tones 0-6?
+
     // Convert each nybble of the codeword into its Gray code.
     for byte in code_word {
         channel_symbols.push(ChannelSymbol::Tone { value: to_gray_code(byte >> 4) } );
