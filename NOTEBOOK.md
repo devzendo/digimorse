@@ -255,6 +255,8 @@ Possible tasks today:
 * Investigate the playback DDS odd frequency anomalies
 * Start the Transceiver subsystem
 
+### Costas array research
+
 Why does FT8 use a 7 x 7 array [3, 1, 4, 0, 6, 5, 2], when there are 8 tones? Using an 8 x 8 array would 'fit better'  but use one more time period.. is 7 x 7 sufficient to synchronise (certainly seems to!). Could the 7 x 7 array of FT8 be used, modulated using tones 0-6 of digimorse's 0-15?
 
 I've asked Mike Hasselbeck WB2FKO, who presented on FT8's use of Costas arrays, after reversing their use from the Fortran FT8 code, and asking questions of the developers. In his presentation of his research at https://www.youtube.com/watch?v=rjLhTN59Bg4, Phil Karn KA9Q asked Mike whether so much data needs to be devoted to synch.
@@ -270,4 +272,10 @@ But how to reliably build up an incoming array? How to place a newly-initialised
 Once the n tones of the array have been received, the $\Delta f$ and $\Delta t$ can be searched for, and these used in more precisely locating the rest of the frame's tones.
 
 Outstanding: Costas array size
+
+### Playback sine wave distortion
+
+Changing to a f32 for the sine table did not resolve the problem; the resulting tone was a little less harsh, but the distortion - especially noticeable in the test that increases the playback frequency, around 740 Hz - was still present. Reviewed the DDS code, and can't see anything obviously wrong.
+
+Wondering about either adding a digital low pass filter after the summing of the tone sine values, or converting from DDS to a sine table per output tone, generated on frequency change. Frequency change doesn't happen per-tone, it's just a nice-to-have when adjusting the sidetone, or if slewing the playback tone from its audio offset to a known sidetone (a possible aid when selecting a single decoder to play back).
 
