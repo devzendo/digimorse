@@ -15,7 +15,7 @@ mod tone_generator_spec {
     use std::time::Duration;
     use hamcrest2::prelude::*;
     use crate::libs::audio::audio_devices::open_output_audio_device;
-    use crate::libs::audio::tone_generator::{KeyingEventToneChannel, ToneGenerator};
+    use crate::libs::audio::tone_generator::{KeyingEventToneChannel, TABLE_SIZE, ToneGenerator};
     use crate::libs::keyer_io::keyer_io::KeyingEvent;
     use crate::libs::transform_bus::transform_bus::TransformBus;
     use crate::libs::util::test_util;
@@ -24,8 +24,6 @@ mod tone_generator_spec {
     use crate::libs::application::application::{BusInput, BusOutput};
     use crate::libs::conversion::conversion::text_to_keying;
     use crate::libs::conversion::paris::PARIS_KEYING_12WPM;
-
-    const TABLE_SIZE: usize = 200;
 
     #[ctor::ctor]
     fn before_each() {
@@ -66,7 +64,7 @@ mod tone_generator_spec {
         let arc_transform_bus = Arc::new(Mutex::new(transform_bus));
         let keying_event_tone_channel_rx = arc_transform_bus.lock().unwrap().add_reader();
 
-        let old_macbook = false;
+        let old_macbook = true;
         let dev = if old_macbook {"Built-in Output"} else {"MacBook Pro Speakers"};
         let sidetone_frequency = 600 as u16;
         info!("Instantiating tone generator...");
@@ -114,7 +112,8 @@ mod tone_generator_spec {
         let mut sine: [f32; TABLE_SIZE] = [0.0; TABLE_SIZE];
         for i in 0..TABLE_SIZE {
             sine[i] = (i as f64 / TABLE_SIZE as f64 * PI * 2.0).sin() as f32;
-            debug!("sine[{}] = {}", i, sine[i]);
+            // debug!("sine[{}] = {}", i, sine[i]);
+            print!("{}_f32, ", sine[i]);
             if sine[i] > max_sine {
                 max_sine = sine[i];
             }
@@ -122,6 +121,7 @@ mod tone_generator_spec {
                 min_sine = sine[i];
             }
         }
+        println!();
         debug!("min {} max {}", min_sine, max_sine);
     }
 
@@ -136,7 +136,7 @@ mod tone_generator_spec {
     #[serial]
     #[ignore]
     pub fn play_keying_as_sidetone(mut fixture: ToneGeneratorFixture) {
-        let keying = text_to_keying(20, "CQ DX");
+        let keying = text_to_keying(20, "CQ CQ DX DE M0CUV CQ CQ PSE K");
         play_keying_events_in_real_time(keying, &fixture.keying_event_tx, &mut fixture.tone_generator, 0);
     }
 
@@ -243,6 +243,7 @@ mod tone_generator_spec {
             if freq_increase != 0 {
                 tone_generator.set_audio_frequency(0, freq);
                 freq += freq_increase;
+                //eprintln!("Frequency: {} Hz", freq); // 740 Hz is particularly bad for distorted tone
             }
         }
         debug!("Finished playing keying sequence");
