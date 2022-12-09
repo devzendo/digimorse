@@ -279,3 +279,14 @@ Changing to a f32 for the sine table did not resolve the problem; the resulting 
 
 Wondering about either adding a digital low pass filter after the summing of the tone sine values, or converting from DDS to a sine table per output tone, generated on frequency change. Frequency change doesn't happen per-tone, it's just a nice-to-have when adjusting the sidetone, or if slewing the playback tone from its audio offset to a known sidetone (a possible aid when selecting a single decoder to play back).
 
+## 9 December 2022
+
+Adding the digital low pass filter didn't make any difference - and didn't appear to be filtering anything. Removed it. Still need to find a better way to generate tones for Morse playback.
+
+Looked at how to generate the Gaussian Frequency Shift Keying output for the channel-encoded symbols. Much to understand about the filter, but a good implementation is Karlis Goba's ft8_lib at https://github.com/kgoba/ft8_lib. gen_ft8.c has GFSK waveform generation code that goes from the list of symbols to a waveform. I was thinking of computing this iteratively in the audio generator, but might just convert en masse in a similar style. I wonder whether there may be a bug in the insertion of the first and last ramp up/down symbols?
+
+I looked at WSJT-X's Modulator.cpp but there are many things going on in the same area of code that make it very hard to extricate the actual GFSK modulation; variable names are obscure, and there are very few comments (except //??? which is most helpful).
+
+Outstanding: Playback sine wave distortion
+
+ 
