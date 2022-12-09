@@ -147,15 +147,6 @@ pub struct CallbackData {
     amplitude: f32, // used for ramping up/down output waveform for key click suppression
     audio_frequency: u16,
     enabled: bool,
-    // Low pass filter data, based on order=1 code at
-    // https://github.com/curiores/ArduinoTutorials/blob/main/BasicFilters/ArduinoImplementations/LowPass/LowPass2.0/LowPass2.0.ino
-    a: [f32; 1],
-    b: [f32; 2],
-    omega0: f32,
-    dt: f32,
-    tn1: f32,
-    x: [f32; 2],
-    y: [f32; 2],
 }
 
 impl BusInput<KeyingEventToneChannel> for ToneGenerator {
@@ -191,13 +182,6 @@ impl ToneGenerator {
             amplitude: 0.0,
             audio_frequency: sidetone_audio_frequency,
             enabled: true, // cannot be disabled
-            a: [0.0],
-            b: [0.0, 0.0],
-            omega0: 0.0,
-            dt: 0.0,
-            tn1: 0.0,
-            x: [0.0, 0.0,],
-            y: [0.0, 0.0,],
         };
         // TODO replace this Mutex with atomics to reduce contention in the callback.
         let arc_lock_sidetone_callback_data = Arc::new(RwLock::new(vec![Mutex::new(sidetone_callback_data)]));
@@ -328,20 +312,9 @@ impl ToneGenerator {
                     let sine_float = ((sine_byte as i16 - 127) as f32) / 127.0;
                     let sine_val = sine_float * locked_callback_data.amplitude;
 
-                    // Low pass filter sine_val...
-                    locked_callback_data.y[0] = 0.0;
-                    locked_callback_data.x[0] = sine_val;
-                    // Compute the filtered values
-                    locked_callback_data.y[0] += locked_callback_data.a[0]*locked_callback_data.y[1] + locked_callback_data.b[0]*locked_callback_data.x[0];
-                    locked_callback_data.y[0] += locked_callback_data.b[1] * locked_callback_data.x[1];
-                    // Save historical values
-                    locked_callback_data.y[1] = locked_callback_data.y[0];
-                    locked_callback_data.x[1] = locked_callback_data.x[0];
-                    let filtered_sine_val = locked_callback_data.y[0];
-
                     drop(locked_callback_data);
 
-                    total_sine_val += filtered_sine_val;
+                    total_sine_val += sine_val;
                 }
                 total_sine_val /= callback_datas.len() as f32;
 
@@ -381,20 +354,6 @@ impl ToneGenerator {
             }
             let mut locked_callback_data = callback_datas[tone_index].lock().unwrap();
             locked_callback_data.audio_frequency = freq;
-            // Set up low pass filter.
-            let cutoff_freq = 700_f32;
-            locked_callback_data.omega0 = 6.28318530718_f32 * cutoff_freq;
-            locked_callback_data.dt = 1.0_f32 / (freq as f32);
-            locked_callback_data.tn1 = - (locked_callback_data.dt);
-            locked_callback_data.x[0] = 0.0;
-            locked_callback_data.x[1] = 0.0;
-            locked_callback_data.y[0] = 0.0;
-            locked_callback_data.y[1] = 0.0;
-            // Set coefficients.
-            let alpha = locked_callback_data.omega0 * locked_callback_data.dt;
-            locked_callback_data.a[0] = -(alpha - 2.0)/(alpha+2.0);
-            locked_callback_data.b[0] = alpha/(alpha+2.0);
-            locked_callback_data.b[1] = alpha/(alpha+2.0);
         }
         self.set_timing_word(tone_index);
     }
@@ -427,13 +386,6 @@ impl ToneGenerator {
             amplitude: 0.0,
             audio_frequency: freq,
             enabled: true, // well if you're allocating it, it's enabled!
-            a: [0.0],
-            b: [0.0, 0.0],
-            omega0: 0.0,
-            dt: 0.0,
-            tn1: 0.0,
-            x: [0.0, 0.0,],
-            y: [0.0, 0.0,],
         };
         let mut callback_datas = self.callback_data.write().unwrap();
         // Ignore channel 0, the sidetone
