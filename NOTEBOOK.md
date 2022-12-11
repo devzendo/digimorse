@@ -285,8 +285,11 @@ Adding the digital low pass filter didn't make any difference - and didn't appea
 
 Looked at how to generate the Gaussian Frequency Shift Keying output for the channel-encoded symbols. Much to understand about the filter, but a good implementation is Karlis Goba's ft8_lib at https://github.com/kgoba/ft8_lib. gen_ft8.c has GFSK waveform generation code that goes from the list of symbols to a waveform. I was thinking of computing this iteratively in the audio generator, but might just convert en masse in a similar style. I wonder whether there may be a bug in the insertion of the first and last ramp up/down symbols?
 
-I looked at WSJT-X's Modulator.cpp but there are many things going on in the same area of code that make it very hard to extricate the actual GFSK modulation; variable names are obscure, and there are very few comments (except //??? which is most helpful).
+I looked at WSJT-X's Modulator.cpp but there are many things going on in the same area of code that make it very hard to extricate the actual GFSK modulation; variable names are obscure, and there are very few comments (except `//???` which is most helpful).
 
-Outstanding: Playback sine wave distortion
+~~Outstanding: Playback sine wave distortion~~
 
- 
+## 11 December 2022
+
+Fixed the playback sine wave distortion - I wasn't setting the phase back to zero when the amplitude reached zero.
+

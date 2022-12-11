@@ -237,6 +237,7 @@ impl ToneGenerator {
                         AmplitudeRamping::RampingUp => {
                             if locked_callback_data.amplitude <= 0.0 {
                                 locked_callback_data.amplitude = 0.0;
+                                locked_callback_data.phase = 0.0;
                             }
                             if locked_callback_data.amplitude < 0.95 {
                                 locked_callback_data.amplitude += AMPLITUDE_DELTA;
@@ -250,6 +251,7 @@ impl ToneGenerator {
                             if locked_callback_data.amplitude <= 0.0 {
                                 locked_callback_data.amplitude = 0.0;
                                 locked_callback_data.ramping = AmplitudeRamping::Stable;
+                                locked_callback_data.phase = 0.0;
                             }
                         }
                         AmplitudeRamping::Stable => {
