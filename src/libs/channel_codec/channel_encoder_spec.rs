@@ -14,6 +14,7 @@ mod channel_encoder_spec {
     use crate::libs::application::application::{BusInput, BusOutput};
     use crate::libs::channel_codec::channel_encoder::{ChannelEncoder, source_encoding_to_channel_encoding};
     use crate::libs::channel_codec::channel_encoding::{ChannelEncoding, ChannelSymbol};
+    use crate::libs::channel_codec::sample_channel_encoding::sample_channel_encoding;
     use crate::libs::source_codec::source_encoding::{Frame, SOURCE_ENCODER_BLOCK_SIZE_IN_BITS, SourceEncoding};
     use crate::libs::source_codec::test_encoding_builder::encoded;
 
@@ -75,7 +76,7 @@ mod channel_encoder_spec {
         info!("source encoding sent; waiting for channel encoding");
 
         let result = fixture.channel_encoder_rx.recv_timeout(Duration::from_millis(250));
-        let expected_channel_encoding = generate_expected_channel_encoding();
+        let expected_channel_encoding = sample_channel_encoding();
         info!("channel encoding is {}", result.clone().unwrap());
         assert_that!(result, has(expected_channel_encoding));
     }
@@ -88,7 +89,7 @@ mod channel_encoder_spec {
         for line in channel_encoding_clone.block {
             debug!("Channel encoding {:?}", line);
         }
-        let expected_channel_encoding = generate_expected_channel_encoding();
+        let expected_channel_encoding = sample_channel_encoding();
         info!("There are {} elements in the channel encoding", expected_channel_encoding.block.len()); // 66
         assert_that!(channel_encoding, equal_to(expected_channel_encoding));
     }
@@ -106,76 +107,5 @@ mod channel_encoder_spec {
         let block = encoded(SOURCE_ENCODER_BLOCK_SIZE_IN_BITS, 20, keying_frames);
         let source_encoding = SourceEncoding { block, is_end: true };
         source_encoding
-    }
-
-    fn generate_expected_channel_encoding() -> ChannelEncoding {
-        ChannelEncoding { block: vec![
-            ChannelSymbol::RampUp,
-            ChannelSymbol::Tone { value: 1 },
-            ChannelSymbol::Tone { value: 1 },
-            ChannelSymbol::Tone { value: 4 },
-            ChannelSymbol::Tone { value: 5 },
-            ChannelSymbol::Tone { value: 0 },
-            ChannelSymbol::Tone { value: 3 },
-            ChannelSymbol::Tone { value: 12 },
-            ChannelSymbol::Tone { value: 8 },
-            ChannelSymbol::Tone { value: 13 },
-            ChannelSymbol::Tone { value: 14 },
-            ChannelSymbol::Tone { value: 0 },
-            ChannelSymbol::Tone { value: 14 },
-            ChannelSymbol::Tone { value: 9 },
-            ChannelSymbol::Tone { value: 0 },
-            ChannelSymbol::Tone { value: 0 },
-            ChannelSymbol::Tone { value: 0 },
-            ChannelSymbol::Tone { value: 0 },
-            ChannelSymbol::Tone { value: 0 },
-            ChannelSymbol::Tone { value: 0 },
-            ChannelSymbol::Tone { value: 0 },
-            ChannelSymbol::Tone { value: 0 },
-            ChannelSymbol::Tone { value: 0 },
-            ChannelSymbol::Tone { value: 0 },
-            ChannelSymbol::Tone { value: 0 },
-            ChannelSymbol::Tone { value: 0 },
-            ChannelSymbol::Tone { value: 0 },
-            ChannelSymbol::Tone { value: 0 },
-            ChannelSymbol::Tone { value: 0 },
-            ChannelSymbol::Tone { value: 3 },
-            ChannelSymbol::Tone { value: 8 },
-            ChannelSymbol::Tone { value: 15 },
-            ChannelSymbol::Tone { value: 1 },
-            ChannelSymbol::Tone { value: 2 },
-            ChannelSymbol::Tone { value: 11 },
-            ChannelSymbol::Tone { value: 13 },
-            ChannelSymbol::Tone { value: 11 },
-            ChannelSymbol::Tone { value: 4 },
-            ChannelSymbol::Tone { value: 10 },
-            ChannelSymbol::Tone { value: 3 },
-            ChannelSymbol::Tone { value: 4 },
-            ChannelSymbol::Tone { value: 10 },
-            ChannelSymbol::Tone { value: 10 },
-            ChannelSymbol::Tone { value: 9 },
-            ChannelSymbol::Tone { value: 6 },
-            ChannelSymbol::Tone { value: 7 },
-            ChannelSymbol::Tone { value: 8 },
-            ChannelSymbol::Tone { value: 10 },
-            ChannelSymbol::Tone { value: 9 },
-            ChannelSymbol::Tone { value: 1 },
-            ChannelSymbol::Tone { value: 13 },
-            ChannelSymbol::Tone { value: 14 },
-            ChannelSymbol::Tone { value: 5 },
-            ChannelSymbol::Tone { value: 2 },
-            ChannelSymbol::Tone { value: 3 },
-            ChannelSymbol::Tone { value: 1 },
-            ChannelSymbol::Tone { value: 5 },
-            ChannelSymbol::Tone { value: 8 },
-            ChannelSymbol::Tone { value: 5 },
-            ChannelSymbol::Tone { value: 0 },
-            ChannelSymbol::Tone { value: 0 },
-            ChannelSymbol::Tone { value: 10 },
-            ChannelSymbol::Tone { value: 9 },
-            ChannelSymbol::Tone { value: 2 },
-            ChannelSymbol::Tone { value: 3 },
-            ChannelSymbol::RampDown
-        ], is_end: true }
     }
 }
