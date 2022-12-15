@@ -2,7 +2,6 @@ use crate::libs::channel_codec::channel_encoding::{ChannelEncoding, ChannelSymbo
 
 pub fn sample_channel_encoding() -> ChannelEncoding {
     ChannelEncoding { block: vec![
-        ChannelSymbol::RampUp,
         ChannelSymbol::Tone { value: 1 },
         ChannelSymbol::Tone { value: 1 },
         ChannelSymbol::Tone { value: 4 },
@@ -67,6 +66,5 @@ pub fn sample_channel_encoding() -> ChannelEncoding {
         ChannelSymbol::Tone { value: 9 },
         ChannelSymbol::Tone { value: 2 },
         ChannelSymbol::Tone { value: 3 },
-        ChannelSymbol::RampDown
     ], is_end: true }
 }

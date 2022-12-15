@@ -13,7 +13,7 @@ mod channel_encoder_spec {
     use rstest::*;
     use crate::libs::application::application::{BusInput, BusOutput};
     use crate::libs::channel_codec::channel_encoder::{ChannelEncoder, source_encoding_to_channel_encoding};
-    use crate::libs::channel_codec::channel_encoding::{ChannelEncoding, ChannelSymbol};
+    use crate::libs::channel_codec::channel_encoding::ChannelEncoding;
     use crate::libs::channel_codec::sample_channel_encoding::sample_channel_encoding;
     use crate::libs::source_codec::source_encoding::{Frame, SOURCE_ENCODER_BLOCK_SIZE_IN_BITS, SourceEncoding};
     use crate::libs::source_codec::test_encoding_builder::encoded;
@@ -33,7 +33,7 @@ mod channel_encoder_spec {
         terminate: Arc<AtomicBool>,
         source_encoding_tx: Bus<SourceEncoding>,
         channel_encoder_rx: BusReader<ChannelEncoding>,
-        channel_encoder: ChannelEncoder,
+        _channel_encoder: ChannelEncoder,
     }
 
     #[fixture]
@@ -56,7 +56,7 @@ mod channel_encoder_spec {
             terminate,
             source_encoding_tx,
             channel_encoder_rx,
-            channel_encoder
+            _channel_encoder: channel_encoder,
         }
     }
 

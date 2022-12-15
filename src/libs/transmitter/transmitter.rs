@@ -14,10 +14,12 @@ use crate::libs::channel_codec::channel_encoding::ChannelEncoding;
 
 pub type RadioFrequencyMHz = u32;
 pub type AudioFrequencyKHz = u16;
+pub type AmplitudeMax = f32; // 0.0 to 1.0 to scale the output power
 
 pub struct Transmitter {
     _radio_frequency_mhz: RadioFrequencyMHz, // TODO CAT controller will need this?
-    audio_offset: AudioFrequencyKHz,
+    _audio_offset: AudioFrequencyKHz,
+    amplitude_max: AmplitudeMax,
     sample_rate: u32,
     dt: f32, // Reciprocal of the sample rate
     terminate: Arc<AtomicBool>,
@@ -32,10 +34,11 @@ pub struct Transmitter {
 
 #[derive(Clone)]
 struct CallbackData {
-    amplitude: f32, // used for ramping up/down output waveform at start and end
+    _amplitude: f32, // used for ramping up/down output waveform at start and end
     audio_frequency: AudioFrequencyKHz,
+    amplitude_max: AmplitudeMax,
     delta_phase: f32, // added to the phase after recording each sample
-    phase: f32,       // sin(phase) is the sample value
+    _phase: f32,       // sin(phase) is the sample value
 }
 
 impl Transmitter {
@@ -47,10 +50,11 @@ impl Transmitter {
 
         info!("Initialising Transmitter");
         let modulation_callback_data = CallbackData {
-            amplitude: 0.0,
+            _amplitude: 0.0,
             audio_frequency: audio_offset,
+            amplitude_max: 1.0,
             delta_phase: 0.0,
-            phase: 0.0,
+            _phase: 0.0,
         };
         // TODO replace this Mutex with atomics to reduce contention in the callback.
         let arc_lock_modulation_callback_data = Arc::new(RwLock::new(modulation_callback_data));
@@ -60,7 +64,8 @@ impl Transmitter {
 
         Self {
             _radio_frequency_mhz: 0,
-            audio_offset,
+            _audio_offset: 0,
+            amplitude_max: 1.0,
             sample_rate: 0, // will be initialised when the callback is initialised
             dt: 0.0,        // will be initialised when the callback is initialised
             terminate: terminate.clone(),
@@ -84,7 +89,7 @@ impl Transmitter {
                             match input_rx.lock().unwrap().recv_timeout(Duration::from_millis(50)) {
                                 Ok(channel_encoding) => {
                                     info!("Transmitter got {:?}", channel_encoding);
-                                    let locked_callback_data = move_clone_modulation_callback_data.read().unwrap();
+                                    let _locked_callback_data = move_clone_modulation_callback_data.read().unwrap();
                                     // TODO convert the channel_encoding into a GFSK waveform, and set it in the locked_callback_data
                                     // for the callback to emit.
                                     // TODO CAT transmit enable - or pass the CAT into the thread so it
@@ -164,7 +169,7 @@ impl Transmitter {
                 locked_callback_data.phase += locked_callback_data.delta_phase;
                 let sine_val = f32::sin(locked_callback_data.phase) * locked_callback_data.amplitude;
 */
-                let sine_val = 0.0_f32;
+                let sine_val = 0.0_f32 * locked_callback_data.amplitude_max;
                 drop(locked_callback_data);
 
                 // TODO MONO - if opening the stream with a single channel causes the same values to
@@ -195,6 +200,25 @@ impl Transmitter {
         // Now it's playing...
     }
 
+    // Signals the thread to terminate, blocks on joining the handle. Used by drop().
+    // Setting the terminate AtomicBool will allow the thread to stop on its own, but there's no
+    // method other than this for blocking until it has actually stopped.
+    pub fn terminate(&mut self) {
+        debug!("Terminating Transmitter");
+        self.terminate.store(true, Ordering::SeqCst);
+        debug!("Transmitter joining read thread handle...");
+        self.thread_handle.take().map(JoinHandle::join);
+        debug!("Transmitter ...joined thread handle");
+    }
+
+    // Has the thread finished (ie has it been joined)?
+    pub fn terminated(&mut self) -> bool {
+        debug!("Is Transmitter terminated?");
+        let ret = self.thread_handle.is_none();
+        debug!("Termination state is {}", ret);
+        ret
+    }
+
     pub fn set_audio_frequency(&mut self, audio_frequency: AudioFrequencyKHz) -> () {
         if self.sample_rate == 0 {
             debug!("Sample rate not yet set; will set frequency when this is known");
@@ -207,6 +231,16 @@ impl Transmitter {
             locked_callback_data.delta_phase = 2.0_f32 * PI * (locked_callback_data.audio_frequency as f32) / (self.sample_rate as f32);
             debug!("Setting transmitter frequency to {}, sample_rate {}", locked_callback_data.audio_frequency, self.sample_rate);
         }
+    }
+
+    pub fn set_amplitude_max(&mut self, amplitude_max: AmplitudeMax) -> () {
+        if amplitude_max < 0.0 || amplitude_max > 1.0 {
+            warn!("Can't set maximum amplitude outside [0.0 .. 1.0]");
+            return;
+        }
+        let mut locked_callback_data = self.callback_data.write().unwrap();
+        self.amplitude_max = amplitude_max;
+        locked_callback_data.amplitude_max = amplitude_max;
     }
 
     pub fn is_silent(&self) -> bool {
@@ -232,6 +266,8 @@ impl BusInput<ChannelEncoding> for Transmitter {
 
 impl Drop for Transmitter {
     fn drop(&mut self) {
+        debug!("Transmitter signalling termination to thread on drop");
+        self.terminate();
         debug!("Transmitter stopping stream...");
         self.stream.take().map(|mut r| r.stop());
         debug!("Transmitter joining thread handle...");
