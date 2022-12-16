@@ -121,7 +121,7 @@ impl BusInput<KeyingEventToneChannel> for ToneGenerator {
 
 impl ToneGenerator {
     // TODO the sidetone_audio_frequency passed into the constructor sets the callback data, but the
-    // timing_word_m isn't set. You have to call set_audio_frequency.
+    // delta_phase isn't set. You have to call set_audio_frequency.
     pub fn new(sidetone_audio_frequency: u16,
                terminate: Arc<AtomicBool>) -> Self {
         // Share this holder between the ToneGenerator and its thread
