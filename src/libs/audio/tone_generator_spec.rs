@@ -15,15 +15,16 @@ mod tone_generator_spec {
     use std::time::Duration;
     use hamcrest2::prelude::*;
     use crate::libs::audio::audio_devices::open_output_audio_device;
-    use crate::libs::audio::tone_generator::{KeyingEventToneChannel, TABLE_SIZE, ToneGenerator};
+    use crate::libs::audio::tone_generator::{KeyingEventToneChannel, ToneGenerator};
     use crate::libs::keyer_io::keyer_io::KeyingEvent;
     use crate::libs::transform_bus::transform_bus::TransformBus;
     use crate::libs::util::test_util;
-    use portaudio as pa;
     use portaudio::PortAudio;
     use crate::libs::application::application::{BusInput, BusOutput};
     use crate::libs::conversion::conversion::text_to_keying;
     use crate::libs::conversion::paris::PARIS_KEYING_12WPM;
+
+    const TABLE_SIZE: usize = 256;
 
     #[ctor::ctor]
     fn before_each() {
@@ -82,7 +83,7 @@ mod tone_generator_spec {
             keying_event_tone_channel_tx: fixture_keying_event_tone_channel_tx,
             _transform_bus: arc_transform_bus,
             tone_generator,
-            pa: Arc::new(pa::PortAudio::new().unwrap()),
+            pa: Arc::new(PortAudio::new().unwrap()),
             paris_keying_12_wpm: PARIS_KEYING_12WPM.to_vec(),
         };
         let output_settings = open_output_audio_device(&fixture.pa, dev).unwrap();

@@ -28,7 +28,6 @@ use portaudio as pa;
 use crate::libs::application::application::BusInput;
 use crate::libs::keyer_io::keyer_io::KeyingEvent;
 
-const TABLE_SIZE: usize = 256;
 // The "Radio Today guide to the Yaesu FTDX10" by Andrew Barron ZL3DW says, p. 139:
 // "CW wave shape sets the shape of the CW waveform (keying envelopen rise and fall timefs). The
 // default setting is 6ms. Selecting a slower rise time will make your signal sound softer. Choosing
