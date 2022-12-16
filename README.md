@@ -251,6 +251,7 @@ Wim Looman provided the initial LaTeX Makefile, from https://gist.github.com/Nem
 
 Martin Nawrath for the Direct Digital Synthesis sine wave generator ported to Rust in ToneGenerator.rs.
 See http://interface.khm.de/index.php/lab/interfaces-advanced/arduino-dds-sinewave-generator/
+Used in earlier keying generation code in ToneGenerator.rs.
 
 Prof. Sarah J. Johnson for writing "Iterative Error Correction: Turbo, Low-Density Parity-Check and Repeat-
 Accumulate Codes".
@@ -269,6 +270,10 @@ Used in early experiments encoding and decoding in the digimorse channel codec.
 
 Daniel Estévez's LDPC Toolbox crate at https://github.com/daniestevez/ldpc-toolbox
 Used in initial experiments encoding and decoding in the digimorse channel codec.
+
+Kārlis Goba YL3JG's ft8_lib at https://github.com/kgoba/ft8_lib.
+In particular, the Gaussian Frequency Shift Keying code at https://github.com/kgoba/ft8_lib/blob/master/gen_ft8.c which
+is adapted to the slightly wider bandwidth modulation used by digimorse in the transmitter.
 
 # Bibliography
 TBC

@@ -13,12 +13,20 @@ use crate::libs::application::application::BusInput;
 use crate::libs::channel_codec::channel_encoding::ChannelEncoding;
 
 pub type RadioFrequencyMHz = u32;
-pub type AudioFrequencyKHz = u16;
+pub type AudioFrequencyHz = u16;
 pub type AmplitudeMax = f32; // 0.0 to 1.0 to scale the output power
 
+/*
+ * The Transmitter receives ChannelEncodings (block of symbols and end flag) on its input bus.
+ * It decides to add RampUp/RampDown symbols to these, based on whether it is currently silent (not
+ * transmitting tones), and whether the end flag is set. These are then converted to a GFSK
+ * waveform, in a pool-allocated buffer of samples, and passed to the audio output callback that
+ * PortAudio will be calling. When that callback has finished with the sample buffer it is released
+ * to the pool.
+ */
 pub struct Transmitter {
     _radio_frequency_mhz: RadioFrequencyMHz, // TODO CAT controller will need this?
-    _audio_offset: AudioFrequencyKHz,
+    _audio_offset: AudioFrequencyHz,
     amplitude_max: AmplitudeMax,
     sample_rate: u32,
     dt: f32, // Reciprocal of the sample rate
@@ -35,14 +43,14 @@ pub struct Transmitter {
 #[derive(Clone)]
 struct CallbackData {
     _amplitude: f32, // used for ramping up/down output waveform at start and end
-    audio_frequency: AudioFrequencyKHz,
+    audio_frequency: AudioFrequencyHz,
     amplitude_max: AmplitudeMax,
     delta_phase: f32, // added to the phase after recording each sample
     _phase: f32,       // sin(phase) is the sample value
 }
 
 impl Transmitter {
-    pub fn new(audio_offset: AudioFrequencyKHz, terminate: Arc<AtomicBool>,
+    pub fn new(audio_offset: AudioFrequencyHz, terminate: Arc<AtomicBool>,
                /* TODO transmit halt AtomicBool */ /* TODO CAT controller passed in here */) -> Self {
         // Share this holder between the Transmitter and its thread
         let input_rx_holder: Arc<Mutex<Option<Arc<Mutex<BusReader<ChannelEncoding>>>>>> = Arc::new(Mutex::new(None));
@@ -94,11 +102,15 @@ impl Transmitter {
                                     // for the callback to emit.
                                     // TODO CAT transmit enable - or pass the CAT into the thread so it
                                     // disables after it has modulated the channel_encoding.end ?
+                                    // TODO How does this thread know that the modulation has ended?
+                                    // It'll need a channel - or the Err block below could check the
+                                    // silence flag?
 
                                 }
                                 Err(_) => {
                                     // could timeout, or be disconnected?
                                     // ignore for now...
+                                    // TODO if gone silent, tell CAT to disable transmit? Need a CAT enabled flag so we don't hammer CAT to disable.
                                 }
                             }
                         }
@@ -219,7 +231,7 @@ impl Transmitter {
         ret
     }
 
-    pub fn set_audio_frequency(&mut self, audio_frequency: AudioFrequencyKHz) -> () {
+    pub fn set_audio_frequency(&mut self, audio_frequency: AudioFrequencyHz) -> () {
         if self.sample_rate == 0 {
             debug!("Sample rate not yet set; will set frequency when this is known");
             return;

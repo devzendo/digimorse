@@ -12,12 +12,11 @@ mod transmitter_spec {
     use hamcrest2::prelude::*;
     use crate::libs::audio::audio_devices::open_output_audio_device;
     use crate::libs::util::test_util;
-    use portaudio as pa;
     use portaudio::PortAudio;
     use crate::libs::application::application::BusInput;
     use crate::libs::channel_codec::channel_encoding::ChannelEncoding;
     use crate::libs::channel_codec::sample_channel_encoding::sample_channel_encoding;
-    use crate::libs::transmitter::transmitter::{AudioFrequencyKHz, Transmitter};
+    use crate::libs::transmitter::transmitter::{AudioFrequencyHz, Transmitter};
 
     #[ctor::ctor]
     fn before_each() {
@@ -44,7 +43,7 @@ mod transmitter_spec {
 
         let old_macbook = true;
         let dev = if old_macbook {"Built-in Output"} else {"MacBook Pro Speakers"};
-        let audio_frequency = 600 as AudioFrequencyKHz;
+        let audio_frequency = 600 as AudioFrequencyHz;
         info!("Instantiating transmitter...");
         let transmitter_channel_encoding_rx = Arc::new(Mutex::new(channel_encoding_rx));
         let mut transmitter = Transmitter::new(audio_frequency,
@@ -58,7 +57,7 @@ mod transmitter_spec {
             terminate,
             channel_encoding_tx: fixture_channel_encoding_tx,
             transmitter,
-            pa: Arc::new(pa::PortAudio::new().unwrap()),
+            pa: Arc::new(PortAudio::new().unwrap()),
         };
         let output_settings = open_output_audio_device(&fixture.pa, dev).unwrap();
         info!("Initialising audio callback...");
