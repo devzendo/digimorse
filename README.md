@@ -15,10 +15,18 @@ has remained unchanged.
 This project is an attempt to modernise that.
 
 ## Project Status
-Project started September 2020. Currently in its early development / feasibility study phase. I'm working on the channel
-encoder, encoding/decoding messages via low-density parity-check (LDPC) codes. 
+Project started September 2020. Currently in its early development / feasibility study phase. 
+
+Currently in December 2022, I'm working on last part of the transmit chain of major system components, specifically the
+modulation of channel symbols using Gaussian Frequency Shift Keying. The transmit chain from the Arduino-based Morse
+key interface, keyer protocol decoder, sidetone generator, source encoder and channel encoder (using a CRC and
+low-density parity-check (LDPC) code) are all done. 
+
+After this, I'll need to modify the transmitter to permit output to a .WAV file, for use in testing the receiver chain.
 
 There's no graphical user interface at the moment - the system is configured and used via a command line interface.
+After the transmitter is complete, and can be used from the command line, I'll make a start on the GUI and receiver
+chain.
 
 # Overview
 This is an EXPERIMENT in taking Morse code, in real-time, encoding it, wrapping

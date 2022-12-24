@@ -1,11 +1,13 @@
 # Current Development Activities
 
-* Adding error correction by computing a LDPC over the CRC'd source encoder output. Stuck.
+* Transmitter / GFSK Modulation: choose suitable number of tones for slow/fast (narrow/wide) modulations.
+* Application: add support for a transmitter component.
+* Channel encoder test: add a stub reader for the transmitter component and use it to verify that the application is
+  sending ChannelEncodings to it.
 
 Next up for research:
 * Costas array: is there an escaping mechanism, such that the Costas array does not occur in the binary output of the
   channel encoder?
-* Modulation: choose suitable number of tones for slow/fast (narrow/wide) modulations.
 
 Other refactorings to do:
 * Application wiring:
@@ -25,8 +27,6 @@ Other refactorings to do:
 # Known problems
 * Need to upgrade to rust edition 2021 - doing so causes test compilation failure in arduino_keyer_io_spec but this must
   be corrected.
-
-* Tone generation has a faint artifact. Is this due to the waveform, should be able to regenerate it as floats?
 
 * Sidetone output via bluetooth headphones has appalling latency - investigate whether dropping the output sample 
   rate to 8000Hz would improve matters.
