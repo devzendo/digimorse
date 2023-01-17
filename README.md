@@ -295,6 +295,8 @@ This code is released under the Apache 2.0 License: http://www.apache.org/licens
 
 matt.gumbley@devzendo.org
 
-@mattgumbley @devzendo
+Mastodon: @M0CUV@mastodon.radio
+
+Twitter: (abandoned) @mattgumbley @devzendo
 
 http://devzendo.github.io/digimorse
