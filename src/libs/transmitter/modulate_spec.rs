@@ -19,8 +19,8 @@ mod modulate_spec {
     #[should_panic]
     fn empty_panic() {
         let channel_symbols = &sample_channel_encoding().block;
-        let empty_f32: [f32; 0] = [];
-        gfsk_modulate(AUDIO_FREQUENCY, SAMPLE_RATE, channel_symbols, &empty_f32);
+        let mut empty_f32: [f32; 0] = [];
+        gfsk_modulate(AUDIO_FREQUENCY, SAMPLE_RATE, channel_symbols, &mut empty_f32, true, true);
     }
 
 }

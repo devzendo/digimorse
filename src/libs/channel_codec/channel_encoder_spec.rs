@@ -13,7 +13,7 @@ mod channel_encoder_spec {
     use rstest::*;
     use crate::libs::application::application::{BusInput, BusOutput};
     use crate::libs::channel_codec::channel_encoder::{ChannelEncoder, source_encoding_to_channel_encoding};
-    use crate::libs::channel_codec::channel_encoding::ChannelEncoding;
+    use crate::libs::channel_codec::channel_encoding::{ChannelEncoding, CHANNEL_ENCODER_BLOCK_SIZE};
     use crate::libs::channel_codec::sample_channel_encoding::sample_channel_encoding;
     use crate::libs::source_codec::source_encoding::{Frame, SOURCE_ENCODER_BLOCK_SIZE_IN_BITS, SourceEncoding};
     use crate::libs::source_codec::test_encoding_builder::encoded;
@@ -85,13 +85,15 @@ mod channel_encoder_spec {
     pub fn transform_encodings_with_channel_encoder_function() {
         let source_encoding = generate_sample_source_encoding();
         let channel_encoding = source_encoding_to_channel_encoding(source_encoding);
+        let channel_encoding_len = channel_encoding.block.len();
         let channel_encoding_clone = channel_encoding.clone();
         for line in channel_encoding_clone.block {
             debug!("Channel encoding {:?}", line);
         }
         let expected_channel_encoding = sample_channel_encoding();
-        info!("There are {} elements in the channel encoding", expected_channel_encoding.block.len()); // 66
+        info!("There are {} elements in the channel encoding", expected_channel_encoding.block.len()); // 64
         assert_that!(channel_encoding, equal_to(expected_channel_encoding));
+        assert_that!(channel_encoding_len, equal_to(CHANNEL_ENCODER_BLOCK_SIZE));
     }
 
 

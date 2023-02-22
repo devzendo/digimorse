@@ -11,10 +11,14 @@ use portaudio::{NonBlocking, Output, OutputStreamSettings, PortAudio, Stream};
 use portaudio as pa;
 use crate::libs::application::application::BusInput;
 use crate::libs::channel_codec::channel_encoding::ChannelEncoding;
+use crate::libs::source_codec::source_encoding::SOURCE_ENCODER_BLOCK_SIZE_IN_BITS;
+use crate::libs::transmitter::modulate::{gfsk_modulate, SYMBOL_PERIOD_SECONDS};
 
 pub type RadioFrequencyMHz = u32;
 pub type AudioFrequencyHz = u16;
 pub type AmplitudeMax = f32; // 0.0 to 1.0 to scale the output power
+
+pub const COSTAS_ARRAY_SYMBOLS: usize = 7;
 
 /*
  * The Transmitter receives ChannelEncodings (block of symbols and end flag) on its input bus.
@@ -34,7 +38,6 @@ pub struct Transmitter {
     thread_handle: Option<JoinHandle<()>>,
     stream: Option<Stream<NonBlocking, Output<f32>>>,
     callback_data: Arc<RwLock<CallbackData>>,
-    silent: Arc<AtomicBool>,
 
     // Shared between thread and Transmitter
     input_rx: Arc<Mutex<Option<Arc<Mutex<BusReader<ChannelEncoding>>>>>>,
@@ -47,6 +50,22 @@ struct CallbackData {
     amplitude_max: AmplitudeMax,
     delta_phase: f32, // added to the phase after recording each sample
     _phase: f32,       // sin(phase) is the sample value
+    sample_rate: u32, // Hz
+    samples: Vec<f32>, // contains the GFSK modulated waveform to emit, allocated as a Vec, used as a slice
+    samples_written: usize, // contains the number of samples written to 'samples', could be <= the size of that vector
+    sample_index: usize, // next sample to emit
+    silent: Arc<AtomicBool>,
+}
+
+pub fn maximum_number_of_symbols() -> usize {
+    // A source encoded block is SOURCE_ENCODER_BLOCK_SIZE_IN_BITS bits + 2 spare bits + 14-bit CRC = 112 + 2 + 14 = 128
+    // This is then LDPC-encoded to yield 256 bits of codeword. Each byte of that (32 bytes)
+    // yield 2 symbols. The maximum number of symbols transmitted is therefore:
+    // With ramp up/down, Costas array and a frame of 64 symbols.
+    // TODO Costas Array might not be 7 symbols ..
+    let channel_encoded_bits = (SOURCE_ENCODER_BLOCK_SIZE_IN_BITS + 2 + 14) * 2;
+    let channel_encoded_symbols = (channel_encoded_bits / 8) * 2;
+    2 + COSTAS_ARRAY_SYMBOLS + channel_encoded_symbols
 }
 
 impl Transmitter {
@@ -57,18 +76,23 @@ impl Transmitter {
         let move_clone_input_rx_holder = input_rx_holder.clone();
 
         info!("Initialising Transmitter");
+        let silent = Arc::new(AtomicBool::new(true));
         let modulation_callback_data = CallbackData {
             _amplitude: 0.0,
             audio_frequency: audio_offset,
             amplitude_max: 1.0,
             delta_phase: 0.0,
             _phase: 0.0,
+            sample_rate: 0,
+            samples: vec![],
+            samples_written: 0,
+            sample_index: 0,
+            silent
         };
         // TODO replace this Mutex with atomics to reduce contention in the callback.
         let arc_lock_modulation_callback_data = Arc::new(RwLock::new(modulation_callback_data));
         let move_clone_modulation_callback_data = arc_lock_modulation_callback_data.clone();
 
-        let silent = Arc::new(AtomicBool::new(true));
 
         Self {
             _radio_frequency_mhz: 0,
@@ -97,9 +121,17 @@ impl Transmitter {
                             match input_rx.lock().unwrap().recv_timeout(Duration::from_millis(50)) {
                                 Ok(channel_encoding) => {
                                     info!("Transmitter got {:?}", channel_encoding);
-                                    let _locked_callback_data = move_clone_modulation_callback_data.read().unwrap();
-                                    // TODO convert the channel_encoding into a GFSK waveform, and set it in the locked_callback_data
+                                    let mut locked_callback_data = move_clone_modulation_callback_data.write().unwrap();
+                                    let need_ramp_up = locked_callback_data.silent.load(Ordering::SeqCst);
+                                    let need_ramp_down = channel_encoding.is_end;
+                                    // Convert the channel_encoding into a GFSK waveform, and set it in the locked_callback_data
                                     // for the callback to emit.
+                                    locked_callback_data.samples_written = gfsk_modulate(locked_callback_data.audio_frequency,
+                                                                                         locked_callback_data.sample_rate as AudioFrequencyHz,
+                                                                                         &channel_encoding.block,
+                                                                                         locked_callback_data.samples.as_mut_slice(),
+                                                                                         need_ramp_up, need_ramp_down);
+
                                     // TODO CAT transmit enable - or pass the CAT into the thread so it
                                     // disables after it has modulated the channel_encoding.end ?
                                     // TODO How does this thread know that the modulation has ended?
@@ -122,7 +154,6 @@ impl Transmitter {
                 debug!("Transmitter channel-encoding listener thread stopped");
             })),
             callback_data: arc_lock_modulation_callback_data,
-            silent,
             stream: None,
         }
     }
@@ -135,7 +166,7 @@ impl Transmitter {
         self.sample_rate = sample_rate;
         self.dt = 1.0_f32 / (sample_rate as f32);
         debug!("sample rate is {}",sample_rate);
-        // self.set_delta_phase(0);
+        // Allocate the sample vector in the callback data.
 
         let move_clone_callback_data = self.callback_data.clone();
         let callback = move |pa::OutputStreamCallbackArgs::<f32> { buffer, frames, .. }| {
@@ -144,45 +175,27 @@ impl Transmitter {
             // One frame is a pair of left/right channel samples.
             // 48000/64=750 so in one second there are 48000 samples (frames), and 750 calls to this callback.
             // 1000/750=1.33333 so each buffer has a duration of 1.33333ms.
-            // The fastest dit we want to encode (at 60WPM) is 20ms long.
+            //
+            // An entire modulated frame has 64 symbols + 2 spare + (but there's no Costas Array yet)
+            // plus possible ramp up/down ..... duration.
 
             let mut idx = 0;
-
+            let mut locked_callback_data = move_clone_callback_data.write().unwrap();
+            // When we start a callback and there's no data, set the silence flag true.
+            if locked_callback_data.sample_index == locked_callback_data.samples_written || locked_callback_data.samples_written == 0 {
+                locked_callback_data.silent.store(true, Ordering::SeqCst);
+            }
+            let mut is_playing = false;
             for _ in 0..frames {
-                // The processing of amplitude/phase/ramping needs to be done every frame.
-                let locked_callback_data = move_clone_callback_data.read().unwrap();
-/*                // TODO: Use a cosine ramping rather than this linear one?
-                match locked_callback_data.ramping {
-                    AmplitudeRamping::RampingUp => {
-                        if locked_callback_data.amplitude <= 0.0 {
-                            locked_callback_data.amplitude = 0.0;
-                            locked_callback_data.phase = 0.0;
-                        }
-                        if locked_callback_data.amplitude < 0.95 {
-                            locked_callback_data.amplitude += AMPLITUDE_DELTA;
-                        } else {
-                            locked_callback_data.amplitude = 0.95;
-                            locked_callback_data.ramping = AmplitudeRamping::Stable;
-                        }
-                    }
-                    AmplitudeRamping::RampingDown => {
-                        locked_callback_data.amplitude -= AMPLITUDE_DELTA;
-                        if locked_callback_data.amplitude <= 0.0 {
-                            locked_callback_data.amplitude = 0.0;
-                            locked_callback_data.ramping = AmplitudeRamping::Stable;
-                            locked_callback_data.phase = 0.0;
-                        }
-                    }
-                    AmplitudeRamping::Stable => {
-                        // noop
-                    }
-                }
 
-                locked_callback_data.phase += locked_callback_data.delta_phase;
-                let sine_val = f32::sin(locked_callback_data.phase) * locked_callback_data.amplitude;
-*/
-                let sine_val = 0.0_f32 * locked_callback_data.amplitude_max;
-                drop(locked_callback_data);
+                let sine_val = if locked_callback_data.sample_index < locked_callback_data.samples_written {
+                    is_playing = true;
+                    let this_sample = locked_callback_data.samples[locked_callback_data.sample_index];
+                    locked_callback_data.sample_index += 1;
+                    this_sample * locked_callback_data.amplitude_max
+                } else {
+                    0.0
+                };
 
                 // TODO MONO - if opening the stream with a single channel causes the same values to
                 // be written to both left and right outputs, this could be optimised..
@@ -191,6 +204,10 @@ impl Transmitter {
 
                 idx += 2;
             }
+            if is_playing {
+                locked_callback_data.silent.store(false, Ordering::SeqCst);
+            }
+            drop(locked_callback_data);
             // idx is 128...
             pa::Continue
         };
@@ -241,6 +258,13 @@ impl Transmitter {
             let mut locked_callback_data = self.callback_data.write().unwrap();
             locked_callback_data.audio_frequency = audio_frequency;
             locked_callback_data.delta_phase = 2.0_f32 * PI * (locked_callback_data.audio_frequency as f32) / (self.sample_rate as f32);
+            locked_callback_data.sample_rate = self.sample_rate;
+            // Calculate the maximum sample buffer size:
+            let n_sym = maximum_number_of_symbols();
+            let n_spsym = (0.5 + self.sample_rate as f32 * SYMBOL_PERIOD_SECONDS) as usize; // Samples per symbol
+            let new_sample_buffer_size = n_sym * n_spsym; // Number of output samples
+            locked_callback_data.samples = Vec::with_capacity(new_sample_buffer_size);
+
             debug!("Setting transmitter frequency to {}, sample_rate {}", locked_callback_data.audio_frequency, self.sample_rate);
         }
     }
@@ -256,7 +280,8 @@ impl Transmitter {
     }
 
     pub fn is_silent(&self) -> bool {
-        self.silent.load(Ordering::SeqCst)
+        let locked_callback_data = self.callback_data.read().unwrap();
+        locked_callback_data.silent.load(Ordering::SeqCst)
     }
 }
 

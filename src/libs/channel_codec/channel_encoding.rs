@@ -1,21 +1,17 @@
 use std::fmt::{Display, Formatter};
 use std::fmt;
 
-pub type ChannelSymbolTone = u8;
+pub type ChannelSymbol = u8;
 
-#[derive(Debug, PartialEq, Clone)]
-pub enum ChannelSymbol {
-    RampUp,
-    Tone { value: ChannelSymbolTone },
-    RampDown,
-}
+pub const CHANNEL_ENCODER_BLOCK_SIZE: usize = 64;
 
 #[derive(Clone, PartialEq, Debug)]
 pub struct ChannelEncoding {
     // Bytes of a block - containing the source encoded data, 2 spare bits, 14 bit CRC, and LDPC.
     // Maybe interleaved to ensure burst errors don't impact more critical areas of the data?
     // Gray encoded, and mapped to 4-bit symbols.
-    // Prefixed with ramp up, Costas Array symbols, and suffixed with ramp down symbol.
+    // Prefixed with Costas Array symbols. The modulation code will add ramp up/down as necessary:
+    // these will be ramped versions of the first and last symbols.
     pub block: Vec<ChannelSymbol>,
     // Is this encoding block the last in the sequence?
     pub is_end: bool,

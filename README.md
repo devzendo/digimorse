@@ -17,7 +17,7 @@ This project is an attempt to modernise that.
 ## Project Status
 Project started September 2020. Currently in its early development / feasibility study phase. 
 
-Currently in December 2022, I'm working on last part of the transmit chain of major system components, specifically the
+Currently in February 2023, I'm working on last part of the transmit chain of major system components, specifically the
 modulation of channel symbols using Gaussian Frequency Shift Keying. The transmit chain from the Arduino-based Morse
 key interface, keyer protocol decoder, sidetone generator, source encoder and channel encoder (using a CRC and
 low-density parity-check (LDPC) code) are all done. 
@@ -282,6 +282,9 @@ Used in initial experiments encoding and decoding in the digimorse channel codec
 Kārlis Goba YL3JG's ft8_lib at https://github.com/kgoba/ft8_lib.
 In particular, the Gaussian Frequency Shift Keying code at https://github.com/kgoba/ft8_lib/blob/master/gen_ft8.c which
 is adapted to the slightly wider bandwidth modulation used by digimorse in the transmitter.
+
+Minoru Tomobe's RustFT8 at https://github.com/w-ockham/RustFT8 for a conversion of the above GFSK code to Rust, which
+helped with the transmitter, and also for the graph plotting code used to visualise and tune the GFSK code.
 
 # Bibliography
 TBC

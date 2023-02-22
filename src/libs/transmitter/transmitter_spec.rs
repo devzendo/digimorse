@@ -16,7 +16,7 @@ mod transmitter_spec {
     use crate::libs::application::application::BusInput;
     use crate::libs::channel_codec::channel_encoding::ChannelEncoding;
     use crate::libs::channel_codec::sample_channel_encoding::sample_channel_encoding;
-    use crate::libs::transmitter::transmitter::{AudioFrequencyHz, Transmitter};
+    use crate::libs::transmitter::transmitter::{AudioFrequencyHz, maximum_number_of_symbols, Transmitter};
 
     #[ctor::ctor]
     fn before_each() {
@@ -32,6 +32,12 @@ mod transmitter_spec {
         channel_encoding_tx: Arc<Mutex<Bus<ChannelEncoding>>>,
         transmitter: Transmitter,
         pa: Arc<PortAudio>,
+    }
+
+    #[test]
+    fn test_maximum_number_of_symbols() {
+        // If the size of the source encoder's output changes, this will need to be recalculated.
+        assert_eq!(maximum_number_of_symbols(), 73);
     }
 
     #[fixture]

@@ -70,9 +70,6 @@ pub fn source_encoding_to_channel_encoding(source_encoding: SourceEncoding) -> C
     // Now convert the code_word into a Vec<ChannelSymbol>
     let mut channel_symbols: Vec<ChannelSymbol> = Vec::new();
 
-    //channel_symbols.push(ChannelSymbol::RampUp);
-    // let the transmitter decide whether to ramp up / down.
-
     // TODO interleave nybbles of the codeword? Does fading more adversely affect different parts of
     // the code word - e.g. if the LDPC data is damaged, does that make recovery harder than if
     // the source data is damaged?
@@ -81,15 +78,13 @@ pub fn source_encoding_to_channel_encoding(source_encoding: SourceEncoding) -> C
 
     // Convert each nybble of the codeword into its Gray code.
     for byte in code_word {
-        channel_symbols.push(ChannelSymbol::Tone { value: to_gray_code(byte >> 4) } );
-        channel_symbols.push(ChannelSymbol::Tone { value: to_gray_code(byte & 0x0f) } )
+        channel_symbols.push(to_gray_code(byte >> 4) as ChannelSymbol );
+        channel_symbols.push(to_gray_code(byte & 0x0f) as ChannelSymbol )
     }
 
-    //channel_symbols.push(ChannelSymbol::RampDown);
-    // let the transmitter decide whether to ramp up / down.
-
+    let channel_symbols_len = channel_symbols.len();
     let out = ChannelEncoding { block: channel_symbols, is_end: source_encoding.is_end };
-    debug!("Channel encoding done in {}ms", encode_duration.elapsed_time());
+    debug!("Channel encoding done in {}ms; {} symbols", encode_duration.elapsed_time(), channel_symbols_len);
     return out;
 }
 
