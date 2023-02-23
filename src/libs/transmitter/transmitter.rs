@@ -18,7 +18,7 @@ pub type RadioFrequencyMHz = u32;
 pub type AudioFrequencyHz = u16;
 pub type AmplitudeMax = f32; // 0.0 to 1.0 to scale the output power
 
-pub const COSTAS_ARRAY_SYMBOLS: usize = 7;
+pub const COSTAS_ARRAY_SYMBOLS: usize = 7; // TODO: no Costas array yet
 
 /*
  * The Transmitter receives ChannelEncodings (block of symbols and end flag) on its input bus.
@@ -27,6 +27,7 @@ pub const COSTAS_ARRAY_SYMBOLS: usize = 7;
  * waveform, in a pool-allocated buffer of samples, and passed to the audio output callback that
  * PortAudio will be calling. When that callback has finished with the sample buffer it is released
  * to the pool.
+ * TODO: pool allocation - there's just one buffer for now
  */
 pub struct Transmitter {
     _radio_frequency_mhz: RadioFrequencyMHz, // TODO CAT controller will need this?
@@ -124,6 +125,7 @@ impl Transmitter {
                                     let mut locked_callback_data = move_clone_modulation_callback_data.write().unwrap();
                                     let need_ramp_up = locked_callback_data.silent.load(Ordering::SeqCst);
                                     let need_ramp_down = channel_encoding.is_end;
+                                    debug!("Ramp up {} down {}", need_ramp_up, need_ramp_up);
                                     // Convert the channel_encoding into a GFSK waveform, and set it in the locked_callback_data
                                     // for the callback to emit.
                                     locked_callback_data.samples_written = gfsk_modulate(locked_callback_data.audio_frequency,
@@ -131,7 +133,7 @@ impl Transmitter {
                                                                                          &channel_encoding.block,
                                                                                          locked_callback_data.samples.as_mut_slice(),
                                                                                          need_ramp_up, need_ramp_down);
-
+                                    debug!("Modulating {} samples", locked_callback_data.samples_written);
                                     // TODO CAT transmit enable - or pass the CAT into the thread so it
                                     // disables after it has modulated the channel_encoding.end ?
                                     // TODO How does this thread know that the modulation has ended?

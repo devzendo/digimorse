@@ -47,7 +47,7 @@ mod transmitter_spec {
         let channel_encoding_rx = channel_encoding_tx.add_rx();
         let fixture_channel_encoding_tx = Arc::new(Mutex::new(channel_encoding_tx));
 
-        let old_macbook = true;
+        let old_macbook = false; // TODO: determine the device at runtime
         let dev = if old_macbook {"Built-in Output"} else {"MacBook Pro Speakers"};
         let audio_frequency = 600 as AudioFrequencyHz;
         info!("Instantiating transmitter...");
@@ -56,7 +56,7 @@ mod transmitter_spec {
                                                  terminate.clone());
         transmitter.set_input_rx(transmitter_channel_encoding_rx);
 
-        info!("Setting audio freqency...");
+        info!("Setting audio frequency...");
         transmitter.set_audio_frequency(audio_frequency);
 
         let mut fixture = TransmitterFixture {
@@ -104,13 +104,16 @@ mod transmitter_spec {
         let channel_encoding = sample_channel_encoding();
         debug!("Test sending channel encoding");
         fixture.channel_encoding_tx.lock().unwrap().broadcast(channel_encoding);
-        debug!("Waiting for transmitter to send");
-        test_util::wait_5_ms();
-        assert_that!(fixture.transmitter.is_silent(), equal_to(true));
-        debug!("Waiting for transmitter to finish sending");
+        debug!("Waiting for transmitter to not be silent");
+        while fixture.transmitter.is_silent() {
+            test_util::wait_5_ms();
+            debug!("waiting...");
+        }
+        debug!("Transmitter is not silent; waiting for transmitter to finish sending");
         while !fixture.transmitter.is_silent() {
             test_util::wait_5_ms();
+            debug!("waiting...");
         }
-        debug!("Done!");
+        debug!("Transmitter is silent; done!");
     }
 }
