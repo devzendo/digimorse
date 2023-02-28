@@ -56,9 +56,6 @@ mod transmitter_spec {
                                                  terminate.clone());
         transmitter.set_input_rx(transmitter_channel_encoding_rx);
 
-        info!("Setting audio frequency...");
-        transmitter.set_audio_frequency(audio_frequency);
-
         let mut fixture = TransmitterFixture {
             terminate,
             channel_encoding_tx: fixture_channel_encoding_tx,
@@ -68,6 +65,8 @@ mod transmitter_spec {
         let output_settings = open_output_audio_device(&fixture.pa, dev).unwrap();
         info!("Initialising audio callback...");
         fixture.transmitter.start_callback(&fixture.pa, output_settings).unwrap();
+        info!("Setting audio frequency...");
+        fixture.transmitter.set_audio_frequency_allocate_buffer(audio_frequency);
 
         info!("Fixture setup sleeping");
         test_util::wait_n_ms(100); // give things time to start
@@ -111,7 +110,7 @@ mod transmitter_spec {
         }
         debug!("Transmitter is not silent; waiting for transmitter to finish sending");
         while !fixture.transmitter.is_silent() {
-            test_util::wait_5_ms();
+            test_util::wait_n_ms(250);
             debug!("waiting...");
         }
         debug!("Transmitter is silent; done!");

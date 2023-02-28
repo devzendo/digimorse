@@ -128,6 +128,7 @@ impl Transmitter {
                                     debug!("Ramp up {} down {}", need_ramp_up, need_ramp_up);
                                     // Convert the channel_encoding into a GFSK waveform, and set it in the locked_callback_data
                                     // for the callback to emit.
+                                    debug!("waveform store has {} space", locked_callback_data.samples.capacity());
                                     locked_callback_data.samples_written = gfsk_modulate(locked_callback_data.audio_frequency,
                                                                                          locked_callback_data.sample_rate as AudioFrequencyHz,
                                                                                          &channel_encoding.block,
@@ -167,7 +168,7 @@ impl Transmitter {
         let sample_rate = output_settings.sample_rate as u32;
         self.sample_rate = sample_rate;
         self.dt = 1.0_f32 / (sample_rate as f32);
-        debug!("sample rate is {}",sample_rate);
+        debug!("in start_callback, sample rate is {}", sample_rate);
         // Allocate the sample vector in the callback data.
 
         let move_clone_callback_data = self.callback_data.clone();
@@ -250,7 +251,7 @@ impl Transmitter {
         ret
     }
 
-    pub fn set_audio_frequency(&mut self, audio_frequency: AudioFrequencyHz) -> () {
+    pub fn set_audio_frequency_allocate_buffer(&mut self, audio_frequency: AudioFrequencyHz) -> () {
         if self.sample_rate == 0 {
             debug!("Sample rate not yet set; will set frequency when this is known");
             return;
@@ -263,11 +264,12 @@ impl Transmitter {
             locked_callback_data.sample_rate = self.sample_rate;
             // Calculate the maximum sample buffer size:
             let n_sym = maximum_number_of_symbols();
-            let n_spsym = (0.5 + self.sample_rate as f32 * SYMBOL_PERIOD_SECONDS) as usize; // Samples per symbol
+            let n_spsym = (0.5 + self.sample_rate as f32 * SYMBOL_PERIOD_SECONDS) as usize; // Samples per symbol - WHY 0.5+ ?
             let new_sample_buffer_size = n_sym * n_spsym; // Number of output samples
             locked_callback_data.samples = Vec::with_capacity(new_sample_buffer_size);
+            locked_callback_data.samples.resize(new_sample_buffer_size, 0_f32);
 
-            debug!("Setting transmitter frequency to {}, sample_rate {}", locked_callback_data.audio_frequency, self.sample_rate);
+            debug!("Setting transmitter frequency to {}, sample_rate {}, buffer size {}", locked_callback_data.audio_frequency, self.sample_rate, new_sample_buffer_size);
         }
     }
 
