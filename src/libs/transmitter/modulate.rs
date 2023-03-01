@@ -19,7 +19,7 @@ const GFSK_CONST_K: f32 = 5.336446f32; // PI * sqrt(2 / log(2))
 // n_spsym: number of samples per symbol
 // pulse: output pulse samples array
 pub fn gfsk_pulse(n_spsym: usize, pulse: &mut [f32]) {
-    for (i, p) in pulse.iter_mut().enumerate().take(3 * n_spsym) {
+    for (i, p) in pulse.iter_mut().enumerate().take(SYMBOL_WIDTH_IN_SPSYM * n_spsym) {
         let t = i as f32 / n_spsym as f32 - 1.5;
         let arg1 = GFSK_CONST_K * SYMBOL_SMOOTHING_FILTER_BANDWIDTH * (t + 0.5);
         let arg2 = GFSK_CONST_K * SYMBOL_SMOOTHING_FILTER_BANDWIDTH * (t - 0.5);
@@ -27,6 +27,9 @@ pub fn gfsk_pulse(n_spsym: usize, pulse: &mut [f32]) {
     }
 }
 
+
+const SYMBOL_WIDTH_IN_SPSYM: usize = 3;
+const RAMP_SYMBOL_WIDTH_IN_SPSYM: usize = 2;  // WHY 2 * n_spsym (when the above channel symbol modulation uses 3 * n_spsym)?
 
 /// Synthesize a waveform of tones, based on the channel_symbols, at the sample_rate, with a base
 /// audio frequency given by the audio_offset. Shape the tones using Gaussian Frequency Shift Keying
@@ -60,9 +63,9 @@ pub fn gfsk_modulate(audio_offset: AudioFrequencyHz, sample_rate: AudioFrequency
     let n_sym = channel_symbols.len() + (if need_ramp_up { 1 } else { 0 }) + (if need_ramp_down { 1 } else { 0 });
     let n_wave = n_sym * n_spsym; // Number of output samples
     debug!("sample_rate {} # channel_symbols {} n_spsym {} n_sym {} n_wave {}", sample_rate, channel_symbols.len(), n_spsym, n_sym, n_wave);
-    // if waveform_store.len() < n_wave {
-    //     panic!("Cannot store gfsk_modulate waveform in {} f32s, expecting {}", waveform_store.len(), n_wave);
-    // }
+    if waveform_store.len() < n_wave {
+        panic!("Cannot store gfsk_modulate waveform in {} f32s, expecting {}", waveform_store.len(), n_wave);
+    }
     let hmod = 1.0f32; // TODO need to take this limiting of amplitude from the transmitter.
 
     // Compute the smoothed frequency waveform.
@@ -71,12 +74,14 @@ pub fn gfsk_modulate(audio_offset: AudioFrequencyHz, sample_rate: AudioFrequency
     let mut dphi = Vec::new();
 
     // Shift frequency up by audio_offset Hz
+    let audio_offset_dphi = 2.0 * PI * audio_offset as f32 / sample_rate as f32;
     for _ in 0..(n_wave + 2 * n_spsym) {
-        dphi.push(2.0 * PI * audio_offset as f32 / sample_rate as f32);
+        dphi.push(audio_offset_dphi);
     }
 
-    let mut pulse = vec![0.0; 3 * n_spsym];
+    let mut pulse = vec![0.0; SYMBOL_WIDTH_IN_SPSYM * n_spsym];
 
+    debug!("Creating GFSK pulse");
     gfsk_pulse(n_spsym, &mut pulse);
 
     plot_graph(
@@ -95,18 +100,19 @@ pub fn gfsk_modulate(audio_offset: AudioFrequencyHz, sample_rate: AudioFrequency
     if need_ramp_up {
         let first_channel_symbol = channel_symbols[0];
         debug!("Adding ramp up symbol of {}", first_channel_symbol);
-        for j in 0..(2 * n_spsym) { // WHY 2 * n_spsym (when the above channel symbol modulation uses 3 * n_spsym)?
+        for j in 0..(RAMP_SYMBOL_WIDTH_IN_SPSYM * n_spsym) {
             dphi[j] += dphi_peak * pulse[j + n_spsym] * first_channel_symbol as f32;
         }
         symbol_index += 1;
     }
 
     // Modulate the channel symbols...
+    debug!("modulating channel symbols");
     for sym in channel_symbols.as_slice().iter() {
         let ib = symbol_index * n_spsym;
-        debug!("channel symbol #{} at offset {}={}", symbol_index, ib, sym);
+        //debug!("channel symbol #{} at offset {}={}", symbol_index, ib, sym);
 
-        for j in 0..3 * n_spsym { // WHY 3 * n_spsym? (same length as the gfsk pulse)
+        for j in 0..SYMBOL_WIDTH_IN_SPSYM * n_spsym { // WHY 3 * n_spsym? (same length as the gfsk pulse)
             dphi[j + ib] += dphi_peak * (*sym as f32) * pulse[j];
             //debug!("  #{}={}", j+ib, dphi[j+ib]);
         }
@@ -118,15 +124,16 @@ pub fn gfsk_modulate(audio_offset: AudioFrequencyHz, sample_rate: AudioFrequency
         let ib = symbol_index * n_spsym;
         let last_channel_symbol = channel_symbols[channel_symbols.len() - 1];
         debug!("Adding ramp down symbol of {}", last_channel_symbol);
-        for j in 0..(2 * n_spsym) { // WHY 2 * n_spsym (when the above channel symbol modulation uses 3 * n_spsym)?
+        for j in 0..(RAMP_SYMBOL_WIDTH_IN_SPSYM * n_spsym) {
             dphi[j + ib] += dphi_peak * pulse[j] * last_channel_symbol as f32;
         }
     }
 
     debug!("plotting tones.png");
 
-    plot_graph("./tones.png", "GFSK Tones", &dphi, 0, 16000, 0.625, 0.65);
+    plot_graph("./tones.png", "GFSK Tones", &dphi, 0, dphi.len(), 0.07, 0.1);
 
+    debug!("calculating waveform");
     // Calculate and insert the audio waveform
     let mut phi = 0.0f32;
     for k in 0..n_wave {
@@ -149,7 +156,10 @@ pub fn gfsk_modulate(audio_offset: AudioFrequencyHz, sample_rate: AudioFrequency
             }
         }
     }
+    plot_graph("./ramp-up.png", "Modulated waveform", &waveform_store, 0, n_spsym * 3, -1.1, 1.1);
+    plot_graph("./ramp-down.png", "Modulated waveform", &waveform_store, n_wave - (n_spsym * 3), n_wave, -1.1, 1.1);
 
+    debug!("Finished modulation");
     n_wave
 }
 

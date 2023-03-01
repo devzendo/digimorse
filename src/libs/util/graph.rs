@@ -12,7 +12,7 @@ pub fn plot_graph(
     y_min: f32,
     y_max: f32,
 ) {
-    let root = BitMapBackend::new(path, (1024, 1000)).into_drawing_area();
+    let root = BitMapBackend::new(path, (2048, 1000)).into_drawing_area();
 
     root.fill(&WHITE).unwrap();
 

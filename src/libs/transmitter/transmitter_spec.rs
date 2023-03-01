@@ -99,19 +99,98 @@ mod transmitter_spec {
     #[rstest]
     #[serial]
     #[ignore]
-    pub fn play_gfsk_encoded_channel_encoding(fixture: TransmitterFixture) {
+    pub fn play_sample_gfsk_encoded_channel_encoding(fixture: TransmitterFixture) {
         let channel_encoding = sample_channel_encoding();
+        play_encoding(fixture,  channel_encoding);
+    }
+
+    pub fn rising_channel_encoding() -> ChannelEncoding {
+        ChannelEncoding { block: vec![
+            1,
+            0,
+            0,
+            0,
+            1,
+            1,
+            1,
+            1,
+            2,
+            2,
+            2,
+            2,
+            3,
+            3,
+            3,
+            3,
+            4,
+            4,
+            4,
+            4,
+            5,
+            5,
+            5,
+            5,
+            6,
+            6,
+            6,
+            6,
+            7,
+            7,
+            7,
+            7,
+            8,
+            8,
+            8,
+            8,
+            9,
+            9,
+            9,
+            9,
+            10,
+            10,
+            10,
+            10,
+            11,
+            11,
+            11,
+            11,
+            12,
+            12,
+            12,
+            12,
+            13,
+            13,
+            13,
+            13,
+            14,
+            14,
+            14,
+            14,
+            15,
+            15,
+            15,
+            15,
+        ], is_end: true }
+    }
+
+    #[rstest]
+    #[serial]
+    #[ignore]
+    pub fn play_rising_gfsk_encoded_channel_encoding(fixture: TransmitterFixture) {
+        let channel_encoding = rising_channel_encoding();
+        play_encoding(fixture,  channel_encoding);
+    }
+
+    fn play_encoding(fixture: TransmitterFixture, channel_encoding: ChannelEncoding) {
         debug!("Test sending channel encoding");
         fixture.channel_encoding_tx.lock().unwrap().broadcast(channel_encoding);
         debug!("Waiting for transmitter to not be silent");
         while fixture.transmitter.is_silent() {
-            test_util::wait_5_ms();
-            debug!("waiting...");
+            test_util::wait_n_ms(250);
         }
         debug!("Transmitter is not silent; waiting for transmitter to finish sending");
         while !fixture.transmitter.is_silent() {
             test_util::wait_n_ms(250);
-            debug!("waiting...");
         }
         debug!("Transmitter is silent; done!");
     }
