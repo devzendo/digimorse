@@ -3,8 +3,8 @@
  * different, as is the LDPC matrix dimensions. The CRC is identical to FT8, as its number of bits
  * is not critical to error control; the LDPC performance dominates. See discussions on the WSJT-X
  * mailing list.
- * The Channel Encoder receives SourceEncodings on its input bus, applies the CRC, then the LDPC
- * then the resulting data is split into 4-bit fields (each can hold a number from 0-15 hence the
+ * The Channel Encoder receives SourceEncodings on its input bus, applies the CRC, then the LDPC.
+ * Then the resulting data is split into 4-bit fields (each can hold a number from 0-15 hence the
  * 16 tones used), these are then mapped to a set of 4-bit Gray codes. A ramping-up symbol is
  * emitted followed by a 7x7 Costas Array, then the encoded 4-bit symbols, followed by a final
  * ramping-down symbol.

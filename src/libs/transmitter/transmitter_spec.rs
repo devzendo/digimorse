@@ -77,6 +77,8 @@ mod transmitter_spec {
 
     impl Drop for TransmitterFixture {
         fn drop(&mut self) {
+            debug!("TransmitterFixture about to set terminate flag...");
+            test_util::wait_n_ms(1000); // to detect any clunk when closing streams?
             debug!("TransmitterFixture setting terminate flag...");
             self.terminate.store(true, Ordering::SeqCst);
             test_util::wait_5_ms();
@@ -106,7 +108,7 @@ mod transmitter_spec {
 
     pub fn rising_channel_encoding() -> ChannelEncoding {
         ChannelEncoding { block: vec![
-            1,
+            0,
             0,
             0,
             0,

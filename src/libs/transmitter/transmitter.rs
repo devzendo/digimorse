@@ -12,7 +12,7 @@ use portaudio as pa;
 use crate::libs::application::application::BusInput;
 use crate::libs::channel_codec::channel_encoding::ChannelEncoding;
 use crate::libs::source_codec::source_encoding::SOURCE_ENCODER_BLOCK_SIZE_IN_BITS;
-use crate::libs::transmitter::modulate::{gfsk_modulate, SYMBOL_PERIOD_SECONDS};
+use crate::libs::transmitter::modulate::{gfsk_modulate, RAMP_SYMBOL_PERIOD_SECONDS, SYMBOL_PERIOD_SECONDS};
 
 pub type RadioFrequencyMHz = u32;
 pub type AudioFrequencyHz = u16;
@@ -62,11 +62,12 @@ pub fn maximum_number_of_symbols() -> usize {
     // A source encoded block is SOURCE_ENCODER_BLOCK_SIZE_IN_BITS bits + 2 spare bits + 14-bit CRC = 112 + 2 + 14 = 128
     // This is then LDPC-encoded to yield 256 bits of codeword. Each byte of that (32 bytes)
     // yield 2 symbols. The maximum number of symbols transmitted is therefore:
-    // With ramp up/down, Costas array and a frame of 64 symbols.
+    // Costas array and a frame of 64 symbols.
     // TODO Costas Array might not be 7 symbols ..
     let channel_encoded_bits = (SOURCE_ENCODER_BLOCK_SIZE_IN_BITS + 2 + 14) * 2;
     let channel_encoded_symbols = (channel_encoded_bits / 8) * 2;
-    2 + COSTAS_ARRAY_SYMBOLS + channel_encoded_symbols
+    // Note: ramp up/down are shorter than a full symbol and aren't counted here.
+    COSTAS_ARRAY_SYMBOLS + channel_encoded_symbols
 }
 
 impl Transmitter {
@@ -264,8 +265,10 @@ impl Transmitter {
             locked_callback_data.sample_rate = self.sample_rate;
             // Calculate the maximum sample buffer size:
             let n_sym = maximum_number_of_symbols();
-            let n_spsym = (0.5 + self.sample_rate as f32 * SYMBOL_PERIOD_SECONDS) as usize; // Samples per symbol - WHY 0.5+ ?
-            let new_sample_buffer_size = n_sym * n_spsym; // Number of output samples
+            debug!("maximum_number_of_symbols {}", n_sym);
+            let n_spsym = (self.sample_rate as f32 * SYMBOL_PERIOD_SECONDS) as usize;
+            let n_rspsym = (self.sample_rate as f32 * RAMP_SYMBOL_PERIOD_SECONDS) as usize;
+            let new_sample_buffer_size = (n_sym * n_spsym) + (2 * n_rspsym); // Number of output samples, with max 2 ramping symbols
             locked_callback_data.samples = Vec::with_capacity(new_sample_buffer_size);
             locked_callback_data.samples.resize(new_sample_buffer_size, 0_f32);
 
