@@ -2,7 +2,7 @@
 name = "digimorse"
 version = "0.0.1"
 authors = ["Matt Gumbley <matt.gumbley@gmail.com>"]
-rust-version = "1.63"
+rust-version = "1.64"
 edition = "2018"
 # TODO SOON upgrade to 2021 - this causes test breakage in arduino_keyer_io_spec but this must be corrected
 
@@ -55,7 +55,7 @@ name = "digimorse"
 path = "src/digimorse/bin/main.rs"
 
 [lib]
-name = "digimorse" # this'll be libdigimorse.{d,dylib,rlib}
+name = "digimorselib" # this'll be libdigimorselib.{d,dylib,rlib}
 path = "src/lib.rs"
 crate-type = ["rlib", "dylib"]
 doc = false

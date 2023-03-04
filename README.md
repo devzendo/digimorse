@@ -189,7 +189,7 @@ src/digimorse.bin/main.rs - the main application.
 docs - documentation, rough notes, references.
 
 ## Building
-You need Rust 1.63.0 or greater.
+You need Rust 1.64.0 or greater.
 
 * cargo test
 * cargo build --release
@@ -222,7 +222,27 @@ lrwxr-xr-x  1 root  wheel   10 Mar  7 10:03 MacOSX12.1.sdk -> MacOSX.sdk
 You also need portaudio (which needs pkg-config). Install from macports. There are brew variants, but I don't know brew.
 
 ### Building on Windows
-.. not yet ..
+This requires PortAudio, which I've built using CMake, and Visual Studio 2017 command line tools. I used the 
+`pa_stable_v190700_20210406.tgz` file from http://files.portaudio.com/download.html and the build instructions
+from http://www.portaudio.com/docs/v19-doxydocs/compile_cmake.html .
+So from a 'Developer Command Prompt for VS 2017', which also contains CMake 3.10.3 on the PATH:
+```
+(the .tgz file has been extracted into the 'portaudio' directory, which I am above)
+C:\Users\Matt Gumbley\Downloads> mkdir portaudio-cmake
+C:\Users\Matt Gumbley\Downloads> cd portaudio-cmake
+C:\Users\Matt Gumbley\Downloads\portaudio-cmake> cmake ..\portaudio -G "NMake Makefiles"
+ ... the system is investigated ...
+-- Generating done
+-- Build files have been written to: C:/Users/Matt Gumbley/Downloads/portaudio-cmake
+C:\Users\Matt Gumbley\Downloads\portaudio-cmake> cmake --build . --config Release
+Scanning dependencies of target portaudio
+[  2%] Building C object CMakeFiles/portaudio.dir/src/common/pa_allocation.c.obj
+pa_allocation.c
+ ... building happens ...
+[100%] Linking C static library portaudio_static_x86.lib
+[100%] Built target portaudio_static
+```
+The resulting `portaudio_*x86.*` files are committed to this repository under `lib\windows`.
 
 ### Building on Linux
 e.g. on Ubuntu (I'm using Ubuntu 22.04 Budgie)
