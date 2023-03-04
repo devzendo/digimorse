@@ -59,10 +59,13 @@ pub fn gfsk_modulate(audio_offset: AudioFrequencyHz, sample_rate: AudioFrequency
         panic!("No sample rate defined for gfsk_modulate");
     }
     // Sample rate is 48000Hz.
-    let samples_per_symbol = (sample_rate as f32 * SYMBOL_PERIOD_SECONDS) as usize; // Samples per symbol
-    let n_sym = channel_symbols.len() + (if need_ramp_up { 1 } else { 0 }) + (if need_ramp_down { 1 } else { 0 });
-    let total_number_of_samples = n_sym * samples_per_symbol;
-    debug!("sample_rate {} # channel_symbols {} samples_per_symbol {} n_sym {} n_wave {}", sample_rate, channel_symbols.len(), samples_per_symbol, n_sym, total_number_of_samples);
+    let samples_per_symbol = (sample_rate as f32 * SYMBOL_PERIOD_SECONDS) as usize;
+    let ramp_samples_per_symbol = (sample_rate as f32 * RAMP_SYMBOL_PERIOD_SECONDS) as usize;
+    let total_number_of_samples = channel_symbols.len() * samples_per_symbol +
+        (if need_ramp_up { ramp_samples_per_symbol } else { 0 }) +
+        (if need_ramp_down { ramp_samples_per_symbol } else { 0 });
+    debug!("sample_rate {} # channel_symbols {} samples_per_symbol {} ramp_symbols_per_symbol {} total_number_of_samples {}",
+        sample_rate, channel_symbols.len(), samples_per_symbol, ramp_samples_per_symbol, total_number_of_samples);
     if waveform_store.len() < total_number_of_samples {
         panic!("Cannot store gfsk_modulate waveform in {} f32s, expecting {}", waveform_store.len(), total_number_of_samples);
     }
@@ -94,26 +97,27 @@ pub fn gfsk_modulate(audio_offset: AudioFrequencyHz, sample_rate: AudioFrequency
         1.0,
     );
 
-    let mut symbol_index = 0;
+    let mut symbol_offset = 0;
 
     // Add dummy symbol at beginning with tone value equal to 1st symbol if necessary.
     if need_ramp_up {
         let first_channel_symbol = channel_symbols[0] as f32;
         debug!("Adding ramp up symbol of #{}", first_channel_symbol);
-        for j in 0..(RAMP_SYMBOL_WIDTH_IN_SPSYM * samples_per_symbol) {
-            dphi[j] += dphi_peak * pulse[j + samples_per_symbol] * first_channel_symbol;
+        for j in 0..(RAMP_SYMBOL_WIDTH_IN_SPSYM * ramp_samples_per_symbol) {
+            dphi[j] += dphi_peak * pulse[j + ramp_samples_per_symbol] * first_channel_symbol;
         }
-        symbol_index += 1;
+        symbol_offset = ramp_samples_per_symbol;
     }
+    let mut symbol_index = 0;
 
     // Modulate the channel symbols...
     debug!("Modulating channel symbols");
     for sym in channel_symbols.as_slice().iter() {
         let ib = symbol_index * samples_per_symbol;
-        //debug!("channel symbol #{} at offset {}={}", symbol_index, ib, sym);
+        debug!("channel symbol #{} at offset {}", sym, ib);
 
         for j in 0..(SYMBOL_WIDTH_IN_SPSYM * samples_per_symbol) { // WHY 3 * n_spsym? (same length as the gfsk pulse)
-            dphi[j + ib] += dphi_peak * pulse[j] * (*sym as f32);
+            dphi[symbol_offset + j + ib] += dphi_peak * pulse[j] * (*sym as f32);
             //debug!("  #{}={}", j+ib, dphi[j+ib]);
         }
         symbol_index += 1;
@@ -123,9 +127,9 @@ pub fn gfsk_modulate(audio_offset: AudioFrequencyHz, sample_rate: AudioFrequency
     if need_ramp_down {
         let ib = symbol_index * samples_per_symbol;
         let last_channel_symbol = channel_symbols[channel_symbols.len() - 1] as f32;
-        debug!("Adding ramp down symbol of #{}", last_channel_symbol);
-        for j in 0..(RAMP_SYMBOL_WIDTH_IN_SPSYM * samples_per_symbol) {
-            dphi[j + ib] += dphi_peak * pulse[j] * last_channel_symbol
+        debug!("Adding ramp down symbol of #{} at offset {}", last_channel_symbol, ib);
+        for j in 0..(RAMP_SYMBOL_WIDTH_IN_SPSYM * ramp_samples_per_symbol) {
+            dphi[symbol_offset + j + ib] += dphi_peak * pulse[j] * last_channel_symbol
         }
     }
 
