@@ -51,7 +51,8 @@ const RAMP_SYMBOL_WIDTH_IN_SPSYM: usize = 2;  // WHY 2 * n_spsym (when the above
 /// @param[in] need_ramp_up indicates the final waveform in a transmission, and that the last
 /// symbol should be repeated with a ramped-down waveform
 /// @param[out] The return is the number of samples stored in the waveform_store, based on whether
-/// the ramp up/down samples are present.
+/// the ramp up/down samples are present. The waveform has maximum amplitude; this is scaled by
+/// the playback code.
 pub fn gfsk_modulate(audio_offset: AudioFrequencyHz, sample_rate: AudioFrequencyHz,
                      channel_symbols: &Vec<ChannelSymbol>, waveform_store: &mut [f32],
                      need_ramp_up: bool, need_ramp_down: bool) -> usize {
@@ -69,11 +70,10 @@ pub fn gfsk_modulate(audio_offset: AudioFrequencyHz, sample_rate: AudioFrequency
     if waveform_store.len() < total_number_of_samples {
         panic!("Cannot store gfsk_modulate waveform in {} f32s, expecting {}", waveform_store.len(), total_number_of_samples);
     }
-    let peak_amplitude = 1.0f32; // TODO need to take this limiting of amplitude from the transmitter.
 
     // Compute the smoothed frequency waveform.
     // Length = (n_sym+2)*samples_per_symbol samples, first and last symbols extended
-    let dphi_peak = 2.0 * PI * peak_amplitude / samples_per_symbol as f32;
+    let dphi_peak = 2.0 * PI / samples_per_symbol as f32;
     let mut dphi = Vec::new();
 
     // Shift frequency up by audio_offset Hz

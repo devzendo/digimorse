@@ -16,7 +16,7 @@ mod transmitter_spec {
     use crate::libs::application::application::BusInput;
     use crate::libs::channel_codec::channel_encoding::ChannelEncoding;
     use crate::libs::channel_codec::sample_channel_encoding::sample_channel_encoding;
-    use crate::libs::transmitter::transmitter::{AudioFrequencyHz, maximum_number_of_symbols, Transmitter};
+    use crate::libs::transmitter::transmitter::{AmplitudeMax, AudioFrequencyHz, maximum_number_of_symbols, Transmitter};
 
     #[ctor::ctor]
     fn before_each() {
@@ -63,6 +63,8 @@ mod transmitter_spec {
             pa: Arc::new(PortAudio::new().unwrap()),
         };
         let output_settings = open_output_audio_device(&fixture.pa, dev).unwrap();
+        info!("Setting amplitude max");
+        fixture.transmitter.set_amplitude_max(1.0 as AmplitudeMax);
         info!("Initialising audio callback...");
         fixture.transmitter.start_callback(&fixture.pa, output_settings).unwrap();
         info!("Setting audio frequency...");
@@ -196,4 +198,33 @@ mod transmitter_spec {
         }
         debug!("Transmitter is silent; done!");
     }
+
+    #[rstest]
+    #[serial]
+    #[ignore]
+    pub fn play_rising_gfsk_encoded_channel_encoding_varying_volume(mut fixture: TransmitterFixture) {
+        let channel_encoding = rising_channel_encoding();
+        fixture.channel_encoding_tx.lock().unwrap().broadcast(channel_encoding);
+        debug!("Waiting for transmitter to not be silent");
+        while fixture.transmitter.is_silent() {
+            test_util::wait_n_ms(250);
+        }
+        debug!("Transmitter is not silent; varying volume while waiting for transmitter to finish sending");
+        let mut amplitude = 1.0;
+        let mut amplitude_delta = -0.05;
+        while !fixture.transmitter.is_silent() {
+            test_util::wait_n_ms(20);
+            amplitude += amplitude_delta;
+            if amplitude > 1.0 {
+                amplitude = 1.0;
+                amplitude_delta *= -1.0;
+            } else if amplitude < 0.0 {
+                amplitude = 0.0;
+                amplitude_delta *= -1.0;
+            }
+            fixture.transmitter.set_amplitude_max(amplitude);
+        }
+        debug!("Transmitter is silent; done!");
+    }
+
 }

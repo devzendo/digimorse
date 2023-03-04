@@ -281,6 +281,7 @@ impl Transmitter {
             warn!("Can't set maximum amplitude outside [0.0 .. 1.0]");
             return;
         }
+        debug!("Setting transmitter amplitude to {}", amplitude_max);
         let mut locked_callback_data = self.callback_data.write().unwrap();
         self.amplitude_max = amplitude_max;
         locked_callback_data.amplitude_max = amplitude_max;
