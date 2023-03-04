@@ -126,7 +126,7 @@ impl Transmitter {
                                     let mut locked_callback_data = move_clone_modulation_callback_data.write().unwrap();
                                     let need_ramp_up = locked_callback_data.silent.load(Ordering::SeqCst);
                                     let need_ramp_down = channel_encoding.is_end;
-                                    debug!("Ramp up {} down {}", need_ramp_up, need_ramp_up);
+                                    debug!("Ramp up {} down {}", need_ramp_up, need_ramp_down);
                                     // Convert the channel_encoding into a GFSK waveform, and set it in the locked_callback_data
                                     // for the callback to emit.
                                     debug!("waveform store has {} space", locked_callback_data.samples.capacity());

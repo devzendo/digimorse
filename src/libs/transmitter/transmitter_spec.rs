@@ -3,20 +3,22 @@ extern crate hamcrest2;
 // These are all manually run (and asserted correct aurally and with Audio Hijack / spectrum analyser).
 #[cfg(test)]
 mod transmitter_spec {
-    use bus::Bus;
-    use log::{debug, info};
     use std::env;
-    use rstest::*;
     use std::sync::{Arc, Mutex};
     use std::sync::atomic::{AtomicBool, Ordering};
+
+    use bus::Bus;
     use hamcrest2::prelude::*;
-    use crate::libs::audio::audio_devices::open_output_audio_device;
-    use crate::libs::util::test_util;
+    use log::{debug, info};
     use portaudio::PortAudio;
+    use rstest::*;
+
     use crate::libs::application::application::BusInput;
+    use crate::libs::audio::audio_devices::open_output_audio_device;
     use crate::libs::channel_codec::channel_encoding::ChannelEncoding;
     use crate::libs::channel_codec::sample_channel_encoding::sample_channel_encoding;
     use crate::libs::transmitter::transmitter::{AmplitudeMax, AudioFrequencyHz, maximum_number_of_symbols, Transmitter};
+    use crate::libs::util::test_util;
 
     #[ctor::ctor]
     fn before_each() {
@@ -226,5 +228,4 @@ mod transmitter_spec {
         }
         debug!("Transmitter is silent; done!");
     }
-
 }

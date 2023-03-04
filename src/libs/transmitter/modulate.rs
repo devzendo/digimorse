@@ -59,12 +59,19 @@ pub fn gfsk_modulate(audio_offset: AudioFrequencyHz, sample_rate: AudioFrequency
     if sample_rate == 0 {
         panic!("No sample rate defined for gfsk_modulate");
     }
+
     // Sample rate is 48000Hz.
     let samples_per_symbol = (sample_rate as f32 * SYMBOL_PERIOD_SECONDS) as usize;
     let ramp_samples_per_symbol = (sample_rate as f32 * RAMP_SYMBOL_PERIOD_SECONDS) as usize;
+
+    let any_channel_symbols = channel_symbols.len() > 0;
+    // Ramping symbols can only be generated iff there are any channel symbols to base them on.
+    let ramp_up = need_ramp_up && any_channel_symbols;
+    let ramp_down = need_ramp_down && any_channel_symbols;
+
     let total_number_of_samples = channel_symbols.len() * samples_per_symbol +
-        (if need_ramp_up { ramp_samples_per_symbol } else { 0 }) +
-        (if need_ramp_down { ramp_samples_per_symbol } else { 0 });
+        (if ramp_up { ramp_samples_per_symbol } else { 0 }) +
+        (if ramp_down { ramp_samples_per_symbol } else { 0 });
     debug!("sample_rate {} # channel_symbols {} samples_per_symbol {} ramp_symbols_per_symbol {} total_number_of_samples {}",
         sample_rate, channel_symbols.len(), samples_per_symbol, ramp_samples_per_symbol, total_number_of_samples);
     if waveform_store.len() < total_number_of_samples {
@@ -78,7 +85,7 @@ pub fn gfsk_modulate(audio_offset: AudioFrequencyHz, sample_rate: AudioFrequency
 
     // Shift frequency up by audio_offset Hz
     let audio_offset_dphi = 2.0 * PI * audio_offset as f32 / sample_rate as f32;
-    for _ in 0..(total_number_of_samples + 2 * samples_per_symbol) {
+    for _ in 0..(total_number_of_samples + 2 * samples_per_symbol) { // WHY: + 2 * samples_per_symbol?
         dphi.push(audio_offset_dphi);
     }
 
@@ -99,8 +106,8 @@ pub fn gfsk_modulate(audio_offset: AudioFrequencyHz, sample_rate: AudioFrequency
 
     let mut symbol_offset = 0;
 
-    // Add dummy symbol at beginning with tone value equal to 1st symbol if necessary.
-    if need_ramp_up {
+    // Add dummy symbol at beginning with tone value equal to 1st symbol if necessary/possible.
+    if ramp_up {
         let first_channel_symbol = channel_symbols[0] as f32;
         debug!("Adding ramp up symbol of #{}", first_channel_symbol);
         for j in 0..(RAMP_SYMBOL_WIDTH_IN_SPSYM * ramp_samples_per_symbol) {
@@ -123,8 +130,8 @@ pub fn gfsk_modulate(audio_offset: AudioFrequencyHz, sample_rate: AudioFrequency
         symbol_index += 1;
     }
 
-    // Add dummy symbol at end with tone value equal to last symbol if necessary.
-    if need_ramp_down {
+    // Add dummy symbol at end with tone value equal to last symbol if necessary/possible.
+    if ramp_down {
         let ib = symbol_index * samples_per_symbol;
         let last_channel_symbol = channel_symbols[channel_symbols.len() - 1] as f32;
         debug!("Adding ramp down symbol of #{} at offset {}", last_channel_symbol, ib);
@@ -133,9 +140,10 @@ pub fn gfsk_modulate(audio_offset: AudioFrequencyHz, sample_rate: AudioFrequency
         }
     }
 
-    debug!("plotting tones.png with {} tones", dphi.len());
-
-    plot_graph("./tones.png", "GFSK Tones", &dphi, 0, dphi.len(), 0.07, 0.1);
+    if any_channel_symbols {
+        debug!("plotting tones.png with {} tones", dphi.len());
+        plot_graph("./tones.png", "GFSK Tones", &dphi, 0, dphi.len(), 0.07, 0.1);
+    }
 
     debug!("Calculating waveform");
     // Calculate and insert the audio waveform
@@ -147,22 +155,28 @@ pub fn gfsk_modulate(audio_offset: AudioFrequencyHz, sample_rate: AudioFrequency
     }
 
     // Apply envelope shaping to the first and last symbols if necessary.
-    if need_ramp_up || need_ramp_down {
+    if ramp_up || ramp_down {
         debug!("Shaping envelope");
         let n_ramp = samples_per_symbol / 8;
         for i in 0..n_ramp {
             let env = (1.0 - (2.0 * PI * i as f32 / (2.0 * n_ramp as f32)).cos()) / 2.0;
-            if need_ramp_up {
+            if ramp_up {
                 waveform_store[i] *= env;
             }
-            if need_ramp_down {
+            if ramp_down {
                 waveform_store[total_number_of_samples - 1 - i] *= env;
             }
         }
+
+        if ramp_up {
+            debug!("Plotting ramp up");
+            plot_graph("./ramp-up.png", "Modulated waveform", &waveform_store, 0, samples_per_symbol * 3, -1.1, 1.1);
+        }
+        if ramp_down {
+            debug!("Plotting ramp down");
+            plot_graph("./ramp-down.png", "Modulated waveform", &waveform_store, total_number_of_samples - (samples_per_symbol * 3), total_number_of_samples, -1.1, 1.1);
+        }
     }
-    debug!("Plotting ramp up / down");
-    plot_graph("./ramp-up.png", "Modulated waveform", &waveform_store, 0, samples_per_symbol * 3, -1.1, 1.1);
-    plot_graph("./ramp-down.png", "Modulated waveform", &waveform_store, total_number_of_samples - (samples_per_symbol * 3), total_number_of_samples, -1.1, 1.1);
 
     debug!("Finished modulation");
     total_number_of_samples
