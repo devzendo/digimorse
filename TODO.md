@@ -32,8 +32,6 @@ Considerations:
 * Sidetone output via bluetooth headphones has appalling latency - investigate whether dropping the output sample
   rate to 8000Hz would improve matters.
 
-* Audio output on Windows is distorted.
-
 * Need to upgrade to rust edition 2021 - doing so causes test compilation failure in arduino_keyer_io_spec but this must
   be corrected.
 

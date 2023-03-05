@@ -28,7 +28,7 @@ There's no graphical user interface at the moment - the system is configured and
 After the transmitter is complete, and can be used from the command line, I'll make a start on the GUI and receiver
 chain.
 
-I'm also porting it from its original macOS development system to run on Windows and Ubuntu.
+I'm also porting it from its original macOS development system to run on Ubuntu. It should also run on Windows.
 
 # Overview
 This is an EXPERIMENT in taking Morse code, in real-time, encoding it, wrapping

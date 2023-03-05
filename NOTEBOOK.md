@@ -306,3 +306,9 @@ spectrum analyser yet).
 Updated to a later Rust 1.64, and started trying to get it working on Windows. PortAudio is tricky to build, but have
 committed its static library. There's distortion on the audio (sidetone and GFSK).
 
+## 5 March 2023
+
+To get audio working on Windows reliably, the correct device needs choosing - and there are several
+with the same name. You need to choose by device index. The test_hardware.rs now allows a number
+to be given as the device id. Use 'digimorse ListAudioDevices' to show these.
+
