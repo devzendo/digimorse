@@ -16,3 +16,5 @@ pub mod util;
 
 #[cfg(test)]
 pub mod matchers;
+#[cfg(test)]
+pub mod test;

@@ -31,6 +31,7 @@ mod diag_application_spec {
     use crate::libs::serial_io::serial_io::DefaultSerialIO;
     use crate::libs::source_codec::source_decoder::SourceDecoder;
     use crate::libs::source_codec::source_encoding::{SOURCE_ENCODER_BLOCK_SIZE_IN_BITS, SourceEncoding};
+    use crate::libs::test::test_hardware;
     use crate::libs::util::test_util;
 
     #[ctor::ctor]
@@ -105,14 +106,13 @@ mod diag_application_spec {
     }
 
     fn set_tone_generator(_config: &mut ConfigurationStore, application: &mut Application) -> Arc<Mutex<ToneGenerator>> {
-        info!("Setting up tone generator");
-        let old_macbook = false;
-        let out_dev_str = if old_macbook {"Built-in Output"} else {"MacBook Pro Speakers"};
-        let output_settings = application.open_output_audio_device(out_dev_str);
+        let out_dev = test_hardware::get_current_system_speaker_name();
+        info!("Setting up tone generator, output {}", out_dev);
+        let output_settings = application.open_output_audio_device(out_dev.as_str());
         match output_settings {
             Ok(_) => {}
             Err(err) => {
-                panic!("Can't obtain output settings for {}: {}", out_dev_str, err);
+                panic!("Can't obtain output settings for {}: {}", out_dev.as_str(), err);
             }
         }
 

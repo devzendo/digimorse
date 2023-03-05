@@ -17,6 +17,7 @@ mod transmitter_spec {
     use crate::libs::audio::audio_devices::open_output_audio_device;
     use crate::libs::channel_codec::channel_encoding::ChannelEncoding;
     use crate::libs::channel_codec::sample_channel_encoding::sample_channel_encoding;
+    use crate::libs::test::test_hardware;
     use crate::libs::transmitter::transmitter::{AmplitudeMax, AudioFrequencyHz, maximum_number_of_symbols, Transmitter};
     use crate::libs::util::test_util;
 
@@ -50,8 +51,6 @@ mod transmitter_spec {
         let channel_encoding_rx = channel_encoding_tx.add_rx();
         let fixture_channel_encoding_tx = Arc::new(Mutex::new(channel_encoding_tx));
 
-        let old_macbook = false; // TODO: determine the device at runtime
-        let dev = if old_macbook {"Built-in Output"} else {"MacBook Pro Speakers"};
         let audio_frequency = 600 as AudioFrequencyHz;
         info!("Instantiating transmitter...");
         let transmitter_channel_encoding_rx = Arc::new(Mutex::new(channel_encoding_rx));
@@ -65,7 +64,9 @@ mod transmitter_spec {
             transmitter,
             pa: Arc::new(PortAudio::new().unwrap()),
         };
-        let output_settings = open_output_audio_device(&fixture.pa, dev).unwrap();
+        let speaker = test_hardware::get_current_system_speaker_name();
+        info!("Output to speaker '{}'", speaker);
+        let output_settings = open_output_audio_device(&fixture.pa, speaker.as_str()).unwrap();
         info!("Setting amplitude max");
         fixture.transmitter.set_amplitude_max(1.0 as AmplitudeMax);
         info!("Initialising audio callback...");

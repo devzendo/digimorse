@@ -23,6 +23,7 @@ mod tone_generator_spec {
     use crate::libs::application::application::{BusInput, BusOutput};
     use crate::libs::conversion::conversion::text_to_keying;
     use crate::libs::conversion::paris::PARIS_KEYING_12WPM;
+    use crate::libs::test::test_hardware;
 
     const TABLE_SIZE: usize = 256;
 
@@ -65,10 +66,9 @@ mod tone_generator_spec {
         let arc_transform_bus = Arc::new(Mutex::new(transform_bus));
         let keying_event_tone_channel_rx = arc_transform_bus.lock().unwrap().add_reader();
 
-        let old_macbook = true;
-        let dev = if old_macbook {"Built-in Output"} else {"MacBook Pro Speakers"};
+        let dev = test_hardware::get_current_system_speaker_name();
         let sidetone_frequency = 600 as u16;
-        info!("Instantiating tone generator...");
+        info!("Instantiating tone generator, output {} ...", dev);
         let tone_generator_keying_event_tone_channel_rx = Arc::new(Mutex::new(keying_event_tone_channel_rx));
         let mut tone_generator = ToneGenerator::new(sidetone_frequency,
                                                     terminate.clone());
@@ -86,7 +86,7 @@ mod tone_generator_spec {
             pa: Arc::new(PortAudio::new().unwrap()),
             paris_keying_12_wpm: PARIS_KEYING_12WPM.to_vec(),
         };
-        let output_settings = open_output_audio_device(&fixture.pa, dev).unwrap();
+        let output_settings = open_output_audio_device(&fixture.pa, dev.as_str()).unwrap();
         info!("Initialising audio callback...");
         fixture.tone_generator.start_callback(&fixture.pa, output_settings).unwrap();
 
