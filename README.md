@@ -253,7 +253,9 @@ apt install build-essential cmake
 apt install libudev1 libudev0 libudev-dev librust-libudev-dev 
 apt install libportaudio2
 apt install libxft-dev libxext-dev libxinerama-dev libxcursor-dev libpango1.0-dev
-apt install libfltk1.1 libfltk1.3 libfltk1.1-dev libfltk1.3-dev
+# apt install libfltk1.1 libfltk1.1-dev
+apt install libfltk1.3 libfltk1.3-dev
+apt install libasound2-dev libjack-dev libjack0 libportaudiocpp0 portaudio19-dev
 Install rustup.
 
 
