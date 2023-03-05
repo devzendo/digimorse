@@ -39,5 +39,6 @@ fn macos_speaker() -> String {
 fn windows_speaker() -> String {
     use log::debug;
     debug!("I'm a windows system, I may not have the right speaker defined");
-    return "Speakers (Realtek High Definition Audio)".to_owned();
+    // use 'digimorse ListAudioDevices' to display the devices
+    return "14".to_owned(); // The second "Speakers (Realtek High Definition Audio)"
 }

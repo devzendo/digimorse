@@ -62,6 +62,10 @@ pub fn input_audio_device_exists(pa: &PortAudio, dev_name: &str) -> Result<bool,
 }
 
 pub fn open_output_audio_device(pa: &PortAudio, dev_name: &str) -> Result<OutputStreamSettings<f32>, Box<dyn Error>> {
+    let dev_name_as_index = dev_name.parse::<u32>();
+    let got_dev_index = dev_name_as_index.is_ok();
+    let dev_index = dev_name_as_index.unwrap_or(0);
+
     for device in pa.devices()? {
         let (idx, info) = device?;
 
@@ -69,7 +73,10 @@ pub fn open_output_audio_device(pa: &PortAudio, dev_name: &str) -> Result<Output
         let output_params =
             pa::StreamParameters::<f32>::new(idx, out_channels, INTERLEAVED, LATENCY);
         let out_48k_supported = pa.is_output_format_supported(output_params, SAMPLE_RATE).is_ok();
-        if info.name == dev_name && out_channels > 0 && out_48k_supported {
+        if ((!got_dev_index && info.name == dev_name)
+            || (got_dev_index && idx.0 == dev_index))
+            && out_channels > 0 && out_48k_supported {
+            info!("Using {:?} as audio output device", info);
             let settings = OutputStreamSettings::new(output_params, SAMPLE_RATE, FRAMES_PER_BUFFER);
             return Ok(settings);
         }
