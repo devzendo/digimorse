@@ -1,4 +1,3 @@
-use log::debug;
 
 // For use in manually-invoked tests, on the various systems I run these on. What does PortAudio
 // need as the name of the actual loudspeaker device name? It varies between operating systems and
@@ -13,6 +12,8 @@ pub fn get_current_system_speaker_name() -> String {
 
 #[cfg(target_os = "macos")]
 fn macos_speaker() -> String {
+    use log::debug;
+
     let info = os_info::get();
     debug!("OS info is {:?}", info);
     match info.version() {
@@ -36,5 +37,7 @@ fn macos_speaker() -> String {
 
 #[cfg(target_os = "windows")]
 fn windows_speaker() -> String {
-   return "Speakers (Realtek High Definition Audio)".to_owned();
+    use log::debug;
+    debug!("I'm a windows system, I may not have the right speaker defined");
+    return "Speakers (Realtek High Definition Audio)".to_owned();
 }
