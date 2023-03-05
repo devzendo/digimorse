@@ -6,7 +6,7 @@
 use log::debug;
 use crate::libs::channel_codec::channel_encoding::ChannelSymbol;
 use crate::libs::transmitter::transmitter::AudioFrequencyHz;
-use crate::libs::util::graph::plot_graph;
+//use crate::libs::util::graph::plot_graph;
 
 pub const SYMBOL_SMOOTHING_FILTER_BANDWIDTH: f32 = 2.0f32; // TODO FT8 uses 2; FT4 uses 1; unsure what to use here
 pub const SYMBOL_PERIOD_SECONDS: f32 = 0.160_f32;
@@ -93,7 +93,7 @@ pub fn gfsk_modulate(audio_offset: AudioFrequencyHz, sample_rate: AudioFrequency
 
     debug!("Creating GFSK pulse");
     gfsk_pulse(samples_per_symbol, &mut pulse);
-
+/*
     plot_graph(
         "./gauss-envelope.png",
         "GFSK Phase Envelope",
@@ -103,7 +103,7 @@ pub fn gfsk_modulate(audio_offset: AudioFrequencyHz, sample_rate: AudioFrequency
         0.0,
         1.0,
     );
-
+*/
     let mut symbol_offset = 0;
 
     // Add dummy symbol at beginning with tone value equal to 1st symbol if necessary/possible.
@@ -140,10 +140,12 @@ pub fn gfsk_modulate(audio_offset: AudioFrequencyHz, sample_rate: AudioFrequency
         }
     }
 
+    /*
     if any_channel_symbols {
         debug!("plotting tones.png with {} tones", dphi.len());
         plot_graph("./tones.png", "GFSK Tones", &dphi, 0, dphi.len(), 0.07, 0.1);
     }
+    */
 
     debug!("Calculating waveform");
     // Calculate and insert the audio waveform
@@ -168,6 +170,7 @@ pub fn gfsk_modulate(audio_offset: AudioFrequencyHz, sample_rate: AudioFrequency
             }
         }
 
+        /*
         if ramp_up {
             debug!("Plotting ramp up");
             plot_graph("./ramp-up.png", "Modulated waveform", &waveform_store, 0, samples_per_symbol * 3, -1.1, 1.1);
@@ -176,6 +179,8 @@ pub fn gfsk_modulate(audio_offset: AudioFrequencyHz, sample_rate: AudioFrequency
             debug!("Plotting ramp down");
             plot_graph("./ramp-down.png", "Modulated waveform", &waveform_store, total_number_of_samples - (samples_per_symbol * 3), total_number_of_samples, -1.1, 1.1);
         }
+
+         */
     }
 
     debug!("Finished modulation");
