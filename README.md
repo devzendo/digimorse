@@ -28,6 +28,8 @@ There's no graphical user interface at the moment - the system is configured and
 After the transmitter is complete, and can be used from the command line, I'll make a start on the GUI and receiver
 chain.
 
+I'm also porting it from its original macOS development system to run on Windows and Ubuntu.
+
 # Overview
 This is an EXPERIMENT in taking Morse code, in real-time, encoding it, wrapping
 it in modern error-detection/correction codes, and modulating it out to a
@@ -315,7 +317,7 @@ TBC
 # License, Copyright & Contact info
 This code is released under the Apache 2.0 License: http://www.apache.org/licenses/LICENSE-2.0.html.
 
-(C) 2020-2022 Matt J. Gumbley
+(C) 2020-2023 Matt J. Gumbley
 
 matt.gumbley@devzendo.org
 
