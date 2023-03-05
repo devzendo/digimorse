@@ -39,7 +39,8 @@ mod transmitter_spec {
     #[test]
     fn test_maximum_number_of_symbols() {
         // If the size of the source encoder's output changes, this will need to be recalculated.
-        assert_eq!(maximum_number_of_symbols(), 73);
+        assert_eq!(maximum_number_of_symbols(), 71);
+        // Note this does not count ramp up/down, they're not full symbols.
     }
 
     #[fixture]
