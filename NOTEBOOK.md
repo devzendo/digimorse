@@ -293,3 +293,16 @@ I looked at WSJT-X's Modulator.cpp but there are many things going on in the sam
 
 Fixed the playback sine wave distortion - I wasn't setting the phase back to zero when the amplitude reached zero.
 
+## 22 February 2023
+
+Decent progress on the Gaussian Frequency Shift Keying, with much help from Minoru Tomobe's RustFT8
+at https://github.com/w-ockham/RustFT8 for a conversion of the ft8_lib GFSK code to Rust, which
+helped with the transmitter, and also for the graph plotting code used to visualise and tune the GFSK code.
+There will be more tuning to do on this, but it's making reasonable sounds (to the ear; not passed through a
+spectrum analyser yet).
+
+## 4 March 2023
+
+Updated to a later Rust 1.64, and started trying to get it working on Windows. PortAudio is tricky to build, but have
+committed its static library. There's distortion on the audio (sidetone and GFSK).
+

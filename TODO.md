@@ -1,6 +1,5 @@
 # Current Development Activities
 
-* Transmitter / GFSK Modulation: choose suitable number of tones for slow/fast (narrow/wide) modulations.
 * Application: add support for a transmitter component.
 * Channel encoder test: add a stub reader for the transmitter component and use it to verify that the application is
   sending ChannelEncodings to it.
@@ -8,6 +7,7 @@
 Next up for research:
 * Costas array: is there an escaping mechanism, such that the Costas array does not occur in the binary output of the
   channel encoder?
+* Costas array: devise one suitable for 16 tones.
 
 Other refactorings to do:
 * Application wiring:
@@ -23,18 +23,24 @@ Other refactorings to do:
    metadata frames in a block. Create many dummy QSO texts, send them through the Playback at varying WPM from 5-60, and
    determine how much delay is needed so that no gaps are present. Use this to seed the optimal first frame gap delay.
 
+Considerations:
+* Transmitter / GFSK Modulation: choose suitable number of tones for slow/fast (narrow/wide) modulations.
+
+
 
 # Known problems
+* Sidetone output via bluetooth headphones has appalling latency - investigate whether dropping the output sample
+  rate to 8000Hz would improve matters.
+
+* Audio output on Windows is distorted.
+
 * Need to upgrade to rust edition 2021 - doing so causes test compilation failure in arduino_keyer_io_spec but this must
   be corrected.
-
-* Sidetone output via bluetooth headphones has appalling latency - investigate whether dropping the output sample 
-  rate to 8000Hz would improve matters.
 
 * Checking for serial port existence in main - needs implementing correctly for Windows.
 
 * There is currently no metadata encoding/decoding.
 
 * Source encoder KeyerEnd handling is incomplete- should append a keying end frame, this could overflow but does not
-require a WPM/Polarity frame since it’s not actual keying that needs decoding wrt a WPM. An end keying event should
-automatically cause an emit after it is encoded.
+  require a WPM/Polarity frame since it’s not actual keying that needs decoding wrt a WPM. An end keying event should
+  automatically cause an emit after it is encoded.
