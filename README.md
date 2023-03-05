@@ -225,7 +225,7 @@ You also need portaudio (which needs pkg-config). Install from macports. There a
 This requires PortAudio, which I've built using CMake, and Visual Studio 2017 command line tools. I used the 
 `pa_stable_v190700_20210406.tgz` file from http://files.portaudio.com/download.html and the build instructions
 from http://www.portaudio.com/docs/v19-doxydocs/compile_cmake.html .
-So from a 'Developer Command Prompt for VS 2017', which also contains CMake 3.10.3 on the PATH:
+So from a Visual Studio 'x64 Native Tools Command Prompt for VS 2017', which also contains CMake 3.10.3 on the PATH:
 ```
 (the .tgz file has been extracted into the 'portaudio' directory, which I am above)
 C:\Users\Matt Gumbley\Downloads> mkdir portaudio-cmake
@@ -234,15 +234,16 @@ C:\Users\Matt Gumbley\Downloads\portaudio-cmake> cmake ..\portaudio -G "NMake Ma
  ... the system is investigated ...
 -- Generating done
 -- Build files have been written to: C:/Users/Matt Gumbley/Downloads/portaudio-cmake
-C:\Users\Matt Gumbley\Downloads\portaudio-cmake> cmake --build . --config Release
+C:\Users\Matt Gumbley\Downloads\portaudio-cmake> cmake --build . --config Release --target portaudio_static
 Scanning dependencies of target portaudio
-[  2%] Building C object CMakeFiles/portaudio.dir/src/common/pa_allocation.c.obj
+[  4%] Building C object CMakeFiles/portaudio.dir/src/common/pa_allocation.c.obj
 pa_allocation.c
  ... building happens ...
-[100%] Linking C static library portaudio_static_x86.lib
+[100%] Linking C static library portaudio_static_x64.lib
 [100%] Built target portaudio_static
 ```
-The resulting `portaudio_*x86.*` files are committed to this repository under `lib\windows`.
+The resulting `portaudio_static_x86.lib` file is committed to this repository under `lib\windows`, renamed to 
+`portaudio.lib`. The build.rs control file for digimorse 
 
 ### Building on Linux
 e.g. on Ubuntu (I'm using Ubuntu 22.04 Budgie)
