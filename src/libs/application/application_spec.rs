@@ -17,6 +17,7 @@ mod application_spec {
     use crate::libs::application::application::{Application, ApplicationMode, BusInput, BusOutput};
     use crate::libs::audio::tone_generator::{KeyingEventToneChannel, ToneChannel};
     use crate::libs::channel_codec::channel_encoder::{ChannelEncoder, source_encoding_to_channel_encoding};
+    use crate::libs::channel_codec::channel_encoding::ChannelEncoding;
     use crate::libs::keyer_io::keyer_io::KeyingEvent;
     use crate::libs::source_codec::source_encoding::{Frame, SourceEncoding};
     use crate::libs::source_codec::test_encoding_builder::encoded;
@@ -275,6 +276,8 @@ mod application_spec {
         assert_eq!(fixture.application.got_source_encoder_keying_event_rx(), false);
         assert_eq!(fixture.application.got_channel_encoder_source_encoding_rx(), false);
         assert_eq!(fixture.application.got_channel_encoder(), false);
+        assert_eq!(fixture.application.got_transmitter(), false);
+        assert_eq!(fixture.application.got_transmitter_channel_encoding_rx(), false);
     }
 
     #[rstest]
@@ -291,6 +294,8 @@ mod application_spec {
         assert_eq!(fixture.application.got_source_encoder_diag_source_encoding_rx(), false);
         assert_eq!(fixture.application.got_channel_encoder_source_encoding_rx(), false);
         assert_eq!(fixture.application.got_channel_encoder(), false);
+        assert_eq!(fixture.application.got_transmitter(), false);
+        assert_eq!(fixture.application.got_transmitter_channel_encoding_rx(), false);
     }
 
     #[rstest]
@@ -307,6 +312,8 @@ mod application_spec {
         assert_eq!(fixture.application.got_source_encoder_diag_source_encoding_rx(), true);
         assert_eq!(fixture.application.got_channel_encoder_source_encoding_rx(), false);
         assert_eq!(fixture.application.got_channel_encoder(), false);
+        assert_eq!(fixture.application.got_transmitter(), false);
+        assert_eq!(fixture.application.got_transmitter_channel_encoding_rx(), false);
     }
 
     #[rstest]
@@ -323,6 +330,8 @@ mod application_spec {
         assert_eq!(fixture.application.got_source_encoder_diag_source_encoding_rx(), false);
         assert_eq!(fixture.application.got_channel_encoder_source_encoding_rx(), true);
         assert_eq!(fixture.application.got_channel_encoder(), false);
+        assert_eq!(fixture.application.got_transmitter(), false);
+        assert_eq!(fixture.application.got_transmitter_channel_encoding_rx(), true);
     }
 
 
@@ -443,7 +452,7 @@ mod application_spec {
     #[rstest]
     #[serial]
     pub fn set_clear_channel_encoder(mut fixture: ApplicationFixture) {
-        let channel_encoder= Arc::new(Mutex::new(ChannelEncoder::new(source_encoding_to_channel_encoding, fixture.terminate.clone())));
+        let channel_encoder = Arc::new(Mutex::new(ChannelEncoder::new(source_encoding_to_channel_encoding, fixture.terminate.clone())));
         fixture.application.set_mode(ApplicationMode::Full);
         assert_eq!(fixture.application.got_channel_encoder(), false);
         assert_eq!(fixture.application.got_channel_encoder_source_encoding_rx(), true);
@@ -452,8 +461,24 @@ mod application_spec {
         assert_eq!(fixture.application.got_channel_encoder(), true);
         assert_eq!(fixture.application.got_channel_encoder_source_encoding_rx(), true);
         fixture.application.clear_channel_encoder();
-        // assert_eq!(fixture.application.got_channel_encoder(), false);
-        // assert_eq!(fixture.application.got_channel_encoder_source_encoding_rx(), true);
+        assert_eq!(fixture.application.got_channel_encoder(), false);
+        assert_eq!(fixture.application.got_channel_encoder_source_encoding_rx(), true);
+    }
+
+    #[rstest]
+    #[serial]
+    pub fn set_clear_transmitter(mut fixture: ApplicationFixture) {
+        let transmitter: Arc<Mutex<StubBusReader<ChannelEncoding>>> = Arc::new(Mutex::new(StubBusReader::new()));
+        fixture.application.set_mode(ApplicationMode::Full);
+        assert_eq!(fixture.application.got_transmitter(), false);
+        assert_eq!(fixture.application.got_transmitter_channel_encoding_rx(), true);
+        test_util::wait_5_ms();
+        fixture.application.set_transmitter(transmitter);
+        assert_eq!(fixture.application.got_transmitter(), true);
+        assert_eq!(fixture.application.got_transmitter_channel_encoding_rx(), true);
+        fixture.application.clear_transmitter();
+        assert_eq!(fixture.application.got_transmitter(), false);
+        assert_eq!(fixture.application.got_transmitter_channel_encoding_rx(), true);
     }
 
     // Mode/Component set/clear validation tests
@@ -550,6 +575,21 @@ mod application_spec {
 
     #[rstest]
     #[serial]
+    #[should_panic(expected="Can't set transmitter in mode None")]
+    pub fn none_mode_cannot_set_transmitter(mut fixture: ApplicationFixture) {
+        let transmitter: Arc<Mutex<StubBusReader<ChannelEncoding>>> = Arc::new(Mutex::new(StubBusReader::new()));
+        fixture.application.set_transmitter(transmitter);
+    }
+
+    #[rstest]
+    #[serial]
+    #[should_panic(expected="Can't clear transmitter in mode None")]
+    pub fn none_mode_cannot_clear_transmitter(mut fixture: ApplicationFixture) {
+        fixture.application.clear_transmitter();
+    }
+
+    #[rstest]
+    #[serial]
     #[should_panic(expected="Can't set playback in mode None")]
     pub fn none_mode_cannot_set_playback(mut fixture: ApplicationFixture) {
         let playback: Arc<Mutex<StubBusWriter<KeyingEventToneChannel>>> = Arc::new(Mutex::new(StubBusWriter::new()));
@@ -618,6 +658,23 @@ mod application_spec {
 
     #[rstest]
     #[serial]
+    #[should_panic(expected="Can't set transmitter in mode Some(KeyerDiag)")]
+    pub fn keyer_diag_mode_cannot_set_transmitter(mut fixture: ApplicationFixture) {
+        fixture.application.set_mode(ApplicationMode::KeyerDiag);
+        let transmitter: Arc<Mutex<StubBusReader<ChannelEncoding>>> = Arc::new(Mutex::new(StubBusReader::new()));
+        fixture.application.set_transmitter(transmitter);
+    }
+
+    #[rstest]
+    #[serial]
+    #[should_panic(expected="Can't clear transmitter in mode Some(KeyerDiag)")]
+    pub fn keyer_diag_mode_cannot_clear_transmitter(mut fixture: ApplicationFixture) {
+        fixture.application.set_mode(ApplicationMode::KeyerDiag);
+        fixture.application.clear_transmitter();
+    }
+
+    #[rstest]
+    #[serial]
     #[should_panic(expected="Can't set playback in mode Some(KeyerDiag)")]
     pub fn keyer_diag_mode_cannot_set_playback(mut fixture: ApplicationFixture) {
         fixture.application.set_mode(ApplicationMode::KeyerDiag);
@@ -666,6 +723,23 @@ mod application_spec {
     pub fn source_encoder_diag_mode_cannot_clear_channel_encoder(mut fixture: ApplicationFixture) {
         fixture.application.set_mode(ApplicationMode::SourceEncoderDiag);
         fixture.application.clear_channel_encoder();
+    }
+
+    #[rstest]
+    #[serial]
+    #[should_panic(expected="Can't set transmitter in mode Some(SourceEncoderDiag)")]
+    pub fn source_encoder_diag_mode_cannot_set_transmitter(mut fixture: ApplicationFixture) {
+        fixture.application.set_mode(ApplicationMode::SourceEncoderDiag);
+        let transmitter: Arc<Mutex<StubBusReader<ChannelEncoding>>> = Arc::new(Mutex::new(StubBusReader::new()));
+        fixture.application.set_transmitter(transmitter);
+    }
+
+    #[rstest]
+    #[serial]
+    #[should_panic(expected="Can't clear transmitter in mode Some(SourceEncoderDiag)")]
+    pub fn source_encoder_diag_mode_cannot_clear_transmitter(mut fixture: ApplicationFixture) {
+        fixture.application.set_mode(ApplicationMode::SourceEncoderDiag);
+        fixture.application.clear_transmitter();
     }
 
     #[rstest]

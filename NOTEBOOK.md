@@ -312,3 +312,6 @@ To get audio working on Windows reliably, the correct device needs choosing - an
 with the same name. You need to choose by device index. The test_hardware.rs now allows a number
 to be given as the device id. Use 'digimorse ListAudioDevices' to show these.
 
+## 8 March 2023
+
+Started adding the Transmitter to the Application.

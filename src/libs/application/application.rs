@@ -69,6 +69,8 @@ pub struct Application {
     channel_encoder: Option<Arc<Mutex<ChannelEncoder>>>,
     channel_encoding_bus: Option<Arc<Mutex<Bus<ChannelEncoding>>>>,
     channel_encoder_source_encoding_rx: Option<Arc<Mutex<BusReader<SourceEncoding>>>>,
+    transmitter: Option<Arc<Mutex<dyn BusInput<ChannelEncoding>>>>,
+    transmitter_channel_encoding_rx: Option<Arc<Mutex<BusReader<ChannelEncoding>>>>,
     playback: Option<Arc<Mutex<dyn BusOutput<KeyingEventToneChannel>>>>,
 }
 
@@ -118,6 +120,7 @@ impl Application {
             ApplicationMode::Full => {
                 self.source_encoder_keying_event_rx = Some(Arc::new(Mutex::new(self.keying_event_bus.as_ref().unwrap().lock().unwrap().add_rx())));
                 self.channel_encoder_source_encoding_rx = Some(Arc::new(Mutex::new(self.source_encoding_bus.as_ref().unwrap().lock().unwrap().add_rx())));
+                self.transmitter_channel_encoding_rx = Some(Arc::new(Mutex::new(self.channel_encoding_bus.as_ref().unwrap().lock().unwrap().add_rx())));
             }
         }
     }
@@ -403,6 +406,50 @@ impl Application {
 
 
 
+    pub fn set_transmitter(&mut self, transmitter: Arc<Mutex<dyn BusInput<ChannelEncoding>>>) {
+        if self.mode.is_none() || self.mode.unwrap() != ApplicationMode::Full {
+            panic!("Can't set transmitter in mode {:?}", self.mode);
+        }
+        info!("Starting to set transmitter");
+        match &self.transmitter_channel_encoding_rx {
+            None => {
+                panic!("Cannot set a transmitter with no transmitter_channel_encoding_rx");
+            }
+            Some(channel_encoding_bus) => {
+                info!("Setting transmitter");
+                self.transmitter = Some(transmitter.clone());
+                info!("Setting transmitter input");
+                // TODO TDD
+                // let bus_reader = channel_encoding_bus.clone();
+                // transmitter.lock().as_mut().unwrap().set_input_rx(bus_reader);
+            }
+        }
+    }
+
+    pub fn clear_transmitter(&mut self) {
+        if self.mode.is_none() ||
+            self.mode.unwrap() != ApplicationMode::Full {
+            panic!("Can't clear transmitter in mode {:?}", self.mode);
+        }
+        match &self.transmitter {
+            None => {}
+            Some(transmitter) => {
+                info!("Clearing transmitter");
+                // TODO TDD
+                // transmitter.lock().unwrap().clear_input_rx();
+            }
+        }
+        self.transmitter = None;
+    }
+
+    pub fn got_transmitter(&self) -> bool {
+        self.transmitter.is_some()
+    }
+
+    pub fn got_transmitter_channel_encoding_rx(&self) -> bool {
+        self.transmitter_channel_encoding_rx.is_some()
+    }
+
     pub fn set_playback(&mut self, playback: Arc<Mutex<dyn BusOutput<KeyingEventToneChannel>>>) {
         if self.mode.is_none() || self.mode.unwrap() == ApplicationMode::KeyerDiag {
             panic!("Can't set playback in mode {:?}", self.mode);
@@ -482,6 +529,8 @@ impl Application {
             channel_encoder: None,
             channel_encoding_bus: None,
             channel_encoder_source_encoding_rx: None,
+            transmitter: None,
+            transmitter_channel_encoding_rx: None,
             playback: None,
         }
     }
