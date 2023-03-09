@@ -38,23 +38,6 @@ use crate::libs::transform_bus::transform_bus::TransformBus;
 use pretty_hex::*;
 use crate::libs::channel_codec::gray::to_gray_code;
 
-/*
-#[readonly::make]
-pub struct ChannelEncoder {
-    terminate: Arc<AtomicBool>,
-    // Shared between thread and ChannelEncoder
-    input_rx: Arc<Mutex<Option<Arc<Mutex<BusReader<SourceEncoding>>>>>>,
-    // Shared between thread and ChannelEncoder and ChannelEncoderShared
-    output_tx: Arc<Mutex<Option<Arc<Mutex<Bus<ChannelEncoding>>>>>>,
-    // storage: Arc<RwLock<Box<dyn SourceEncodingBuilder + Send + Sync>>>, // ?? Is it Send + Sync?
-    // Send + Sync are here so the DefaultSourceEncoder can be stored in an rstest fixture that
-    // is moved into a panic_after test's thread.
-    // thread_handle: Mutex<Option<JoinHandle<()>>>,
-    // shared: Arc<Mutex<SourceEncoderShared>>,
-    // block_size_in_bits: usize,
-}
-*/
-
 pub fn source_encoding_to_channel_encoding(source_encoding: SourceEncoding) -> ChannelEncoding {
     let encode_duration = StdInstant::now();
     let crc = crc14(&source_encoding.block.as_slice());
@@ -88,91 +71,7 @@ pub fn source_encoding_to_channel_encoding(source_encoding: SourceEncoding) -> C
     return out;
 }
 
-
 pub type ChannelEncoder = TransformBus<SourceEncoding, ChannelEncoding>;
-
-// Multiple traits: using supertraits and a blanket implementation ... thanks to
-// https://tousu.in/qa/?qa=424751/
-/*
-pub trait ChannelEncoderTrait: BusInput<SourceEncoding> + BusOutput<ChannelEncoding> {}
-impl<T: BusInput<SourceEncoding> + BusOutput<ChannelEncoding>> ChannelEncoderTrait for T {}
-
-impl BusInput<SourceEncoding> for ChannelEncoder {
-    fn clear_input_rx(&mut self) {
-        match self.input_rx.lock() {
-            Ok(mut locked) => { *locked = None; }
-            Err(_) => {}
-        }
-    }
-
-    fn set_input_rx(&mut self, input_rx: Arc<Mutex<BusReader<SourceEncoding>>>) {
-        match self.input_rx.lock() {
-            Ok(mut locked) => { *locked = Some(input_rx); }
-            Err(_) => {}
-        }
-    }
-}
-
-impl BusOutput<ChannelEncoding> for ChannelEncoder {
-    fn clear_output_tx(&mut self) {
-        match self.output_tx.lock() {
-            Ok(mut locked) => {
-                *locked = None;
-            }
-            Err(_) => {}
-        }
-    }
-
-    fn set_output_tx(&mut self, output_tx: Arc<Mutex<Bus<ChannelEncoding>>>) {
-        match self.output_tx.lock() {
-            Ok(mut locked) => { *locked = Some(output_tx); }
-            Err(_) => {}
-        }
-    }
-}
-
-impl ChannelEncoder {
-    pub fn new(terminate: Arc<AtomicBool>) -> Self {
-        let arc_terminate = terminate.clone();
-
-        // Share this holder between the ChannelEncoder and its thread
-        let input_rx_holder: Arc<Mutex<Option<Arc<Mutex<BusReader<SourceEncoding>>>>>> = Arc::new(Mutex::new(None));
-        let move_clone_input_rx_holder = input_rx_holder.clone();
-
-        // Share this holder between the ChannelEncoder and the ChannelEncoderShared
-        let output_tx_holder: Arc<Mutex<Option<Arc<Mutex<Bus<ChannelEncoding>>>>>> = Arc::new(Mutex::new(None));
-        let move_clone_output_tx_holder = output_tx_holder.clone();
-
-        let shared = Mutex::new(ChannelEncoderShared {
-            storage: arc_storage.clone(),
-            keying_encoder: encoder,
-            source_encoder_tx: move_clone_output_tx_holder,
-            is_mark: true,
-            sent_wpm_polarity: false,
-            keying_speed: 0,
-        });
-        let arc_shared = Arc::new(shared);
-        let arc_shared_cloned = arc_shared.clone();
-        let thread_handle = thread::spawn(move || {
-            let mut keyer_thread = SourceEncoderKeyerThread::new(move_clone_input_rx_holder,
-                                                                 arc_terminate,
-                                                                 arc_shared.clone());
-            keyer_thread.thread_runner();
-        });
-
-        Self {
-            keyer_speed: 12,
-            terminate,
-            input_rx: input_rx_holder,    // Modified by BusInput
-            output_tx: output_tx_holder,  // Modified by BusOutput
-            storage: arc_storage_cloned,
-            thread_handle: Mutex::new(Some(thread_handle)),
-            shared: arc_shared_cloned,
-            block_size_in_bits
-        }
-
-}
-*/
 
 #[cfg(test)]
 #[path = "./channel_encoder_spec.rs"]
