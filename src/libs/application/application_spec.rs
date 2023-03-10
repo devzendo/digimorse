@@ -17,13 +17,11 @@ mod application_spec {
     use crate::libs::application::application::{Application, ApplicationMode, BusInput, BusOutput};
     use crate::libs::audio::tone_generator::{KeyingEventToneChannel, ToneChannel};
     use crate::libs::channel_codec::channel_encoder::{ChannelEncoder, source_encoding_to_channel_encoding};
-    use crate::libs::channel_codec::channel_encoding::ChannelEncoding;
+    use crate::libs::channel_codec::channel_encoding::{CHANNEL_ENCODER_BLOCK_SIZE, ChannelEncoding};
     use crate::libs::keyer_io::keyer_io::KeyingEvent;
-    use crate::libs::source_codec::source_encoding::{Frame, SourceEncoding};
+    use crate::libs::source_codec::source_encoding::{Frame, SOURCE_ENCODER_BLOCK_SIZE_IN_BITS, SourceEncoding};
     use crate::libs::source_codec::test_encoding_builder::encoded;
     use crate::libs::util::test_util;
-
-    const TEST_SOURCE_ENCODER_BLOCK_SIZE_IN_BITS: usize = 64;
 
     #[ctor::ctor]
     fn before_each() {
@@ -143,6 +141,7 @@ mod application_spec {
         }
 
         fn read(&mut self) -> Vec<T> {
+            debug!("Reading from StubBusReader");
             match &self.bus_reader {
                 None => {
                     warn!("No bus reader set in StubBusReader");
@@ -151,6 +150,7 @@ mod application_spec {
                     loop {
                         match bus_reader.clone().lock().unwrap().recv_timeout(Duration::from_millis(500)) {
                             Ok(ke) => {
+                                info!("StubBusReader has read content");
                                 self.content.push(ke);
                             }
                             Err(_) => {
@@ -469,14 +469,18 @@ mod application_spec {
     #[serial]
     pub fn set_clear_transmitter(mut fixture: ApplicationFixture) {
         let transmitter: Arc<Mutex<StubBusReader<ChannelEncoding>>> = Arc::new(Mutex::new(StubBusReader::new()));
+        let test_transmitter = transmitter.clone();
+        assert_eq!(test_transmitter.lock().unwrap().got_input_rx(), false);
         fixture.application.set_mode(ApplicationMode::Full);
         assert_eq!(fixture.application.got_transmitter(), false);
         assert_eq!(fixture.application.got_transmitter_channel_encoding_rx(), true);
         test_util::wait_5_ms();
         fixture.application.set_transmitter(transmitter);
+        assert_eq!(test_transmitter.lock().unwrap().got_input_rx(), true);
         assert_eq!(fixture.application.got_transmitter(), true);
         assert_eq!(fixture.application.got_transmitter_channel_encoding_rx(), true);
         fixture.application.clear_transmitter();
+        assert_eq!(test_transmitter.lock().unwrap().got_input_rx(), false);
         assert_eq!(fixture.application.got_transmitter(), false);
         assert_eq!(fixture.application.got_transmitter_channel_encoding_rx(), true);
     }
@@ -1003,9 +1007,13 @@ mod application_spec {
         fixture.application.set_source_encoder(source_encoder);
 
         // let channel_encoder: Arc<Mutex<StubBusReaderWriter<SourceEncoding, ChannelEncoding>>> = Arc::new(Mutex::new(StubBusReaderWriter::new()));
-        let channel_encoder= Arc::new(Mutex::new(ChannelEncoder::new(source_encoding_to_channel_encoding, fixture.terminate.clone())));
+        let channel_encoder = Arc::new(Mutex::new(ChannelEncoder::new(source_encoding_to_channel_encoding, fixture.terminate.clone())));
         // let test_channel_encoder = channel_encoder.clone();
         fixture.application.set_channel_encoder(channel_encoder);
+
+        let transmitter: Arc<Mutex<StubBusReader<ChannelEncoding>>> = Arc::new(Mutex::new(StubBusReader::new()));
+        let test_transmitter = transmitter.clone();
+        fixture.application.set_transmitter(transmitter);
 
         test_util::wait_5_ms();
 
@@ -1015,12 +1023,16 @@ mod application_spec {
 
         test_source_encoder.lock().unwrap().write(vec_source_encoding);
 
+        test_util::wait_5_ms();
 
-        //let channel_encoder_received = test_channel_encoder.lock().unwrap().read();
-
-        //assert_eq!(channel_encoder_received, test_vec_source_encoding);
-        panic!("can't test this until the transceiver input bus is in the application");
-        // since the TransformBus is bus-only, it's not a mock.
+        debug!("Now sensing the transmitter input...");
+        // Since the TransformBus is only a function that can't seem to effect external state,
+        // it's not a mock. Sense it being called by the Transmitter getting the channel encoding.
+        let channel_encodings = test_transmitter.lock().unwrap().read();
+        assert_eq!(channel_encodings.len(), 1);
+        let channel_encoding = channel_encodings.get(0).unwrap();
+        assert_eq!(channel_encoding.is_end, true);
+        assert_eq!(channel_encoding.block.len(), CHANNEL_ENCODER_BLOCK_SIZE);
     }
 
     fn generate_sample_source_encoding() -> SourceEncoding {
@@ -1032,7 +1044,7 @@ mod application_spec {
             Frame::Extension, // It stands out as 1111 in the debug output below.
             Frame::Padding
         ];
-        let block = encoded(TEST_SOURCE_ENCODER_BLOCK_SIZE_IN_BITS, 20, keying_frames);
+        let block = encoded(SOURCE_ENCODER_BLOCK_SIZE_IN_BITS, 20, keying_frames);
         let source_encoding = SourceEncoding { block, is_end: true };
         source_encoding
     }

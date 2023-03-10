@@ -315,3 +315,7 @@ to be given as the device id. Use 'digimorse ListAudioDevices' to show these.
 ## 8 March 2023
 
 Started adding the Transmitter to the Application.
+
+## 10 March 2023
+
+Transmitter wired in.

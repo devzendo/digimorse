@@ -1,8 +1,6 @@
 # Current Development Activities
 
-* Application: add support for a transmitter component.
-* Channel encoder test: add a stub reader for the transmitter component and use it to verify that the application is
-  sending ChannelEncodings to it.
+* Main: wiring up the channel encoder and transmitter.
 
 Next up for research:
 * Costas array: is there an escaping mechanism, such that the Costas array does not occur in the binary output of the

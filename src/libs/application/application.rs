@@ -419,9 +419,8 @@ impl Application {
                 info!("Setting transmitter");
                 self.transmitter = Some(transmitter.clone());
                 info!("Setting transmitter input");
-                // TODO TDD
-                // let bus_reader = channel_encoding_bus.clone();
-                // transmitter.lock().as_mut().unwrap().set_input_rx(bus_reader);
+                let bus_reader = channel_encoding_bus.clone();
+                transmitter.lock().as_mut().unwrap().set_input_rx(bus_reader);
             }
         }
     }
@@ -435,8 +434,7 @@ impl Application {
             None => {}
             Some(transmitter) => {
                 info!("Clearing transmitter");
-                // TODO TDD
-                // transmitter.lock().unwrap().clear_input_rx();
+                transmitter.lock().unwrap().clear_input_rx();
             }
         }
         self.transmitter = None;
