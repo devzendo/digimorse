@@ -445,8 +445,19 @@ fn check_keyer_device(config: &mut ConfigurationStore) -> Result<(), Box<dyn Err
     }
 }
 
+#[cfg(windows)]
 fn port_exists(dev_name: &str) -> Result<bool, Box<dyn Error>> {
-    // TODO Will have to do something funky on Windows to check whether COMx: exists.
+    let ports = serialport::available_ports()?;
+    for p in ports {
+        if p.port_name == dev_name.to_string() {
+            return Ok(true);
+        }
+    }
+    return Ok(false);
+}
+
+#[cfg(not(windows))]
+fn port_exists(dev_name: &str) -> Result<bool, Box<dyn Error>> {
     Ok(std::path::Path::new(dev_name).exists())
 }
 
