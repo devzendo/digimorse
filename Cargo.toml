@@ -55,17 +55,3 @@ temp_testdir = "0.2"
 name = "digimorse"
 path = "src/main.rs"
 
-# TODO Need to fix this:
-# warning: output filename collision.
-# The bin target `digimorse` in package `digimorse v0.0.1 (C:\Users\Matt Gumbley\DevZendo.org\digimorse)` has the same output filename as the lib target `digimorse` in package `digimorse v0.0.1 (C:\Users\Matt Gumbley\DevZendo.org\digimorse)`.
-# Colliding filename is: C:\Users\Matt Gumbley\DevZendo.org\digimorse\target\release\deps\digimorse.pdb
-# The targets should have unique names.
-# Consider changing their names to be unique or compiling them separately.
-# This may become a hard error in the future; see <https://github.com/rust-lang/cargo/issues/6313>.
-[lib]
-name = "digimorse" # this'll be libdigimorse.{d,dylib,rlib}
-path = "src/lib.rs"
-crate-type = ["rlib", "dylib"]
-doc = false
-doctest = false
-
