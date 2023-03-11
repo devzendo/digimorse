@@ -12,6 +12,7 @@ use std::fs;
 struct Config {
     keyer: Keyer,
     audio_devices: AudioDevices,
+    transceiver: Transceiver
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -20,6 +21,11 @@ struct Keyer {
     port: String,
     wpm: usize,
     sidetone_frequency: u16,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+struct Transceiver {
+    transmit_offset_frequency: u16,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -40,6 +46,9 @@ const DEFAULT_CONFIG: Config = Config {
         audio_out_device: String::new(),
         rig_out_device: String::new(),
         rig_in_device: String::new(),
+    },
+    transceiver: Transceiver {
+        transmit_offset_frequency: 1500,
     }
 };
 
@@ -143,6 +152,15 @@ impl ConfigurationStore {
 
     pub fn get_rig_in_device(&self) -> String {
         self.config.audio_devices.rig_in_device.to_owned()
+    }
+
+    pub fn set_transmit_offset_frequency(&mut self, new_freq: u16) -> Result<(), String> {
+        self.config.transceiver.transmit_offset_frequency = new_freq;
+        self.save()
+    }
+
+    pub fn get_transmit_offset_frequency(&self) -> u16 {
+        self.config.transceiver.transmit_offset_frequency
     }
 }
 

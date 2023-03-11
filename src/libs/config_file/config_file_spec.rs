@@ -51,6 +51,7 @@ mod config_file_spec {
         assert_that!(config.get_audio_out_device(), eq(""));
         assert_that!(config.get_rig_out_device(), eq(""));
         assert_that!(config.get_rig_in_device(), eq(""));
+        assert_that!(config.get_transmit_offset_frequency(), eq(1500));
     }
 
     #[test]
@@ -67,6 +68,8 @@ mod config_file_spec {
         config.set_rig_out_device("/dev/rig-out".to_string()).unwrap();
         config.set_rig_in_device("/dev/rig-in".to_string()).unwrap();
 
+        config.set_transmit_offset_frequency(500).unwrap();
+
         assert_that!(config.get_keyer_type(), eq(KeyerType::Arduino));
         assert_that!(config.get_port(), eq("/dev/imaginary-usb-port"));
         assert_that!(config.get_wpm(), eq(40));
@@ -75,6 +78,8 @@ mod config_file_spec {
         assert_that!(config.get_audio_out_device(), eq("/dev/audio-out"));
         assert_that!(config.get_rig_out_device(), eq("/dev/rig-out"));
         assert_that!(config.get_rig_in_device(), eq("/dev/rig-in"));
+
+        assert_that!(config.get_transmit_offset_frequency(), eq(500));
         let reread_config = ConfigurationStore::new(temp.clone()).unwrap();
 
         assert_that!(reread_config.get_keyer_type(), eq(KeyerType::Arduino));
@@ -85,5 +90,7 @@ mod config_file_spec {
         assert_that!(reread_config.get_audio_out_device(), eq("/dev/audio-out"));
         assert_that!(reread_config.get_rig_out_device(), eq("/dev/rig-out"));
         assert_that!(reread_config.get_rig_in_device(), eq("/dev/rig-in"));
+
+        assert_that!(reread_config.get_transmit_offset_frequency(), eq(500));
     }
 }
