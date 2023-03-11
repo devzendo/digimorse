@@ -53,7 +53,7 @@ temp_testdir = "0.2"
 
 [[bin]]
 name = "digimorse"
-path = "src/digimorse/bin/main.rs"
+path = "src/main.rs"
 
 # TODO Need to fix this:
 # warning: output filename collision.
