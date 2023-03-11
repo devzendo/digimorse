@@ -28,6 +28,8 @@ struct Keyer {
 pub struct Transceiver {
     #[serde(default = "default_transmit_offset_frequency")]
     transmit_offset_frequency: u16,
+    #[serde(default = "default_transmit_amplitude")]
+    transmit_amplitude: f32,
 }
 
 fn default_transceiver() -> Transceiver {
@@ -36,6 +38,10 @@ fn default_transceiver() -> Transceiver {
 
 fn default_transmit_offset_frequency() -> u16 {
     return DEFAULT_CONFIG.transceiver.transmit_offset_frequency
+}
+
+fn default_transmit_amplitude() -> f32 {
+    return DEFAULT_CONFIG.transceiver.transmit_amplitude
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -59,6 +65,7 @@ const DEFAULT_CONFIG: Config = Config {
     },
     transceiver: Transceiver {
         transmit_offset_frequency: 1500,
+        transmit_amplitude: 0.5
     }
 };
 
@@ -171,6 +178,18 @@ impl ConfigurationStore {
 
     pub fn get_transmit_offset_frequency(&self) -> u16 {
         self.config.transceiver.transmit_offset_frequency
+    }
+
+    pub fn set_transmit_amplitude(&mut self, new_amplitude: f32) -> Result<(), String> {
+        if new_amplitude < 0.0 || new_amplitude > 1.0 {
+            panic!("Cannot store transmitter amplitude outside range [0.0, 1.0]");
+        }
+        self.config.transceiver.transmit_amplitude = new_amplitude;
+        self.save()
+    }
+
+    pub fn get_transmit_amplitude(&self) -> f32 {
+        self.config.transceiver.transmit_amplitude
     }
 }
 
