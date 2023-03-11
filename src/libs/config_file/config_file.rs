@@ -12,6 +12,7 @@ use std::fs;
 struct Config {
     keyer: Keyer,
     audio_devices: AudioDevices,
+    #[serde(default = "default_transceiver")]
     transceiver: Transceiver
 }
 
@@ -24,8 +25,17 @@ struct Keyer {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-struct Transceiver {
+pub struct Transceiver {
+    #[serde(default = "default_transmit_offset_frequency")]
     transmit_offset_frequency: u16,
+}
+
+fn default_transceiver() -> Transceiver {
+    return DEFAULT_CONFIG.transceiver
+}
+
+fn default_transmit_offset_frequency() -> u16 {
+    return DEFAULT_CONFIG.transceiver.transmit_offset_frequency
 }
 
 #[derive(Serialize, Deserialize, Debug)]
