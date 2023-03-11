@@ -31,6 +31,39 @@ pub fn list_audio_devices(pa: &PortAudio) -> Result<i32, Box<dyn Error>> {
     Ok(0)
 }
 
+pub fn list_audio_input_devices(pa: &PortAudio) -> Result<i32, Box<dyn Error>> {
+    for device in pa.devices()? {
+        let (idx, info) = device?;
+
+        let in_channels = info.max_input_channels;
+        if in_channels > 0 {
+            let input_params = pa::StreamParameters::<i16>::new(idx, in_channels, INTERLEAVED, LATENCY);
+            let in_48k_supported = pa.is_input_format_supported(input_params, SAMPLE_RATE).is_ok();
+            if in_48k_supported {
+                info!("{:?}: {:?} / IN:{} @ {}Hz default", idx.0, info.name, info.max_input_channels, info.default_sample_rate);
+            }
+        }
+    }
+    Ok(0)
+}
+
+pub fn list_audio_output_devices(pa: &PortAudio) -> Result<i32, Box<dyn Error>> {
+    for device in pa.devices()? {
+        let (idx, info) = device?;
+
+        let out_channels = info.max_output_channels;
+        if out_channels > 0 {
+            let output_params =
+                pa::StreamParameters::<f32>::new(idx, out_channels, INTERLEAVED, LATENCY);
+            let out_48k_supported = pa.is_output_format_supported(output_params, SAMPLE_RATE).is_ok();
+            if out_48k_supported {
+                info!("{:?}: {:?} / OUT:{} @ {}Hz default", idx.0, info.name, info.max_output_channels, info.default_sample_rate);
+            }
+        }
+    }
+    Ok(0)
+}
+
 pub fn output_audio_device_exists(pa: &PortAudio, dev_name: &str) -> Result<bool, Box<dyn Error>> {
     for device in pa.devices()? {
         let (idx, info) = device?;

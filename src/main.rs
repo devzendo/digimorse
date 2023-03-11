@@ -28,8 +28,9 @@ use portaudio::PortAudio;
 use syncbox::ScheduledThreadPool;
 use digimorse::libs::application::application::{Application, ApplicationMode, BusInput, BusOutput};
 use digimorse::libs::config_file::config_file::ConfigurationStore;
-use digimorse::libs::audio::audio_devices::{list_audio_devices, output_audio_device_exists, input_audio_device_exists};
+use digimorse::libs::audio::audio_devices::{list_audio_devices, output_audio_device_exists, input_audio_device_exists, list_audio_input_devices, list_audio_output_devices};
 use digimorse::libs::audio::tone_generator::{KeyingEventToneChannel, ToneGenerator};
+use digimorse::libs::channel_codec::channel_encoder::{ChannelEncoder, source_encoding_to_channel_encoding};
 use digimorse::libs::channel_codec::ldpc::init_ldpc;
 use digimorse::libs::delayed_bus::delayed_bus::DelayedBus;
 use digimorse::libs::playback::playback::Playback;
@@ -37,6 +38,7 @@ use digimorse::libs::source_codec::source_decoder::SourceDecoder;
 use digimorse::libs::source_codec::source_encoder::SourceEncoder;
 use digimorse::libs::source_codec::source_encoding::{SOURCE_ENCODER_BLOCK_SIZE_IN_BITS, SourceEncoding};
 use digimorse::libs::transform_bus::transform_bus::TransformBus;
+use digimorse::libs::transmitter::transmitter::Transmitter;
 
 const VERSION: &'static str = env!("CARGO_PKG_VERSION");
 
@@ -61,6 +63,8 @@ arg_enum! {
     pub enum Mode {
         GUI,
         ListAudioDevices,
+        ListOutputDevices,
+        ListInputDevices,
         SerialDiag,
         SourceEncoderDiag // TODO remove when moved to diag_application_spec
     }
@@ -125,9 +129,20 @@ fn run(arguments: ArgMatches, mode: Mode) -> Result<i32, Box<dyn Error>> {
 
     let pa = pa::PortAudio::new()?;
 
-    if mode == Mode::ListAudioDevices {
-        list_audio_devices(&pa)?;
-        return Ok(0)
+    match mode {
+        Mode::ListAudioDevices => {
+            list_audio_devices(&pa)?;
+            return Ok(0)
+        }
+        Mode::ListInputDevices => {
+            list_audio_input_devices(&pa)?;
+            return Ok(0)
+        }
+        Mode::ListOutputDevices => {
+            list_audio_output_devices(&pa)?;
+            return Ok(0)
+        }
+        _ => {}
     }
 
     // Eventually device and settings configuration will be via a nice GUI. Until then, have options
@@ -210,8 +225,6 @@ fn run(arguments: ArgMatches, mode: Mode) -> Result<i32, Box<dyn Error>> {
     application.set_tone_generator(application_tone_generator);
 
     info!("Initialising source encoder...");
-
-
     let mut source_encoder_tx = Bus::new(16);
     let source_encoder_rx = source_encoder_tx.add_rx();
     let mut source_encoder = SourceEncoder::new(application.terminate_flag(),
@@ -246,6 +259,14 @@ fn run(arguments: ArgMatches, mode: Mode) -> Result<i32, Box<dyn Error>> {
 
     info!("Initialising LDPC...");
     init_ldpc();
+
+    info!("Initialising channel encoder...");
+    let channel_encoder = Arc::new(Mutex::new(ChannelEncoder::new(source_encoding_to_channel_encoding, application.terminate_flag())));
+    application.set_channel_encoder(channel_encoder);
+
+    info!("Initialising transmitter...");
+    let mut transmitter = Arc::new(Mutex::new(Transmitter::new(config.get_transmit_offset_frequency(), application.terminate_flag())));
+    application.set_transmitter(transmitter);
 
     Ok(0)
 }
