@@ -38,7 +38,7 @@ use digimorse::libs::source_codec::source_decoder::SourceDecoder;
 use digimorse::libs::source_codec::source_encoder::SourceEncoder;
 use digimorse::libs::source_codec::source_encoding::{SOURCE_ENCODER_BLOCK_SIZE_IN_BITS, SourceEncoding};
 use digimorse::libs::transform_bus::transform_bus::TransformBus;
-use digimorse::libs::transmitter::transmitter::Transmitter;
+use digimorse::libs::transmitter::transmitter::{AmplitudeMax, Transmitter};
 
 const VERSION: &'static str = env!("CARGO_PKG_VERSION");
 
@@ -213,7 +213,7 @@ fn run(arguments: ArgMatches, mode: Mode) -> Result<i32, Box<dyn Error>> {
     let arc_transform_bus = Arc::new(Mutex::new(transform_bus));
     let _keying_event_tone_channel_rx = arc_transform_bus.lock().unwrap().add_reader();
 
-    info!("Initialising audio callback...");
+    info!("Initialising audio output callback...");
     let out_dev_string = config.get_audio_out_device();
     let out_dev_str = out_dev_string.as_str();
     let output_settings = application.open_output_audio_device(out_dev_str)?;
@@ -249,13 +249,16 @@ fn run(arguments: ArgMatches, mode: Mode) -> Result<i32, Box<dyn Error>> {
         return Ok(0);
     }
 
+    // These devices have been previously checked for existence..
+    info!("Initialising rig input (from the rig, ie its speaker) device...");
     let rig_in_dev_string = config.get_rig_in_device();
     let rig_in_dev_str = rig_in_dev_string.as_str();
-    let _rig_input_settings = application.open_input_audio_device(rig_in_dev_str);
+    let _rig_input_settings = application.open_input_audio_device(rig_in_dev_str).unwrap();
 
+    info!("Initialising rig output (to the rig, ie its mic) device...");
     let rig_out_dev_string = config.get_rig_out_device();
     let rig_out_dev_str = rig_out_dev_string.as_str();
-    let _rig_output_settings = application.open_input_audio_device(rig_out_dev_str);
+    let rig_output_settings = application.open_output_audio_device(rig_out_dev_str).unwrap();
 
     info!("Initialising LDPC...");
     init_ldpc();
@@ -266,8 +269,23 @@ fn run(arguments: ArgMatches, mode: Mode) -> Result<i32, Box<dyn Error>> {
 
     info!("Initialising transmitter...");
     let mut transmitter = Arc::new(Mutex::new(Transmitter::new(config.get_transmit_offset_frequency(), application.terminate_flag())));
-    application.set_transmitter(transmitter);
+    application.set_transmitter(transmitter.clone());
 
+    if let mut locked_transmitter = transmitter.lock().unwrap() {
+        info!("Setting amplitude max");
+        locked_transmitter.set_amplitude_max(config.get_transmit_amplitude() as AmplitudeMax);
+        info!("Initialising transmitter audio callback...");
+        locked_transmitter.start_callback(application.pa_ref(), rig_output_settings)?;
+        info!("Setting transmitter offset audio frequency...");
+        locked_transmitter.set_audio_frequency_allocate_buffer(config.get_transmit_offset_frequency());
+
+    }
+
+    info!("End of main; waiting for termination...");
+    while !application.terminated() {
+        thread::sleep(Duration::from_secs(5));
+    }
+    info!("Exiting...");
     Ok(0)
 }
 
