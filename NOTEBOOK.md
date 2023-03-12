@@ -319,3 +319,16 @@ Started adding the Transmitter to the Application.
 ## 10 March 2023
 
 Transmitter wired in.
+
+## 12 March 2023
+
+Outstanding: The Arduino keyer decoder locks up on Windows.
+
+Need to be able to configure/store/load audio devices including their device index, since there may be multiple instances of the same named device, using different underlying APIs (I assume this is the reason for multiple instances - one might work, another, not).
+
+Then on to making audio (and keyer) devices swappable at runtime, possibly using the same mechanism to initialise them from config at startup - do this in the application? 
+
+
+
+
+

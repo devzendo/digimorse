@@ -62,6 +62,7 @@ arg_enum! {
     #[derive(Debug, Clone, Copy, PartialEq)]
     pub enum Mode {
         GUI,
+        ConfigFileLocation,
         ListAudioDevices,
         ListOutputDevices,
         ListInputDevices,
@@ -123,10 +124,14 @@ fn add_sidetone_channel_to_keying_event(keying_event: KeyingEvent) -> KeyingEven
 fn run(arguments: ArgMatches, mode: Mode) -> Result<i32, Box<dyn Error>> {
     let home_dir = dirs::home_dir();
     let config_path = config_dir::configuration_directory(home_dir)?;
-    debug!("Configuration path is [{:?}]", config_path);
+    let config_path_clone = config_path.clone();
     let mut config = ConfigurationStore::new(config_path).unwrap();
-    debug!("Configuration file is [{:?}]", config.get_config_file_path());
-
+    let config_file_path = config.get_config_file_path();
+    if mode == Mode::ConfigFileLocation {
+        info!("Configuration path is [{:?}]", config_path_clone);
+        info!("Configuration file is [{:?}]", config_file_path);
+        return Ok(0)
+    }
     let pa = pa::PortAudio::new()?;
 
     match mode {
