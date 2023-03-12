@@ -1,7 +1,9 @@
 use portaudio::{InputStreamSettings, OutputStreamSettings, PortAudio};
 use portaudio as pa;
 use std::error::Error;
-use log::info;
+use log::{debug, info};
+use regex::Regex;
+use simple_error::bail;
 
 // PortAudio constants
 const INTERLEAVED: bool = true;
@@ -64,6 +66,31 @@ pub fn list_audio_output_devices(pa: &PortAudio) -> Result<i32, Box<dyn Error>> 
     Ok(0)
 }
 
+// The dev_name may be prefixed with num: in which case this must match the device index.
+pub(crate) fn parse_dev_name(dev_name: &str) -> Result<(Option<usize>, String), Box<dyn Error>> {
+    let re = Regex::new(r"^(?:(\d*)\s*:)?\s*([^:].*)$")?;
+    match re.captures(dev_name) {
+        None => {
+            bail!("Device name does not match pattern [number:] name");
+        }
+        Some(caps) => {
+            debug!("caps is {:?}", caps);
+            let maybe_index_str = caps.get(1);
+            debug!("maybe_index_str is {:?}", maybe_index_str);
+            let maybe_device_str = caps.get(2);
+            debug!("maybe_device_str is {:?}", maybe_device_str);
+
+            if maybe_index_str.is_some() && maybe_index_str.unwrap().as_str() == "" {
+                bail!("Missing device index number at start of '{}'", dev_name);
+            }
+            let maybe_index = maybe_index_str.map(|d| d.as_str().to_string().parse::<usize>().unwrap());
+            // unwrap since if present the regex guarantees it's digits - (ignore out of range for usize)
+            let device_name = maybe_device_str.map_or("", |m| m.as_str()).to_string();
+            Ok((maybe_index, device_name))
+        }
+    }
+}
+
 pub fn output_audio_device_exists(pa: &PortAudio, dev_name: &str) -> Result<bool, Box<dyn Error>> {
     for device in pa.devices()? {
         let (idx, info) = device?;
@@ -79,6 +106,7 @@ pub fn output_audio_device_exists(pa: &PortAudio, dev_name: &str) -> Result<bool
     Ok(false)
 }
 
+// The dev_name may be prefixed with num: in which case this must match the device index.
 pub fn input_audio_device_exists(pa: &PortAudio, dev_name: &str) -> Result<bool, Box<dyn Error>> {
     for device in pa.devices()? {
         let (idx, info) = device?;
@@ -132,3 +160,7 @@ pub fn open_input_audio_device(pa: &PortAudio, dev_name: &str) -> Result<InputSt
     }
     Err(Box::<dyn Error + Send + Sync>::from(format!("Can't find input settings for device '{}'", dev_name)))
 }
+
+#[cfg(test)]
+#[path = "./audio_devices_spec.rs"]
+mod audio_devices_spec;

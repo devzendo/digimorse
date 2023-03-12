@@ -4,6 +4,7 @@
 #[macro_use]
 extern crate enum_primitive;
 extern crate lazy_static;
+extern crate simple_error;
 
 pub mod libs;
 
