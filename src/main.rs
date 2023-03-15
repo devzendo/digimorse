@@ -33,6 +33,7 @@ use digimorse::libs::audio::tone_generator::{KeyingEventToneChannel, ToneGenerat
 use digimorse::libs::channel_codec::channel_encoder::{ChannelEncoder, source_encoding_to_channel_encoding};
 use digimorse::libs::channel_codec::ldpc::init_ldpc;
 use digimorse::libs::delayed_bus::delayed_bus::DelayedBus;
+use digimorse::libs::gui::gui;
 use digimorse::libs::playback::playback::Playback;
 use digimorse::libs::source_codec::source_decoder::SourceDecoder;
 use digimorse::libs::source_codec::source_encoder::SourceEncoder;
@@ -273,19 +274,20 @@ fn run(arguments: ArgMatches, mode: Mode) -> Result<i32, Box<dyn Error>> {
     application.set_channel_encoder(channel_encoder);
 
     info!("Initialising transmitter...");
-    let mut transmitter = Arc::new(Mutex::new(Transmitter::new(config.get_transmit_offset_frequency(), application.terminate_flag())));
+    let transmitter = Arc::new(Mutex::new(Transmitter::new(config.get_transmit_offset_frequency(), application.terminate_flag())));
     application.set_transmitter(transmitter.clone());
 
-    if let mut locked_transmitter = transmitter.lock().unwrap() {
+    {
+        let mut locked_transmitter = transmitter.lock().unwrap();
         info!("Setting amplitude max");
         locked_transmitter.set_amplitude_max(config.get_transmit_amplitude() as AmplitudeMax);
         info!("Initialising transmitter audio callback...");
         locked_transmitter.start_callback(application.pa_ref(), rig_output_settings)?;
         info!("Setting transmitter offset audio frequency...");
         locked_transmitter.set_audio_frequency_allocate_buffer(config.get_transmit_offset_frequency());
-
     }
 
+    gui::initialise(&mut config, &mut application);
     info!("End of main; waiting for termination...");
     while !application.terminated() {
         thread::sleep(Duration::from_secs(5));

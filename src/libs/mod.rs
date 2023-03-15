@@ -5,6 +5,7 @@ pub mod config_dir;
 pub mod config_file;
 pub mod conversion;
 pub mod delayed_bus;
+pub mod gui;
 pub mod keyer_io;
 pub mod patterns;
 pub mod playback;
