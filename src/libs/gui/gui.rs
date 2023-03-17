@@ -16,11 +16,11 @@ use crate::libs::util::version::VERSION;
 const WIDGET_HEIGHT: i32 = 25;
 const WIDGET_PADDING: i32 = 10;
 
-const WATERFALL_WIDTH: i32 = 350;
-const WATERFALL_HEIGHT: i32 = 250;
+const WATERFALL_WIDTH: i32 = 1000;
+const WATERFALL_HEIGHT: i32 = 500;
 
 // Central controls column
-const CENTRAL_CONTROLS_WIDTH: i32 = 120;
+const CENTRAL_CONTROLS_WIDTH: i32 = 160;
 
 const CODE_SPEED_WIDTH: i32 = 60;
 const CODE_SPEED_HEIGHT: i32 = 40;
