@@ -30,6 +30,6 @@ fn main() {
     gui::initialise(&mut config, &mut application);
     info!("End of test harness");
     application.terminate();
-    thread::sleep(Duration::from_secs(5));
+    thread::sleep(Duration::from_secs(2));
     info!("Exiting");
 }
