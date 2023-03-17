@@ -99,8 +99,8 @@ pub fn initialise(_config: &mut ConfigurationStore, _application: &mut Applicati
         push_clip(wid.x(), wid.y(), wid.width(), wid.height());
         draw_rect_fill(wid.x(), wid.y(), wid.width(), wid.height(), window_background);
         set_draw_color(Color::Black);
-        draw_text("WPM", wid.x(), 22); // unholy magic co-ordinates
-        draw_text("TX Speed", wid.x(), 44);
+        draw_text("Transmit Keyer", wid.x(), 22); // unholy magic co-ordinates
+        draw_text("Speed in WPM", wid.x(), 44);
         pop_clip();
     });
 
@@ -132,7 +132,7 @@ pub fn initialise(_config: &mut ConfigurationStore, _application: &mut Applicati
     gui.code_speed_output.set_color(window_background);
     gui.code_speed_output.set_text_color(Color::Black);
     gui.code_speed_output.set_value("16");
-    gui.code_speed_output.set_text_size(18);
+    gui.code_speed_output.set_text_size(36);
 
     wind.set_size(
         WIDGET_PADDING + WATERFALL_WIDTH + WIDGET_PADDING + CENTRAL_CONTROLS_WIDTH + WIDGET_PADDING,
