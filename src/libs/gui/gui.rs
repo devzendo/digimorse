@@ -27,6 +27,12 @@ const CODE_SPEED_WIDTH: i32 = 60;
 const CODE_SPEED_HEIGHT: i32 = 40;
 const CODE_SPEED_BUTTON_DIM: i32 = CODE_SPEED_HEIGHT / 2;
 
+const INDICATORS_CANVAS_HEIGHT: i32 = 40;
+const INDICATOR_PADDING: i32 = 6;
+const RX_INDICATOR_WIDTH: i32 = 40;
+const WAIT_INDICATOR_WIDTH: i32 = 60;
+const TX_INDICATOR_WIDTH: i32 = 40;
+
 struct Gui {
     waterfall_canvas: Widget,
     status_output: Output,
@@ -34,6 +40,7 @@ struct Gui {
     code_speed_up_button: Button,
     code_speed_down_button: Button,
     code_speed_label: Widget, // PITA, Frame doesn't align properly
+    indicators_canvas: Widget,
 }
 
 pub fn initialise(_config: &mut ConfigurationStore, _application: &mut Application) -> () {
@@ -47,6 +54,12 @@ pub fn initialise(_config: &mut ConfigurationStore, _application: &mut Applicati
 
     let waterfall_canvas_background = Color::from_hex_str("#aab0cb").unwrap();
     let window_background = Color::from_hex_str("#dfe2ff").unwrap();
+    let rx_inactive = Color::from_hex_str("#142d59").unwrap();
+    let rx_active = Color::from_hex_str("#1f94d9").unwrap();
+    let wait_inactive = Color::from_hex_str("#b16e14").unwrap();
+    let wait_active = Color::from_hex_str("#f89919").unwrap();
+    let tx_inactive = Color::from_hex_str("#6c1c11").unwrap();
+    let tx_active = Color::from_hex_str("#da3620").unwrap();
 
     let mut gui = Gui {
         waterfall_canvas: Widget::new(WIDGET_PADDING, WIDGET_PADDING, WATERFALL_WIDTH, WATERFALL_HEIGHT, ""),
@@ -55,18 +68,21 @@ pub fn initialise(_config: &mut ConfigurationStore, _application: &mut Applicati
             .with_pos(WIDGET_PADDING, WIDGET_PADDING + WATERFALL_HEIGHT + WIDGET_PADDING),
         code_speed_output: Output::default()
             .with_size(CODE_SPEED_WIDTH, CODE_SPEED_HEIGHT)
-            .with_pos(WIDGET_PADDING * 2 + WATERFALL_WIDTH, WIDGET_PADDING),
+            .with_pos(WIDGET_PADDING + WATERFALL_WIDTH + WIDGET_PADDING, WIDGET_PADDING),
         code_speed_up_button: Button::default()
             .with_size(CODE_SPEED_BUTTON_DIM, CODE_SPEED_BUTTON_DIM)
-            .with_pos(WIDGET_PADDING * 2 + WATERFALL_WIDTH + CODE_SPEED_WIDTH, WIDGET_PADDING)
+            .with_pos(WIDGET_PADDING + WATERFALL_WIDTH + WIDGET_PADDING + CODE_SPEED_WIDTH, WIDGET_PADDING)
             .with_label("▲"),
         code_speed_down_button: Button::default()
             .with_size(CODE_SPEED_BUTTON_DIM, CODE_SPEED_BUTTON_DIM)
-            .with_pos(WIDGET_PADDING * 2 + WATERFALL_WIDTH + CODE_SPEED_WIDTH, WIDGET_PADDING + CODE_SPEED_BUTTON_DIM)
+            .with_pos(WIDGET_PADDING + WATERFALL_WIDTH + WIDGET_PADDING + CODE_SPEED_WIDTH, WIDGET_PADDING + CODE_SPEED_BUTTON_DIM)
             .with_label("▼"),
         code_speed_label: Widget::default()
             .with_size(CENTRAL_CONTROLS_WIDTH - CODE_SPEED_BUTTON_DIM - CODE_SPEED_WIDTH - WIDGET_PADDING, CODE_SPEED_BUTTON_DIM * 2)
             .with_pos(WIDGET_PADDING * 3 + WATERFALL_WIDTH + CODE_SPEED_WIDTH + CODE_SPEED_BUTTON_DIM, WIDGET_PADDING),
+        indicators_canvas: Widget::default()
+            .with_size(CENTRAL_CONTROLS_WIDTH, INDICATORS_CANVAS_HEIGHT)
+            .with_pos(WIDGET_PADDING + WATERFALL_WIDTH + WIDGET_PADDING, WIDGET_PADDING + CODE_SPEED_BUTTON_DIM * 2 + WIDGET_PADDING),
     };
 
     gui.waterfall_canvas.set_trigger(CallbackTrigger::Release);
@@ -85,6 +101,27 @@ pub fn initialise(_config: &mut ConfigurationStore, _application: &mut Applicati
         set_draw_color(Color::Black);
         draw_text("WPM", wid.x(), 22); // unholy magic co-ordinates
         draw_text("TX Speed", wid.x(), 44);
+        pop_clip();
+    });
+
+    gui.indicators_canvas.draw(move |wid| {
+        push_clip(wid.x(), wid.y(), wid.width(), wid.height());
+        draw_rect_fill(wid.x(), wid.y(), wid.width(), wid.height(), window_background);
+
+        draw_rect_fill(wid.x() + INDICATOR_PADDING, wid.y() + INDICATOR_PADDING, RX_INDICATOR_WIDTH, wid.height() - 2 * INDICATOR_PADDING, rx_inactive);
+        set_draw_color(rx_active);
+        draw_text("RX", wid.x() + INDICATOR_PADDING + 10, wid.y() + INDICATOR_PADDING + 18);
+
+        draw_rect_fill(wid.x() + INDICATOR_PADDING + RX_INDICATOR_WIDTH + INDICATOR_PADDING, wid.y() + INDICATOR_PADDING, WAIT_INDICATOR_WIDTH, wid.height() - 2 * INDICATOR_PADDING, wait_inactive);
+        set_draw_color(wait_active);
+        draw_text("WAIT", wid.x() + INDICATOR_PADDING + RX_INDICATOR_WIDTH + INDICATOR_PADDING + 12, wid.y() + INDICATOR_PADDING + 18);
+
+        draw_rect_fill(wid.x() + INDICATOR_PADDING + RX_INDICATOR_WIDTH + INDICATOR_PADDING + WAIT_INDICATOR_WIDTH + INDICATOR_PADDING, wid.y() + INDICATOR_PADDING, TX_INDICATOR_WIDTH, wid.height() - 2 * INDICATOR_PADDING, tx_inactive);
+        set_draw_color(tx_active);
+        draw_text("TX", wid.x() + INDICATOR_PADDING + RX_INDICATOR_WIDTH + INDICATOR_PADDING + WAIT_INDICATOR_WIDTH + INDICATOR_PADDING + 10, wid.y() + INDICATOR_PADDING + 18);
+
+        set_draw_color(Color::Black);
+        draw_rect(wid.x(), wid.y(), wid.width(), wid.height());
         pop_clip();
     });
 
