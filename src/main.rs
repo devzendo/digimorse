@@ -40,8 +40,8 @@ use digimorse::libs::source_codec::source_encoder::SourceEncoder;
 use digimorse::libs::source_codec::source_encoding::{SOURCE_ENCODER_BLOCK_SIZE_IN_BITS, SourceEncoding};
 use digimorse::libs::transform_bus::transform_bus::TransformBus;
 use digimorse::libs::transmitter::transmitter::{AmplitudeMax, Transmitter};
-
-const VERSION: &'static str = env!("CARGO_PKG_VERSION");
+use digimorse::libs::util::logging::initialise_logging;
+use digimorse::libs::util::version::VERSION;
 
 #[cfg(windows)]
 const KEYER_HELP: &str = "Sets the port that the Digimorse Arduino Keyer is connected to, e.g. COM4:";
@@ -108,14 +108,6 @@ fn parse_command_line<'a>() -> (ArgMatches<'a>, Mode) {
     let mode = value_t!(result.value_of("mode"), Mode).unwrap_or(Mode::GUI);
 
     return (result, mode);
-}
-
-fn initialise_logging() {
-    let log_var_name = "RUST_LOG";
-    if env::var(log_var_name).is_err() {
-        env::set_var(log_var_name, "info")
-    }
-    env_logger::init();
 }
 
 fn add_sidetone_channel_to_keying_event(keying_event: KeyingEvent) -> KeyingEventToneChannel {

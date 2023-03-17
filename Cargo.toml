@@ -19,7 +19,7 @@ dashmap = "5.0.0"
 dirs = "1.0.5"
 enum_primitive = "0.1.1"
 env_logger = "0.9"
-fltk = { version = "1.3.27", features = ["fltk-bundled"] }
+fltk = "1"
 labrador-ldpc = "1.0.1"
 lazy_static = "1.4.0"
 libm = "0.2.2"
@@ -55,4 +55,8 @@ temp_testdir = "0.2"
 [[bin]]
 name = "digimorse"
 path = "src/main.rs"
+
+[[bin]]
+name = "gui-harness"
+path = "src/gui_harness.rs"
 
