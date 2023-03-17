@@ -1,6 +1,7 @@
 use fltk::{
     app::*, button::*, draw::*, enums::*, menu::*, prelude::*, valuator::*, widget::*, window::*,
 };
+use fltk::frame::Frame;
 //use std::sync::mpsc::{channel, RecvError};
 use fltk::output::Output;
 use log::{debug, info, warn};
@@ -20,16 +21,19 @@ const WATERFALL_WIDTH: i32 = 1000;
 const WATERFALL_HEIGHT: i32 = 500;
 
 // Central controls column
-const CENTRAL_CONTROLS_WIDTH: i32 = 160;
+const CENTRAL_CONTROLS_WIDTH: i32 = 240;
 
 const CODE_SPEED_WIDTH: i32 = 60;
 const CODE_SPEED_HEIGHT: i32 = 40;
-
+const CODE_SPEED_BUTTON_DIM: i32 = CODE_SPEED_HEIGHT / 2;
 
 struct Gui {
     waterfall_canvas: Widget,
     status_output: Output,
     code_speed_output: Output,
+    code_speed_up_button: Button,
+    code_speed_down_button: Button,
+    code_speed_label: Widget, // PITA, Frame doesn't align properly
 }
 
 pub fn initialise(_config: &mut ConfigurationStore, _application: &mut Application) -> () {
@@ -51,7 +55,18 @@ pub fn initialise(_config: &mut ConfigurationStore, _application: &mut Applicati
             .with_pos(WIDGET_PADDING, WIDGET_PADDING + WATERFALL_HEIGHT + WIDGET_PADDING),
         code_speed_output: Output::default()
             .with_size(CODE_SPEED_WIDTH, CODE_SPEED_HEIGHT)
-            .with_pos(WIDGET_PADDING * 2 + WATERFALL_WIDTH, WIDGET_PADDING)
+            .with_pos(WIDGET_PADDING * 2 + WATERFALL_WIDTH, WIDGET_PADDING),
+        code_speed_up_button: Button::default()
+            .with_size(CODE_SPEED_BUTTON_DIM, CODE_SPEED_BUTTON_DIM)
+            .with_pos(WIDGET_PADDING * 2 + WATERFALL_WIDTH + CODE_SPEED_WIDTH, WIDGET_PADDING)
+            .with_label("▲"),
+        code_speed_down_button: Button::default()
+            .with_size(CODE_SPEED_BUTTON_DIM, CODE_SPEED_BUTTON_DIM)
+            .with_pos(WIDGET_PADDING * 2 + WATERFALL_WIDTH + CODE_SPEED_WIDTH, WIDGET_PADDING + CODE_SPEED_BUTTON_DIM)
+            .with_label("▼"),
+        code_speed_label: Widget::default()
+            .with_size(CENTRAL_CONTROLS_WIDTH - CODE_SPEED_BUTTON_DIM - CODE_SPEED_WIDTH - WIDGET_PADDING, CODE_SPEED_BUTTON_DIM * 2)
+            .with_pos(WIDGET_PADDING * 3 + WATERFALL_WIDTH + CODE_SPEED_WIDTH + CODE_SPEED_BUTTON_DIM, WIDGET_PADDING),
     };
 
     gui.waterfall_canvas.set_trigger(CallbackTrigger::Release);
@@ -61,6 +76,15 @@ pub fn initialise(_config: &mut ConfigurationStore, _application: &mut Applicati
 
         set_draw_color(Color::Black);
         draw_rect(wid.x(), wid.y(), wid.width(), wid.height());
+        pop_clip();
+    });
+
+    gui.code_speed_label.draw(move |wid| {
+        push_clip(wid.x(), wid.y(), wid.width(), wid.height());
+        draw_rect_fill(wid.x(), wid.y(), wid.width(), wid.height(), window_background);
+        set_draw_color(Color::Black);
+        draw_text("WPM", wid.x(), 22); // unholy magic co-ordinates
+        draw_text("TX Speed", wid.x(), 44);
         pop_clip();
     });
 
@@ -75,7 +99,7 @@ pub fn initialise(_config: &mut ConfigurationStore, _application: &mut Applicati
 
     wind.set_size(
         WIDGET_PADDING + WATERFALL_WIDTH + WIDGET_PADDING + CENTRAL_CONTROLS_WIDTH + WIDGET_PADDING,
-        WATERFALL_HEIGHT + WIDGET_HEIGHT + 3*WIDGET_PADDING,
+        WIDGET_PADDING + WATERFALL_HEIGHT + WIDGET_PADDING + WIDGET_HEIGHT + WIDGET_PADDING,
     );
     wind.set_color(window_background);
 
