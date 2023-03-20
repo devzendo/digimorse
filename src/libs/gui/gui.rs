@@ -1,7 +1,11 @@
+use std::cell::RefCell;
+use std::rc::Rc;
+use std::sync::Arc;
 use fltk::{
     app::*, button::*, draw::*, enums::*, menu::*, prelude::*, valuator::*, widget::*, window::*,
 };
 use fltk::frame::Frame;
+use fltk::input::{Input, MultilineInput};
 //use std::sync::mpsc::{channel, RecvError};
 use fltk::output::Output;
 use log::{debug, info, warn};
@@ -33,6 +37,8 @@ const RX_INDICATOR_WIDTH: i32 = 40;
 const WAIT_INDICATOR_WIDTH: i32 = 60;
 const TX_INDICATOR_WIDTH: i32 = 40;
 
+const TEXT_ENTRY_HEIGHT: i32 = 120;
+
 struct Gui {
     waterfall_canvas: Widget,
     status_output: Output,
@@ -41,6 +47,7 @@ struct Gui {
     code_speed_down_button: Button,
     code_speed_label: Widget, // PITA, Frame doesn't align properly
     indicators_canvas: Widget,
+    text_entry: Rc<RefCell<MultilineInput>>,
 }
 
 pub fn initialise(_config: &mut ConfigurationStore, _application: &mut Application) -> () {
@@ -83,6 +90,9 @@ pub fn initialise(_config: &mut ConfigurationStore, _application: &mut Applicati
         indicators_canvas: Widget::default()
             .with_size(CENTRAL_CONTROLS_WIDTH, INDICATORS_CANVAS_HEIGHT)
             .with_pos(WIDGET_PADDING + WATERFALL_WIDTH + WIDGET_PADDING, WIDGET_PADDING + CODE_SPEED_BUTTON_DIM * 2 + WIDGET_PADDING),
+        text_entry: Rc::new(RefCell::new(MultilineInput::default()
+            .with_size(CENTRAL_CONTROLS_WIDTH, TEXT_ENTRY_HEIGHT)
+            .with_pos(WIDGET_PADDING + WATERFALL_WIDTH + WIDGET_PADDING, WIDGET_PADDING + CODE_SPEED_BUTTON_DIM * 2 + WIDGET_PADDING + INDICATORS_CANVAS_HEIGHT + WIDGET_PADDING))),
     };
 
     gui.waterfall_canvas.set_trigger(CallbackTrigger::Release);
@@ -133,6 +143,36 @@ pub fn initialise(_config: &mut ConfigurationStore, _application: &mut Applicati
     gui.code_speed_output.set_text_color(Color::Black);
     gui.code_speed_output.set_value("16");
     gui.code_speed_output.set_text_size(36);
+
+    let entry_prompt = "Enter message,\nthen RETURN to send.";
+    // TODO set an inner padding?
+    gui.text_entry.borrow_mut().set_color(window_background.lighter());
+    gui.text_entry.borrow_mut().set_wrap(true);
+    gui.text_entry.borrow_mut().set_align(Align::TopLeft);
+    gui.text_entry.borrow_mut().set_tooltip(entry_prompt);
+    gui.text_entry.borrow_mut().insert(entry_prompt).unwrap();
+    gui.text_entry.borrow_mut().set_trigger(CallbackTrigger::EnterKey);
+    let cb_text_entry = gui.text_entry.clone();
+    gui.text_entry.borrow_mut().handle(move |widget, event| {
+        match event {
+            Event::Focus => {
+                let contents = widget.value();
+                info!("clearing? contents are [{}]", contents);
+                if contents == entry_prompt.to_string() {
+                    widget.set_value("");
+                }
+            },
+            _ => {
+                // nothing
+            }
+        }
+        true
+    });
+    gui.text_entry.borrow_mut().set_callback(move |_f| {
+        let contents = cb_text_entry.borrow_mut().value();
+        info!("sending? contents are [{}]", contents);
+        // TODO send this text
+    });
 
     wind.set_size(
         WIDGET_PADDING + WATERFALL_WIDTH + WIDGET_PADDING + CENTRAL_CONTROLS_WIDTH + WIDGET_PADDING,
