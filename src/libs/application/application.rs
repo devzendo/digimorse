@@ -75,6 +75,76 @@ pub struct Application {
 }
 
 impl Application {
+    pub fn new(terminate_flag: Arc<AtomicBool>,
+               scheduled_thread_pool: Arc<ScheduledThreadPool>,
+               pa: PortAudio,
+    ) -> Self {
+        debug!("Constructing Application");
+
+        Self {
+            terminate_flag,
+            scheduled_thread_pool,
+            pa,
+            mode: None,
+
+            keyer: None,
+            keying_event_bus: None,
+            tone_generator: None,
+            keying_event_tone_channel_bus: None,
+            keying_event_tone_channel_rx: None,
+            keying_event_tone_channel_transform: None,
+            keyer_diag: None,
+            keyer_diag_keying_event_rx: None,
+            source_encoder: None,
+            source_encoding_bus: None,
+            source_encoder_keying_event_rx: None,
+            source_encoder_diag: None,
+            source_encoder_diag_source_encoding_rx: None,
+            channel_encoder: None,
+            channel_encoding_bus: None,
+            channel_encoder_source_encoding_rx: None,
+            transmitter: None,
+            transmitter_channel_encoding_rx: None,
+            playback: None,
+        }
+    }
+
+    // Initialise the Ctrl-C handler. Called once by the application.
+    pub fn set_ctrlc_handler(&mut self) {
+        debug!("Setting Ctrl-C handler");
+        let ctrlc_arc_terminate = self.terminate_flag();
+        ctrlc::set_handler(move || {
+            info!("Setting terminate flag...");
+            ctrlc_arc_terminate.store(true, Ordering::SeqCst);
+            info!("... terminate flag set");
+        }).expect("Error setting Ctrl-C handler");
+    }
+
+    // Setting the terminate AtomicBool will allow the thread to stop on its own.
+    pub fn terminate(&mut self) {
+        info!("Terminating Application");
+        self.terminate_flag.store(true, Ordering::SeqCst);
+        info!("Terminated Application");
+    }
+
+    // Has the Application been terminated
+    pub fn terminated(&self) -> bool {
+        debug!("Is Application terminated?");
+        let ret = self.terminate_flag.load(Ordering::SeqCst);
+        debug!("Termination state is {}", ret);
+        ret
+    }
+
+    // Obtain a clone of the global terminate flag.
+    pub fn terminate_flag(&mut self) -> Arc<AtomicBool> {
+        self.terminate_flag.clone()
+    }
+
+    // Obtain a clone of the global scheduled thread pool.
+    pub fn scheduled_thread_pool(&mut self) -> Arc<ScheduledThreadPool> {
+        self.scheduled_thread_pool.clone()
+    }
+
     pub fn set_mode(&mut self, mode: ApplicationMode) {
         info!("Setting mode to {}", mode);
         self.mode = Some(mode);
@@ -495,78 +565,6 @@ impl Application {
 
     pub fn pa_ref(&self) -> &PortAudio {
         self.pa.borrow()
-    }
-}
-
-impl Application {
-    pub fn new(terminate_flag: Arc<AtomicBool>,
-               scheduled_thread_pool: Arc<ScheduledThreadPool>,
-               pa: PortAudio,
-    ) -> Self {
-        debug!("Constructing Application");
-
-        Self {
-            terminate_flag,
-            scheduled_thread_pool,
-            pa,
-            mode: None,
-
-            keyer: None,
-            keying_event_bus: None,
-            tone_generator: None,
-            keying_event_tone_channel_bus: None,
-            keying_event_tone_channel_rx: None,
-            keying_event_tone_channel_transform: None,
-            keyer_diag: None,
-            keyer_diag_keying_event_rx: None,
-            source_encoder: None,
-            source_encoding_bus: None,
-            source_encoder_keying_event_rx: None,
-            source_encoder_diag: None,
-            source_encoder_diag_source_encoding_rx: None,
-            channel_encoder: None,
-            channel_encoding_bus: None,
-            channel_encoder_source_encoding_rx: None,
-            transmitter: None,
-            transmitter_channel_encoding_rx: None,
-            playback: None,
-        }
-    }
-
-    // Initialise the Ctrl-C handler. Called once by the application.
-    pub fn set_ctrlc_handler(&mut self) {
-        debug!("Setting Ctrl-C handler");
-        let ctrlc_arc_terminate = self.terminate_flag();
-        ctrlc::set_handler(move || {
-            info!("Setting terminate flag...");
-            ctrlc_arc_terminate.store(true, Ordering::SeqCst);
-            info!("... terminate flag set");
-        }).expect("Error setting Ctrl-C handler");
-    }
-
-    // Setting the terminate AtomicBool will allow the thread to stop on its own.
-    pub fn terminate(&mut self) {
-        info!("Terminating Application");
-        self.terminate_flag.store(true, core::sync::atomic::Ordering::SeqCst);
-        info!("Terminated Application");
-    }
-
-    // Has the Application been terminated
-    pub fn terminated(&self) -> bool {
-        debug!("Is Application terminated?");
-        let ret = self.terminate_flag.load(core::sync::atomic::Ordering::SeqCst);
-        debug!("Termination state is {}", ret);
-        ret
-    }
-
-    // Obtain a clone of the global terminate flag.
-    pub fn terminate_flag(&mut self) -> Arc<AtomicBool> {
-        self.terminate_flag.clone()
-    }
-
-    // Obtain a clone of the global scheduled thread pool.
-    pub fn scheduled_thread_pool(&mut self) -> Arc<ScheduledThreadPool> {
-        self.scheduled_thread_pool.clone()
     }
 }
 
