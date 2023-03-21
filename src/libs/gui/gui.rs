@@ -1,10 +1,10 @@
 use std::cell::RefCell;
 use std::rc::Rc;
-use std::sync::Arc;
+// use std::sync::Arc;
 use fltk::{
     app::*, button::*, draw::*, enums::*, menu::*, prelude::*, valuator::*, widget::*, window::*,
 };
-use fltk::frame::Frame;
+// use fltk::frame::Frame;
 use fltk::input::{Input, MultilineInput};
 //use std::sync::mpsc::{channel, RecvError};
 use fltk::output::Output;
@@ -15,7 +15,7 @@ use log::{debug, info, warn};
 // use std::rc::Rc;
 use crate::libs::application::application::Application;
 use crate::libs::config_file::config_file::ConfigurationStore;
-use crate::libs::gui::message::Message;
+use crate::libs::gui::message::{KeyingText, Message};
 use crate::libs::util::version::VERSION;
 
 const WIDGET_HEIGHT: i32 = 25;
@@ -156,8 +156,8 @@ pub fn initialise(_config: &mut ConfigurationStore, _application: &mut Applicati
     gui.text_entry.borrow_mut().handle(move |widget, event| {
         match event {
             Event::Focus => {
+                // Clear out the initial prompt text.
                 let contents = widget.value();
-                info!("clearing? contents are [{}]", contents);
                 if contents == entry_prompt.to_string() {
                     widget.set_value("");
                 }
@@ -170,8 +170,11 @@ pub fn initialise(_config: &mut ConfigurationStore, _application: &mut Applicati
     });
     gui.text_entry.borrow_mut().set_callback(move |_f| {
         let contents = cb_text_entry.borrow_mut().value();
-        info!("sending? contents are [{}]", contents);
-        // TODO send this text
+        let trimmed_contents = contents.trim();
+        if trimmed_contents.len() > 0 {
+            info!("sending text [{}]", trimmed_contents);
+            sender.send(Message::KeyingText { 0: KeyingText {  text: trimmed_contents.to_owned() } });
+        }
     });
 
     wind.set_size(
@@ -187,22 +190,16 @@ pub fn initialise(_config: &mut ConfigurationStore, _application: &mut Applicati
     while app.wait() {
         debug!("app wait has returned true");
         match receiver.recv() {
-            // Some(Message::Create) => {
-            //     //model.push(formatted_name());
-            //     sender.send(Message::Filter);
-            // }
-            // None => {}
-            // Ok(message) => {
-            //     info!("App message {:?}", message);
-            // }
-            // Err(err) => {
-            //     warn!("App error {}", err);
-            // }
             None => {
-                warn!("Got None");
+                // warn!("Got None");
             }
             Some(message) => {
                 info!("App message {:?}", message);
+                match message {
+                    Message::KeyingText(keying_text) => {}
+                    Message::Beep => {}
+                    Message::SetKeyingSpeed(_) => {}
+                }
             }
         }
     }
