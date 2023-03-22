@@ -277,7 +277,8 @@ fn run(arguments: ArgMatches, mode: Mode) -> Result<i32, Box<dyn Error>> {
         locked_transmitter.set_audio_frequency_allocate_buffer(config.get_transmit_offset_frequency());
     }
 
-    gui::initialise(&mut config, &mut application);
+    let gui_config = Arc::new(Mutex::new(config));
+    gui::initialise(gui_config, &mut application);
     info!("End of main; waiting for termination...");
     while !application.terminated() {
         thread::sleep(Duration::from_secs(5));

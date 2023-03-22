@@ -1,14 +1,15 @@
 use std::cell::RefCell;
 use std::rc::Rc;
+use std::sync::{Arc, Mutex};
 // use std::sync::Arc;
 use fltk::{
-    app::*, button::*, draw::*, enums::*, menu::*, prelude::*, valuator::*, widget::*, window::*,
+    app::*, button::*, draw::*, enums::*, /*menu::*,*/ prelude::*, /*valuator::*,*/ widget::*, window::*,
 };
 // use fltk::frame::Frame;
-use fltk::input::{Input, MultilineInput};
+use fltk::input::MultilineInput;
 //use std::sync::mpsc::{channel, RecvError};
 use fltk::output::Output;
-use log::{debug, info, warn};
+use log::{debug, info};
 // use std::cell::RefCell;
 // use std::collections::HashMap;
 // use std::ops::{Deref, DerefMut};
@@ -40,17 +41,18 @@ const TX_INDICATOR_WIDTH: i32 = 40;
 const TEXT_ENTRY_HEIGHT: i32 = 120;
 
 struct Gui {
+    config: Arc<Mutex<ConfigurationStore>>,
     waterfall_canvas: Widget,
     status_output: Output,
     code_speed_output: Output,
-    code_speed_up_button: Button,
-    code_speed_down_button: Button,
+    _code_speed_up_button: Button,
+    _code_speed_down_button: Button,
     code_speed_label: Widget, // PITA, Frame doesn't align properly
     indicators_canvas: Widget,
     text_entry: Rc<RefCell<MultilineInput>>,
 }
 
-pub fn initialise(_config: &mut ConfigurationStore, _application: &mut Application) -> () {
+pub fn initialise(config: Arc<Mutex<ConfigurationStore>>, _application: &mut Application) -> () {
     debug!("Initialising App");
     let app = App::default().with_scheme(Scheme::Gtk);
     debug!("Initialising Window");
@@ -69,6 +71,7 @@ pub fn initialise(_config: &mut ConfigurationStore, _application: &mut Applicati
     let tx_active = Color::from_hex_str("#da3620").unwrap();
 
     let mut gui = Gui {
+        config,
         waterfall_canvas: Widget::new(WIDGET_PADDING, WIDGET_PADDING, WATERFALL_WIDTH, WATERFALL_HEIGHT, ""),
         status_output: Output::default()
             .with_size(WATERFALL_WIDTH, WIDGET_HEIGHT)
@@ -76,11 +79,11 @@ pub fn initialise(_config: &mut ConfigurationStore, _application: &mut Applicati
         code_speed_output: Output::default()
             .with_size(CODE_SPEED_WIDTH, CODE_SPEED_HEIGHT)
             .with_pos(WIDGET_PADDING + WATERFALL_WIDTH + WIDGET_PADDING, WIDGET_PADDING),
-        code_speed_up_button: Button::default()
+        _code_speed_up_button: Button::default()
             .with_size(CODE_SPEED_BUTTON_DIM, CODE_SPEED_BUTTON_DIM)
             .with_pos(WIDGET_PADDING + WATERFALL_WIDTH + WIDGET_PADDING + CODE_SPEED_WIDTH, WIDGET_PADDING)
             .with_label("▲"),
-        code_speed_down_button: Button::default()
+        _code_speed_down_button: Button::default()
             .with_size(CODE_SPEED_BUTTON_DIM, CODE_SPEED_BUTTON_DIM)
             .with_pos(WIDGET_PADDING + WATERFALL_WIDTH + WIDGET_PADDING + CODE_SPEED_WIDTH, WIDGET_PADDING + CODE_SPEED_BUTTON_DIM)
             .with_label("▼"),
@@ -141,7 +144,7 @@ pub fn initialise(_config: &mut ConfigurationStore, _application: &mut Applicati
 
     gui.code_speed_output.set_color(window_background);
     gui.code_speed_output.set_text_color(Color::Black);
-    gui.code_speed_output.set_value("16");
+    gui.code_speed_output.set_value(gui.config.lock().unwrap().get_wpm().to_string().as_str());
     gui.code_speed_output.set_text_size(36);
 
     let entry_prompt = "Enter message,\nthen RETURN to send.";
@@ -191,12 +194,12 @@ pub fn initialise(_config: &mut ConfigurationStore, _application: &mut Applicati
         debug!("app wait has returned true");
         match receiver.recv() {
             None => {
-                // warn!("Got None");
+                // noop
             }
             Some(message) => {
                 info!("App message {:?}", message);
                 match message {
-                    Message::KeyingText(keying_text) => {}
+                    Message::KeyingText(_keying_text) => {}
                     Message::Beep => {}
                     Message::SetKeyingSpeed(_) => {}
                 }

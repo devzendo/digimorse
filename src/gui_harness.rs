@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::sync::atomic::AtomicBool;
 use std::thread;
 use std::time::Duration;
@@ -19,7 +19,7 @@ fn main() {
 
     let home_dir = dirs::home_dir();
     let config_path = config_dir::configuration_directory(home_dir).unwrap();
-    let mut config = ConfigurationStore::new(config_path).unwrap();
+    let config = ConfigurationStore::new(config_path).unwrap();
     info!("Initialising PortAudio");
     let pa = pa::PortAudio::new().unwrap();
     let mut application = Application::new(terminate.clone(), scheduled_thread_pool.clone(), pa);
@@ -27,7 +27,8 @@ fn main() {
     application.set_mode(ApplicationMode::Full);
 
     info!("Initialising GUI");
-    gui::initialise(&mut config, &mut application);
+    let gui_config = Arc::new(Mutex::new(config));
+    gui::initialise(gui_config, &mut application);
     info!("End of test harness");
     application.terminate();
     thread::sleep(Duration::from_secs(2));
