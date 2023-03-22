@@ -9,5 +9,7 @@ pub struct KeyingText {
 pub enum Message {
     KeyingText(KeyingText),
     Beep,
+    IncreaseKeyingSpeedRequest,
+    DecreaseKeyingSpeedRequest,
     SetKeyingSpeed(KeyerSpeed)
 }

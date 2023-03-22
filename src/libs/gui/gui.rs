@@ -42,11 +42,13 @@ const TEXT_ENTRY_HEIGHT: i32 = 120;
 
 struct Gui {
     config: Arc<Mutex<ConfigurationStore>>,
+    sender: Sender<Message>,
+    receiver: Receiver<Message>,
     waterfall_canvas: Widget,
     status_output: Output,
     code_speed_output: Output,
-    _code_speed_up_button: Button,
-    _code_speed_down_button: Button,
+    code_speed_up_button: Button,
+    code_speed_down_button: Button,
     code_speed_label: Widget, // PITA, Frame doesn't align properly
     indicators_canvas: Widget,
     text_entry: Rc<RefCell<MultilineInput>>,
@@ -58,8 +60,6 @@ pub fn initialise(config: Arc<Mutex<ConfigurationStore>>, _application: &mut App
     debug!("Initialising Window");
     let mut wind = Window::default().with_label(format!("digimorse v{} de M0CUV", VERSION).as_str());
 
-    // move this to the application
-    let (sender, receiver) = channel::<Message>();
 
     let waterfall_canvas_background = Color::from_hex_str("#aab0cb").unwrap();
     let window_background = Color::from_hex_str("#dfe2ff").unwrap();
@@ -70,8 +70,12 @@ pub fn initialise(config: Arc<Mutex<ConfigurationStore>>, _application: &mut App
     let tx_inactive = Color::from_hex_str("#6c1c11").unwrap();
     let tx_active = Color::from_hex_str("#da3620").unwrap();
 
+    let (sender, receiver) = channel::<Message>();
+
     let mut gui = Gui {
         config,
+        sender,
+        receiver,
         waterfall_canvas: Widget::new(WIDGET_PADDING, WIDGET_PADDING, WATERFALL_WIDTH, WATERFALL_HEIGHT, ""),
         status_output: Output::default()
             .with_size(WATERFALL_WIDTH, WIDGET_HEIGHT)
@@ -79,11 +83,11 @@ pub fn initialise(config: Arc<Mutex<ConfigurationStore>>, _application: &mut App
         code_speed_output: Output::default()
             .with_size(CODE_SPEED_WIDTH, CODE_SPEED_HEIGHT)
             .with_pos(WIDGET_PADDING + WATERFALL_WIDTH + WIDGET_PADDING, WIDGET_PADDING),
-        _code_speed_up_button: Button::default()
+        code_speed_up_button: Button::default()
             .with_size(CODE_SPEED_BUTTON_DIM, CODE_SPEED_BUTTON_DIM)
             .with_pos(WIDGET_PADDING + WATERFALL_WIDTH + WIDGET_PADDING + CODE_SPEED_WIDTH, WIDGET_PADDING)
             .with_label("▲"),
-        _code_speed_down_button: Button::default()
+        code_speed_down_button: Button::default()
             .with_size(CODE_SPEED_BUTTON_DIM, CODE_SPEED_BUTTON_DIM)
             .with_pos(WIDGET_PADDING + WATERFALL_WIDTH + WIDGET_PADDING + CODE_SPEED_WIDTH, WIDGET_PADDING + CODE_SPEED_BUTTON_DIM)
             .with_label("▼"),
@@ -116,6 +120,9 @@ pub fn initialise(config: Arc<Mutex<ConfigurationStore>>, _application: &mut App
         draw_text("Speed in WPM", wid.x(), 44);
         pop_clip();
     });
+
+    gui.code_speed_up_button.emit(gui.sender.clone(), Message::IncreaseKeyingSpeedRequest);
+    gui.code_speed_down_button.emit(gui.sender.clone(), Message::DecreaseKeyingSpeedRequest);
 
     gui.indicators_canvas.draw(move |wid| {
         push_clip(wid.x(), wid.y(), wid.width(), wid.height());
@@ -171,12 +178,12 @@ pub fn initialise(config: Arc<Mutex<ConfigurationStore>>, _application: &mut App
         }
         true
     });
+    let text_entry_sender = gui.sender.clone();
     gui.text_entry.borrow_mut().set_callback(move |_f| {
         let contents = cb_text_entry.borrow_mut().value();
         let trimmed_contents = contents.trim();
         if trimmed_contents.len() > 0 {
-            info!("sending text [{}]", trimmed_contents);
-            sender.send(Message::KeyingText { 0: KeyingText {  text: trimmed_contents.to_owned() } });
+            text_entry_sender.send(Message::KeyingText { 0: KeyingText {  text: trimmed_contents.to_owned() } });
         }
     });
 
@@ -192,7 +199,7 @@ pub fn initialise(config: Arc<Mutex<ConfigurationStore>>, _application: &mut App
     debug!("Starting app wait loop");
     while app.wait() {
         debug!("app wait has returned true");
-        match receiver.recv() {
+        match gui.receiver.recv() {
             None => {
                 // noop
             }
@@ -202,6 +209,8 @@ pub fn initialise(config: Arc<Mutex<ConfigurationStore>>, _application: &mut App
                     Message::KeyingText(_keying_text) => {}
                     Message::Beep => {}
                     Message::SetKeyingSpeed(_) => {}
+                    Message::IncreaseKeyingSpeedRequest => {}
+                    Message::DecreaseKeyingSpeedRequest => {}
                 }
             }
         }
