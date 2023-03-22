@@ -45,7 +45,7 @@ ctor = "0.1"
 hamcrest2 = "0.3.0"
 mockall = "0.8.3"
 os_info = { version = "3", default-features = false }
-rstest = "0.11.0"
+rstest = "0.16.0"
 rand = "0.8"
 serial_test = "0.5.1"
 substring = "1.4.5"
