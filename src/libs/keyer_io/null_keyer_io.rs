@@ -1,5 +1,8 @@
+use std::sync::{Arc, Mutex};
 use crate::libs::keyer_io::keyer_io::{Keyer, KeyerSpeed, KeyerMode, KeyerPolarity, KeyingEvent};
 use std::sync::mpsc::Sender;
+use bus::Bus;
+use crate::libs::application::application::BusOutput;
 
 pub struct NullKeyer {
     _keying_event_tx: Sender<KeyingEvent>,
@@ -16,6 +19,16 @@ impl NullKeyer {
             keyer_mode: KeyerMode::Straight,
             keyer_polarity: KeyerPolarity::Normal,
         }
+    }
+}
+
+impl BusOutput<KeyingEvent> for NullKeyer {
+    fn clear_output_tx(&mut self) {
+        // does nothing since this does not output KeyingEvents
+    }
+
+    fn set_output_tx(&mut self, _output_tx: Arc<Mutex<Bus<KeyingEvent>>>) {
+        // does nothing since this does not output KeyingEvents
     }
 }
 

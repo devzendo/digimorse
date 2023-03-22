@@ -4,6 +4,7 @@ use std::fmt;
 use crate::libs::keyer_io::keyer_io::KeyingEvent::{Timed, Start, End};
 use serde_derive::Deserialize;
 use serde_derive::Serialize;
+use crate::libs::application::application::BusOutput;
 
 #[derive(Serialize, Deserialize, Debug, PartialOrd, PartialEq, Copy, Clone)]
 pub enum KeyerMode {
@@ -85,7 +86,7 @@ impl Debug for KeyingEvent {
     }
 }
 
-pub trait Keyer {
+pub trait Keyer: BusOutput<KeyingEvent> {
     fn get_version(&mut self) -> Result<String, String>;
 
     fn get_speed(&mut self) -> Result<KeyerSpeed, String>;

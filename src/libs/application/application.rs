@@ -12,7 +12,7 @@ use portaudio::{InputStreamSettings, OutputStreamSettings, PortAudio};
 use syncbox::ScheduledThreadPool;
 
 use crate::libs::audio::tone_generator::KeyingEventToneChannel;
-use crate::libs::keyer_io::keyer_io::KeyingEvent;
+use crate::libs::keyer_io::keyer_io::{Keyer, KeyerSpeed, KeyingEvent};
 use crate::libs::transform_bus::transform_bus::TransformBus;
 use crate::libs::audio::audio_devices::{open_input_audio_device, open_output_audio_device};
 use crate::libs::channel_codec::channel_encoder::ChannelEncoder;
@@ -53,8 +53,9 @@ pub struct Application {
     pa: PortAudio,
     mode: Option<ApplicationMode>,
 
-    keyer: Option<Arc<Mutex<dyn BusOutput<KeyingEvent>>>>,
+    keyer: Option<Arc<Mutex<dyn Keyer>>>,
     keying_event_bus: Option<Arc<Mutex<Bus<KeyingEvent>>>>,
+    keyer_speed: KeyerSpeed,
     tone_generator: Option<Arc<Mutex<dyn BusInput<KeyingEventToneChannel>>>>,
     keying_event_tone_channel_bus: Option<Arc<Mutex<Bus<KeyingEventToneChannel>>>>,
     keying_event_tone_channel_rx: Option<Arc<Mutex<BusReader<KeyingEventToneChannel>>>>,
@@ -89,6 +90,7 @@ impl Application {
 
             keyer: None,
             keying_event_bus: None,
+            keyer_speed: 0 as KeyerSpeed,
             tone_generator: None,
             keying_event_tone_channel_bus: None,
             keying_event_tone_channel_rx: None,
@@ -199,7 +201,7 @@ impl Application {
         return self.mode.clone();
     }
 
-    pub fn set_keyer(&mut self, keyer: Arc<Mutex<dyn BusOutput<KeyingEvent>>>) {
+    pub fn set_keyer(&mut self, keyer: Arc<Mutex<dyn Keyer>>) {
         if self.mode.is_none() {
             panic!("Can't set keyer in mode {:?}", self.mode);
         }
@@ -212,7 +214,16 @@ impl Application {
                 info!("Setting keyer");
                 self.keyer = Some(keyer.clone());
                 let bus = keying_event_bus.clone();
-                keyer.lock().as_mut().unwrap().set_output_tx(bus);
+                match keyer.lock().as_mut() {
+                    Ok(keyer_mut) => {
+                        keyer_mut.set_output_tx(bus);
+                        info!("Setting keyer speed");
+                        keyer_mut.set_speed(self.keyer_speed).unwrap();
+                    }
+                    Err(_) => {
+                        // noop
+                    }
+                }
             }
         }
     }
@@ -565,6 +576,28 @@ impl Application {
 
     pub fn pa_ref(&self) -> &PortAudio {
         self.pa.borrow()
+    }
+    
+    
+    // Functions called by the GUI...
+    pub fn encode_and_send_text(&mut self, _text: String) {
+        // TODO transform the text into a stream of perfect keyings at the current speed and send
+        // them to the SourceEncoder
+    }
+    
+    pub fn warning_beep(&mut self) {
+        // TODO schedule a short beep on the ToneGenerator
+    }
+    
+    pub fn set_keyer_speed(&mut self, keyer_speed: KeyerSpeed) {
+        self.keyer_speed = keyer_speed;
+        if let Some(keyer) = &self.keyer {
+            keyer.lock().unwrap().set_speed(self.keyer_speed).unwrap();
+        }
+    }
+
+    pub fn get_keyer_speed(&self) -> KeyerSpeed {
+        self.keyer_speed
     }
 }
 

@@ -2,22 +2,20 @@
 extern crate clap;
 extern crate portaudio;
 
-use core::mem;
 use clap::{App, Arg, ArgMatches};
 use clap::arg_enum;
 use fltk::app;
 use log::{debug, error, info, warn};
-use portaudio as pa;
 use pretty_hex::*;
 
-use std::{env, thread};
+use std::thread;
 use std::error::Error;
 use std::sync::{Arc, Mutex};
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use digimorse::libs::config_dir::config_dir;
 use digimorse::libs::keyer_io::arduino_keyer_io::ArduinoKeyer;
-use digimorse::libs::keyer_io::keyer_io::{Keyer, KeyingEvent};
+use digimorse::libs::keyer_io::keyer_io::KeyingEvent;
 use digimorse::libs::keyer_io::keyer_io::KeyerSpeed;
 use digimorse::libs::serial_io::serial_io::{DefaultSerialIO, SerialIO};
 use digimorse::libs::util::util::printable;
@@ -125,7 +123,7 @@ fn run(arguments: ArgMatches, mode: Mode) -> Result<i32, Box<dyn Error>> {
         info!("Configuration file is [{:?}]", config_file_path);
         return Ok(0)
     }
-    let pa = pa::PortAudio::new()?;
+    let pa = PortAudio::new()?;
 
     match mode {
         Mode::ListAudioDevices => {
@@ -173,7 +171,7 @@ fn run(arguments: ArgMatches, mode: Mode) -> Result<i32, Box<dyn Error>> {
     // proper.
 
     let terminate = Arc::new(AtomicBool::new(false));
-    let scheduled_thread_pool = Arc::new(syncbox::ScheduledThreadPool::single_thread());
+    let scheduled_thread_pool = Arc::new(ScheduledThreadPool::single_thread());
     info!("Initialising Application...");
     let mut application = Application::new(terminate.clone(), scheduled_thread_pool.clone(), pa);
     application.set_ctrlc_handler();
@@ -192,10 +190,10 @@ fn run(arguments: ArgMatches, mode: Mode) -> Result<i32, Box<dyn Error>> {
     let tone_generator_keying_event_rx = keying_event_tx.add_rx();
     let source_encoder_keying_event_rx: Option<BusReader<KeyingEvent>> = Some(keying_event_tx.add_rx());
 
-    let mut keyer = ArduinoKeyer::new(Box::new(serial_io), application.terminate_flag());
+    let keyer = ArduinoKeyer::new(Box::new(serial_io), application.terminate_flag());
     let keyer_speed: KeyerSpeed = config.get_wpm() as KeyerSpeed;
-    keyer.set_speed(keyer_speed)?;
-    application.set_keyer(Arc::new(Mutex::new(keyer)));
+    application.set_keyer_speed(keyer_speed);
+    application.set_keyer(Arc::new(Mutex::new(keyer))); // This also sets the speed on the keyer.
 
     let arc_mutex_keying_event_tone_channel_tx = Arc::new(Mutex::new(Bus::new(16)));
     let playback_arc_mutex_keying_event_tone_channel: Option<Arc<Mutex<Bus<KeyingEventToneChannel>>>> = if mode == Mode::SourceEncoderDiag {
@@ -241,7 +239,7 @@ fn run(arguments: ArgMatches, mode: Mode) -> Result<i32, Box<dyn Error>> {
                             scheduled_thread_pool, config.get_sidetone_frequency() + 50)?;
         source_encoder.terminate();
         // keyer.terminate();
-        mem::drop(playback_arc_mutex_tone_generator);
+        drop(playback_arc_mutex_tone_generator);
         thread::sleep(Duration::from_secs(1));
         info!("Finishing SourceEncoderDiag mode");
         return Ok(0);

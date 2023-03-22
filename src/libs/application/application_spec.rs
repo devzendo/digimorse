@@ -18,7 +18,7 @@ mod application_spec {
     use crate::libs::audio::tone_generator::{KeyingEventToneChannel, ToneChannel};
     use crate::libs::channel_codec::channel_encoder::{ChannelEncoder, source_encoding_to_channel_encoding};
     use crate::libs::channel_codec::channel_encoding::{CHANNEL_ENCODER_BLOCK_SIZE, ChannelEncoding};
-    use crate::libs::keyer_io::keyer_io::KeyingEvent;
+    use crate::libs::keyer_io::keyer_io::{Keyer, KeyerMode, KeyerPolarity, KeyerSpeed, KeyingEvent};
     use crate::libs::source_codec::source_encoding::{Frame, SOURCE_ENCODER_BLOCK_SIZE_IN_BITS, SourceEncoding};
     use crate::libs::source_codec::test_encoding_builder::encoded;
     use crate::libs::util::test_util;
@@ -41,7 +41,7 @@ mod application_spec {
     #[fixture]
     fn fixture() -> ApplicationFixture {
         let terminate = Arc::new(AtomicBool::new(false));
-        let scheduled_thread_pool = Arc::new(syncbox::ScheduledThreadPool::single_thread());
+        let scheduled_thread_pool = Arc::new(ScheduledThreadPool::single_thread());
 
         let pa = pa::PortAudio::new();
         if pa.is_err() {
@@ -250,6 +250,81 @@ mod application_spec {
     }
 
 
+    // Senses changes in KeyerSpeed & wiring.
+    struct StubKeyer {
+        speed: KeyerSpeed,
+        bus_writer: Option<Arc<Mutex<Bus<KeyingEvent>>>>,
+    }
+
+    impl BusOutput<KeyingEvent> for StubKeyer {
+        fn clear_output_tx(&mut self) {
+            self.bus_writer = None;
+        }
+
+        fn set_output_tx(&mut self, output_tx: Arc<Mutex<Bus<KeyingEvent>>>) {
+            self.bus_writer = Some(output_tx);
+        }
+    }
+
+    impl StubKeyer {
+        fn new() -> Self {
+            Self {
+                speed: 0,
+                bus_writer: None,
+            }
+        }
+
+        fn got_output_tx(&self) -> bool {
+            self.bus_writer.is_some()
+        }
+
+        fn write(&mut self, data: Vec<KeyingEvent>) {
+            match &self.bus_writer {
+                None => {
+                    warn!("No bus writer set in StubKeyer");
+                }
+                Some(bus_writer) => {
+                    for v in data {
+                        bus_writer.lock().unwrap().broadcast(v);
+                    }
+                }
+            }
+            info!("Out of StubKeyer write");
+        }
+    }
+
+    impl Keyer for StubKeyer {
+        fn get_version(&mut self) -> Result<String, String> {
+            Ok(String::from("1.0.0"))
+        }
+
+        fn get_speed(&mut self) -> Result<KeyerSpeed, String> {
+            Ok(self.speed)
+        }
+
+        fn set_speed(&mut self, wpm: KeyerSpeed) -> Result<(), String> {
+            self.speed = wpm;
+            Ok(())
+        }
+
+        fn get_keyer_mode(&mut self) -> Result<KeyerMode, String> {
+            Ok(KeyerMode::Straight)
+        }
+
+        fn set_keyer_mode(&mut self, _mode: KeyerMode) -> Result<(), String> {
+            Ok(())
+        }
+
+        fn get_keyer_polarity(&mut self) -> Result<KeyerPolarity, String> {
+            Ok(KeyerPolarity::Normal)
+        }
+
+        fn set_keyer_polarity(&mut self, _polarity: KeyerPolarity) -> Result<(), String> {
+            Ok(())
+        }
+    }
+
+
 
     #[rstest]
     #[serial]
@@ -338,7 +413,7 @@ mod application_spec {
     #[rstest]
     #[serial]
     pub fn set_clear_keyer(mut fixture: ApplicationFixture) {
-        let keyer = Arc::new(Mutex::new(StubBusWriter::new()));
+        let keyer = Arc::new(Mutex::new(StubKeyer::new()));
         let test_keyer = keyer.clone();
         assert_eq!(test_keyer.lock().unwrap().got_output_tx(), false);
         fixture.application.set_mode(ApplicationMode::KeyerDiag);
@@ -485,13 +560,65 @@ mod application_spec {
         assert_eq!(fixture.application.got_transmitter_channel_encoding_rx(), true);
     }
 
+    // State propagation tests
+
+    #[rstest]
+    #[serial]
+    pub fn application_has_no_keyer_speed_initially(fixture: ApplicationFixture) {
+        assert_eq!(fixture.application.get_keyer_speed(), 0 as KeyerSpeed);
+    }
+
+    #[rstest]
+    #[serial]
+    pub fn application_can_have_keyer_speed_changed_when_it_has_no_keyer(mut fixture: ApplicationFixture) {
+        fixture.application.set_keyer_speed(12 as KeyerSpeed);
+        assert_eq!(fixture.application.get_keyer_speed(), 12 as KeyerSpeed);
+    }
+
+    #[rstest]
+    #[serial]
+    pub fn application_can_have_keyer_speed_changed_when_it_has_a_keyer(mut fixture: ApplicationFixture) {
+        let keyer: Arc<Mutex<dyn Keyer>> = Arc::new(Mutex::new(StubKeyer::new()));
+        fixture.application.set_mode(ApplicationMode::KeyerDiag);
+        fixture.application.set_keyer(keyer);
+
+        fixture.application.set_keyer_speed(12 as KeyerSpeed);
+        assert_eq!(fixture.application.get_keyer_speed(), 12 as KeyerSpeed);
+    }
+
+    #[rstest]
+    #[serial]
+    pub fn keyer_has_speed_given_on_set(mut fixture: ApplicationFixture) {
+        let keyer: Arc<Mutex<dyn Keyer>> = Arc::new(Mutex::new(StubKeyer::new()));
+        let test_keyer = keyer.clone();
+        assert_eq!(test_keyer.lock().unwrap().get_speed(), Ok(0 as KeyerSpeed));
+        fixture.application.set_mode(ApplicationMode::KeyerDiag);
+        fixture.application.set_keyer_speed(12 as KeyerSpeed);
+
+        fixture.application.set_keyer(keyer);
+        assert_eq!(test_keyer.lock().unwrap().get_speed(), Ok(12 as KeyerSpeed));
+    }
+
+    #[rstest]
+    #[serial]
+    pub fn keyer_has_speed_set_by_application(mut fixture: ApplicationFixture) {
+        let keyer: Arc<Mutex<dyn Keyer>> = Arc::new(Mutex::new(StubKeyer::new()));
+        let test_keyer = keyer.clone();
+        assert_eq!(test_keyer.lock().unwrap().get_speed(), Ok(0 as KeyerSpeed));
+        fixture.application.set_mode(ApplicationMode::KeyerDiag);
+        fixture.application.set_keyer(keyer);
+
+        fixture.application.set_keyer_speed(15 as KeyerSpeed);
+        assert_eq!(test_keyer.lock().unwrap().get_speed(), Ok(15 as KeyerSpeed));
+    }
+
     // Mode/Component set/clear validation tests
 
     #[rstest]
     #[serial]
     #[should_panic(expected="Can't set keyer in mode None")]
     pub fn none_cannot_set_keyer(mut fixture: ApplicationFixture) {
-        let keyer: Arc<Mutex<StubBusWriter<KeyingEvent>>> = Arc::new(Mutex::new(StubBusWriter::new()));
+        let keyer = Arc::new(Mutex::new(StubKeyer::new()));
         fixture.application.set_keyer(keyer);
     }
 
@@ -810,7 +937,7 @@ mod application_spec {
     }
 
     fn _keyer_sends_to_tone_generator(mut fixture: ApplicationFixture) {
-        let keyer: Arc<Mutex<StubBusWriter<KeyingEvent>>> = Arc::new(Mutex::new(StubBusWriter::new()));
+        let keyer = Arc::new(Mutex::new(StubKeyer::new()));
         let test_keyer = keyer.clone();
         fixture.application.set_keyer(keyer);
 
@@ -840,7 +967,7 @@ mod application_spec {
     #[serial]
     pub fn keyer_diag_mode_keyer_sends_to_keyer_diag(mut fixture: ApplicationFixture) {
         fixture.application.set_mode(ApplicationMode::KeyerDiag);
-        let keyer: Arc<Mutex<StubBusWriter<KeyingEvent>>> = Arc::new(Mutex::new(StubBusWriter::new()));
+        let keyer = Arc::new(Mutex::new(StubKeyer::new()));
         let test_keyer = keyer.clone();
         fixture.application.set_keyer(keyer);
 
@@ -878,7 +1005,7 @@ mod application_spec {
     }
 
     fn _keyer_does_not_send_to_tone_generator(mut fixture: ApplicationFixture) {
-        let keyer: Arc<Mutex<StubBusWriter<KeyingEvent>>> = Arc::new(Mutex::new(StubBusWriter::new()));
+        let keyer = Arc::new(Mutex::new(StubKeyer::new()));
         let test_keyer = keyer.clone();
         fixture.application.set_keyer(keyer);
         fixture.application.clear_keyer();
@@ -905,7 +1032,7 @@ mod application_spec {
     #[serial]
     pub fn keyer_diag_mode_clear_keyer_does_not_send_to_keyer_diag(mut fixture: ApplicationFixture) {
         fixture.application.set_mode(ApplicationMode::KeyerDiag);
-        let keyer: Arc<Mutex<StubBusWriter<KeyingEvent>>> = Arc::new(Mutex::new(StubBusWriter::new()));
+        let keyer = Arc::new(Mutex::new(StubKeyer::new()));
         let test_keyer = keyer.clone();
         fixture.application.set_keyer(keyer);
         fixture.application.clear_keyer();
