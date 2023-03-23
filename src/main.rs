@@ -31,7 +31,7 @@ use digimorse::libs::audio::tone_generator::{KeyingEventToneChannel, ToneGenerat
 use digimorse::libs::channel_codec::channel_encoder::{ChannelEncoder, source_encoding_to_channel_encoding};
 use digimorse::libs::channel_codec::ldpc::init_ldpc;
 use digimorse::libs::delayed_bus::delayed_bus::DelayedBus;
-use digimorse::libs::gui::gui;
+use digimorse::libs::gui::gui::Gui;
 use digimorse::libs::playback::playback::Playback;
 use digimorse::libs::source_codec::source_decoder::SourceDecoder;
 use digimorse::libs::source_codec::source_encoder::SourceEncoder;
@@ -278,12 +278,14 @@ fn run(arguments: ArgMatches, mode: Mode) -> Result<i32, Box<dyn Error>> {
     }
 
     let gui_config = Arc::new(Mutex::new(config));
-    gui::initialise(gui_config, &mut application);
-    info!("End of main; waiting for termination...");
-    while !application.terminated() {
-        thread::sleep(Duration::from_secs(5));
-    }
-    info!("Exiting...");
+    let gui_application = Arc::new(Mutex::new(application));
+    let terminate_application = gui_application.clone();
+    let mut gui = Gui::new(gui_config, gui_application);
+    gui.message_loop();
+    info!("End of GUI message loop; terminating");
+    terminate_application.lock().unwrap().terminate();
+    thread::sleep(Duration::from_secs(5));
+    info!("Exiting");
     Ok(0)
 }
 

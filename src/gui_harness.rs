@@ -6,10 +6,10 @@ use log::info;
 use digimorse::libs::application::application::{Application, ApplicationMode};
 use digimorse::libs::config_dir::config_dir;
 use digimorse::libs::config_file::config_file::ConfigurationStore;
-use digimorse::libs::gui::gui;
 use digimorse::libs::util::logging::initialise_logging;
 
 use portaudio as pa;
+use digimorse::libs::gui::gui::Gui;
 use digimorse::libs::keyer_io::keyer_io::KeyerSpeed;
 
 fn main() {
@@ -30,9 +30,12 @@ fn main() {
 
     info!("Initialising GUI");
     let gui_config = Arc::new(Mutex::new(config));
-    gui::initialise(gui_config, &mut application);
-    info!("End of test harness");
-    application.terminate();
-    thread::sleep(Duration::from_secs(2));
+    let gui_application = Arc::new(Mutex::new(application));
+    let terminate_application = gui_application.clone();
+    let mut gui = Gui::new(gui_config, gui_application);
+    gui.message_loop();
+    info!("End of GUI harness; terminating...");
+    terminate_application.lock().unwrap().terminate();
+    thread::sleep(Duration::from_secs(5));
     info!("Exiting");
 }
