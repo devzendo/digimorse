@@ -218,7 +218,7 @@ pub fn initialise(config: Arc<Mutex<ConfigurationStore>>, application: &mut Appl
                         info!("Initial speed is {}", new_keyer_speed);
                         if new_keyer_speed < MAX_KEYER_SPEED {
                             new_keyer_speed += 1;
-                            set_keyer_speed(new_keyer_speed + 1);
+                            //set_keyer_speed(new_keyer_speed + 1);
                             application.set_keyer_speed(new_keyer_speed);
                             gui.config.lock().unwrap().set_wpm(new_keyer_speed as usize).unwrap();
                             gui.code_speed_output.set_value(new_keyer_speed.to_string().as_str());
@@ -232,7 +232,7 @@ pub fn initialise(config: Arc<Mutex<ConfigurationStore>>, application: &mut Appl
                         info!("Initial speed is {}", new_keyer_speed);
                         if new_keyer_speed > MIN_KEYER_SPEED {
                             new_keyer_speed -= 1;
-                            set_keyer_speed(new_keyer_speed - 1);
+                            //set_keyer_speed(new_keyer_speed - 1);
                             application.set_keyer_speed(new_keyer_speed);
                             gui.config.lock().unwrap().set_wpm(new_keyer_speed as usize).unwrap();
                             gui.code_speed_output.set_value(new_keyer_speed.to_string().as_str());
