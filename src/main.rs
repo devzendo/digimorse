@@ -15,7 +15,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 
 use digimorse::libs::config_dir::config_dir;
 use digimorse::libs::keyer_io::arduino_keyer_io::ArduinoKeyer;
-use digimorse::libs::keyer_io::keyer_io::KeyingEvent;
+use digimorse::libs::keyer_io::keyer_io::{KeyingEvent, MAX_KEYER_SPEED, MIN_KEYER_SPEED};
 use digimorse::libs::keyer_io::keyer_io::KeyerSpeed;
 use digimorse::libs::serial_io::serial_io::{DefaultSerialIO, SerialIO};
 use digimorse::libs::util::util::printable;
@@ -347,11 +347,11 @@ fn configure_audio_and_keyer_devices(arguments: &ArgMatches, config: &mut Config
         let wpm_str = arguments.value_of(KEYER_SPEED_WPM).unwrap();
         match wpm_str.parse::<usize>() {
             Ok(wpm) => {
-                if wpm >= 5 && wpm <= 60 {
+                if wpm >= MIN_KEYER_SPEED as usize && wpm <= MAX_KEYER_SPEED as usize {
                     info!("Setting keyer speed to {} WPM", wpm);
                     config.set_wpm(wpm)?;
                 } else {
-                    warn!("Setting {}: Keyer speed of {} is out of the range [5..60] WPM", KEYER_SPEED_WPM, wpm);
+                    warn!("Setting {}: Keyer speed of {} is out of the range [{}..{}] WPM", KEYER_SPEED_WPM, wpm, MIN_KEYER_SPEED, MAX_KEYER_SPEED);
                     return Err("Configuration error in keyer speed.".into());
                 }
             }

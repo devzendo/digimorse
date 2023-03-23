@@ -10,6 +10,7 @@ use digimorse::libs::gui::gui;
 use digimorse::libs::util::logging::initialise_logging;
 
 use portaudio as pa;
+use digimorse::libs::keyer_io::keyer_io::KeyerSpeed;
 
 fn main() {
     initialise_logging();
@@ -25,6 +26,7 @@ fn main() {
     let mut application = Application::new(terminate.clone(), scheduled_thread_pool.clone(), pa);
     application.set_ctrlc_handler();
     application.set_mode(ApplicationMode::Full);
+    application.set_keyer_speed(config.get_wpm() as KeyerSpeed);
 
     info!("Initialising GUI");
     let gui_config = Arc::new(Mutex::new(config));

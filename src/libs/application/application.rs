@@ -7,7 +7,7 @@ use std::error::Error;
 
 use bus::{Bus, BusReader};
 use clap::arg_enum;
-use log::{debug, info};
+use log::{debug, info, warn};
 use portaudio::{InputStreamSettings, OutputStreamSettings, PortAudio};
 use syncbox::ScheduledThreadPool;
 
@@ -587,6 +587,7 @@ impl Application {
     
     pub fn warning_beep(&mut self) {
         // TODO schedule a short beep on the ToneGenerator
+        warn!("***** BEEP! *****");
     }
     
     pub fn set_keyer_speed(&mut self, keyer_speed: KeyerSpeed) {

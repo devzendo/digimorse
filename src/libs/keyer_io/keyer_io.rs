@@ -24,6 +24,9 @@ pub enum KeyerType {
 // Speed in WPM
 pub type KeyerSpeed = u8;
 
+pub const MIN_KEYER_SPEED: KeyerSpeed = 5 as KeyerSpeed;
+pub const MAX_KEYER_SPEED: KeyerSpeed = 60 as KeyerSpeed;
+
 // A keying edge with duration.
 #[derive(Clone, PartialEq, Copy)]
 pub struct KeyingTimedEvent {

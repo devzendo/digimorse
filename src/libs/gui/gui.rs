@@ -17,6 +17,7 @@ use log::{debug, info};
 use crate::libs::application::application::Application;
 use crate::libs::config_file::config_file::ConfigurationStore;
 use crate::libs::gui::message::{KeyingText, Message};
+use crate::libs::keyer_io::keyer_io::{MAX_KEYER_SPEED, MIN_KEYER_SPEED};
 use crate::libs::util::version::VERSION;
 
 const WIDGET_HEIGHT: i32 = 25;
@@ -54,7 +55,7 @@ struct Gui {
     text_entry: Rc<RefCell<MultilineInput>>,
 }
 
-pub fn initialise(config: Arc<Mutex<ConfigurationStore>>, _application: &mut Application) -> () {
+pub fn initialise(config: Arc<Mutex<ConfigurationStore>>, application: &mut Application) -> () {
     debug!("Initialising App");
     let app = App::default().with_scheme(Scheme::Gtk);
     debug!("Initialising Window");
@@ -207,10 +208,38 @@ pub fn initialise(config: Arc<Mutex<ConfigurationStore>>, _application: &mut App
                 info!("App message {:?}", message);
                 match message {
                     Message::KeyingText(_keying_text) => {}
+
                     Message::Beep => {}
+
                     Message::SetKeyingSpeed(_) => {}
-                    Message::IncreaseKeyingSpeedRequest => {}
-                    Message::DecreaseKeyingSpeedRequest => {}
+
+                    Message::IncreaseKeyingSpeedRequest => {
+                        let mut new_keyer_speed = application.get_keyer_speed();
+                        info!("Initial speed is {}", new_keyer_speed);
+                        if new_keyer_speed < MAX_KEYER_SPEED {
+                            new_keyer_speed += 1;
+                            set_keyer_speed(new_keyer_speed + 1);
+                            application.set_keyer_speed(new_keyer_speed);
+                            gui.config.lock().unwrap().set_wpm(new_keyer_speed as usize).unwrap();
+                            gui.code_speed_output.set_value(new_keyer_speed.to_string().as_str());
+                        } else {
+                            application.warning_beep();
+                        }
+                    }
+
+                    Message::DecreaseKeyingSpeedRequest => {
+                        let mut new_keyer_speed = application.get_keyer_speed();
+                        info!("Initial speed is {}", new_keyer_speed);
+                        if new_keyer_speed > MIN_KEYER_SPEED {
+                            new_keyer_speed -= 1;
+                            set_keyer_speed(new_keyer_speed - 1);
+                            application.set_keyer_speed(new_keyer_speed);
+                            gui.config.lock().unwrap().set_wpm(new_keyer_speed as usize).unwrap();
+                            gui.code_speed_output.set_value(new_keyer_speed.to_string().as_str());
+                        } else {
+                            application.warning_beep();
+                        }
+                    }
                 }
             }
         }
