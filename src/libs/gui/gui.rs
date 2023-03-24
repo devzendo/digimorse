@@ -217,28 +217,20 @@ impl Gui {
                         Message::SetKeyingSpeed(_) => {}
 
                         Message::IncreaseKeyingSpeedRequest => {
-                            let mut new_keyer_speed = self.application.lock().unwrap().get_keyer_speed();
+                            let new_keyer_speed = self.application.lock().unwrap().get_keyer_speed();
                             info!("Initial speed is {}", new_keyer_speed);
                             if new_keyer_speed < MAX_KEYER_SPEED {
-                                new_keyer_speed += 1;
-                                //set_keyer_speed(new_keyer_speed + 1);
-                                self.application.lock().unwrap().set_keyer_speed(new_keyer_speed);
-                                self.config.lock().unwrap().set_wpm(new_keyer_speed as usize).unwrap();
-                                self.code_speed_output.set_value(new_keyer_speed.to_string().as_str());
+                                self.set_keyer_speed(new_keyer_speed + 1);
                             } else {
                                 self.application.lock().unwrap().warning_beep();
                             }
                         }
 
                         Message::DecreaseKeyingSpeedRequest => {
-                            let mut new_keyer_speed = self.application.lock().unwrap().get_keyer_speed();
+                            let new_keyer_speed = self.application.lock().unwrap().get_keyer_speed();
                             info!("Initial speed is {}", new_keyer_speed);
                             if new_keyer_speed > MIN_KEYER_SPEED {
-                                new_keyer_speed -= 1;
-                                //set_keyer_speed(new_keyer_speed - 1);
-                                self.application.lock().unwrap().set_keyer_speed(new_keyer_speed);
-                                self.config.lock().unwrap().set_wpm(new_keyer_speed as usize).unwrap();
-                                self.code_speed_output.set_value(new_keyer_speed.to_string().as_str());
+                                self.set_keyer_speed(new_keyer_speed - 1);
                             } else {
                                 self.application.lock().unwrap().warning_beep();
                             }
@@ -249,4 +241,12 @@ impl Gui {
         }
         info!("End of app wait loop");
     }
+
+    fn set_keyer_speed(&mut self, new_keyer_speed: u8) {
+        info!("Setting keyer speed to {}", new_keyer_speed);
+        self.application.lock().unwrap().set_keyer_speed(new_keyer_speed);
+        self.config.lock().unwrap().set_wpm(new_keyer_speed as usize).unwrap();
+        self.code_speed_output.set_value(new_keyer_speed.to_string().as_str());
+    }
 }
+

@@ -36,6 +36,6 @@ fn main() {
     gui.message_loop();
     info!("End of GUI harness; terminating...");
     terminate_application.lock().unwrap().terminate();
-    thread::sleep(Duration::from_secs(5));
+    thread::sleep(Duration::from_secs(1));
     info!("Exiting");
 }
