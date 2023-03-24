@@ -602,15 +602,12 @@ impl Application {
     }
 }
 
-/*
- * This is a bit overkill, we terminate under control...
 impl Drop for Application {
     fn drop(&mut self) {
         info!("Application signalling termination on drop");
         self.terminate();
     }
 }
- */
 
 #[cfg(test)]
 #[path = "./application_spec.rs"]
