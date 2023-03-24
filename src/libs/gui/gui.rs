@@ -152,6 +152,7 @@ impl Gui {
         gui.code_speed_output.set_text_color(Color::Black);
         gui.code_speed_output.set_value(gui.config.lock().unwrap().get_wpm().to_string().as_str());
         gui.code_speed_output.set_text_size(36);
+        gui.code_speed_output.set_readonly(true);
 
         let entry_prompt = "Enter message,\nthen RETURN to send.";
         // TODO set an inner padding?
