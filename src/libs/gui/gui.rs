@@ -162,7 +162,6 @@ impl Gui {
         gui.text_entry.borrow_mut().set_tooltip(entry_prompt);
         gui.text_entry.borrow_mut().insert(entry_prompt).unwrap();
         gui.text_entry.borrow_mut().set_trigger(CallbackTrigger::EnterKey);
-        let cb_text_entry = gui.text_entry.clone();
         gui.text_entry.borrow_mut().handle(move |widget, event| {
             match event {
                 Event::Focus => {
@@ -179,9 +178,10 @@ impl Gui {
             true
         });
         let text_entry_sender = gui.sender.clone();
-        gui.text_entry.borrow_mut().set_callback(move |_f| {
-            let contents = cb_text_entry.borrow_mut().value();
+        gui.text_entry.borrow_mut().set_callback(move |text_entry| {
+            let contents = text_entry.value();
             let trimmed_contents = contents.trim();
+            text_entry.set_value("");
             if trimmed_contents.len() > 0 {
                 text_entry_sender.send(Message::KeyingText { 0: KeyingText { text: trimmed_contents.to_owned() } });
             }
