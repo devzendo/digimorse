@@ -4,6 +4,8 @@ use std::sync::{Arc, Mutex};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::borrow::Borrow;
 use std::error::Error;
+use std::thread;
+use std::time::Duration;
 
 use bus::{Bus, BusReader};
 use clap::arg_enum;
@@ -17,6 +19,7 @@ use crate::libs::transform_bus::transform_bus::TransformBus;
 use crate::libs::audio::audio_devices::{open_input_audio_device, open_output_audio_device};
 use crate::libs::channel_codec::channel_encoder::ChannelEncoder;
 use crate::libs::channel_codec::channel_encoding::ChannelEncoding;
+use crate::libs::conversion::conversion::text_to_keying;
 use crate::libs::source_codec::source_encoder::SourceEncoderTrait;
 use crate::libs::source_codec::source_encoding::SourceEncoding;
 
@@ -225,6 +228,35 @@ impl Application {
                     }
                 }
             }
+        }
+    }
+
+    // This sends keying events in realtime (as though they had been actually keyed) to the
+    // keying event bus on a separate thread.
+    pub fn send_keying_events(&mut self, keying_events: Vec<KeyingEvent>) {
+        info!("Sending {} KeyingEvents", keying_events.len());
+        if let Some(keying_event_bus) = &self.keying_event_bus {
+            let thread_bus = keying_event_bus.clone();
+            thread::spawn(move || {
+                info!("Start of send_keying_events thread");
+                // bit locky, this..
+                for keying_event in keying_events {
+                    info!("Sending {}", keying_event);
+                    let timed_keying_event = keying_event.clone();
+                    match keying_event {
+                        KeyingEvent::Start() | KeyingEvent::End() => {
+                            thread_bus.lock().unwrap().broadcast(keying_event);
+                        }
+                        KeyingEvent::Timed(timed) => {
+                            spin_sleep::sleep(Duration::from_millis(timed.duration as u64));
+                            thread_bus.lock().unwrap().broadcast(timed_keying_event);
+                        }
+                    }
+                }
+                info!("End of send_keying_events thread");
+            });
+        } else {
+            warn!("There is no keying event bus to send_keying_events");
         }
     }
 
@@ -580,9 +612,11 @@ impl Application {
     
     
     // Functions called by the GUI...
-    pub fn encode_and_send_text(&mut self, _text: String) {
-        // TODO transform the text into a stream of perfect keyings at the current speed and send
-        // them to the SourceEncoder
+    pub fn encode_and_send_text(&mut self, text: String) {
+        let keyer_speed = self.get_keyer_speed();
+        info!("Encoding [{}] at {} WPM", text, keyer_speed);
+        self.send_keying_events(text_to_keying(keyer_speed as u32, text.as_str()));
+        info!("Finished sending keying events");
     }
     
     pub fn warning_beep(&mut self) {

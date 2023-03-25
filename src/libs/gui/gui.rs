@@ -202,7 +202,6 @@ impl Gui {
 
     pub fn message_loop(&mut self) {
         while self.app.wait() {
-            debug!("app wait has returned true");
             match self.receiver.recv() {
                 None => {
                     // noop
@@ -210,7 +209,11 @@ impl Gui {
                 Some(message) => {
                     info!("App message {:?}", message);
                     match message {
-                        Message::KeyingText(_keying_text) => {}
+                        Message::KeyingText(keying_text) => {
+                            info!("Sending the text [{}]", keying_text.text);
+                            self.application.lock().unwrap().encode_and_send_text(keying_text.text);
+                            info!("Text sent");
+                        }
 
                         Message::Beep => {}
 
