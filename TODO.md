@@ -1,6 +1,8 @@
 # Current Development Activities
 
 * Main: wiring up the channel encoder and transmitter.
+* GUI development:
+  * Text entry, for those who cannot use a key. Encodes and sends the Morse at the current speed.
 
 Next up for research:
 * Costas array: is there an escaping mechanism, such that the Costas array does not occur in the binary output of the
@@ -8,6 +10,8 @@ Next up for research:
 * Costas array: devise one suitable for 16 tones.
 
 Other refactorings to do:
+* Text-to-Morse conversion does not handle prosigns entered as `<KN>` or just `KN` in upper case. There are my shortcuts
+  though: + for AR, | for SK, = for BT, > for KN.
 * Application wiring:
   * The diag_application_spec.rs needs to have the 'source encoder diag' code moved here, out of the main
     program, and the main program command line handling should have it removed - such 'diags' are now implemented

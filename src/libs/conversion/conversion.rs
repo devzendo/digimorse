@@ -47,9 +47,10 @@ pub fn char_to_morse(ch: char) -> String {
         '?' => { "..--.." }
         ' ' => { " " }
         // My shorthand
-        '=' => { "-...-" }  // BT
-        '|' => { "...-.-" } // SK
-        '+' => { ".-.-." }  // AR
+        '=' => { "-...-" }    // BT
+        '|' => { "...-.-" }   // SK
+        '+' => { ".-.-." }    // AR
+        '>' => { "-.--." }    // KN
         _ => {
             panic!("Unknown character input '{}'", upper);
         }
