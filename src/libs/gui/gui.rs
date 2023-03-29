@@ -7,9 +7,9 @@ use fltk::{
 use fltk::input::MultilineInput;
 use fltk::output::Output;
 use log::{debug, info};
-use crate::libs::application::application::Application;
 use crate::libs::config_file::config_file::ConfigurationStore;
 use crate::libs::gui::message::{KeyingText, Message};
+use crate::libs::gui::gui_facades::GUIOutput;
 use crate::libs::keyer_io::keyer_io::{MAX_KEYER_SPEED, MIN_KEYER_SPEED};
 use crate::libs::util::version::VERSION;
 
@@ -37,7 +37,7 @@ const TEXT_ENTRY_HEIGHT: i32 = 120;
 pub struct Gui {
     app: App,
     config: Arc<Mutex<ConfigurationStore>>,
-    application: Arc<Mutex<Application>>,
+    gui_output: Arc<Mutex<dyn GUIOutput>>,
     sender: Sender<Message>,
     receiver: Receiver<Message>,
     waterfall_canvas: Widget,
@@ -51,7 +51,7 @@ pub struct Gui {
 }
 
 impl Gui {
-    pub fn new(config: Arc<Mutex<ConfigurationStore>>, application: Arc<Mutex<Application>>) -> Self {
+    pub fn new(config: Arc<Mutex<ConfigurationStore>>, gui_output: Arc<Mutex<dyn GUIOutput>>) -> Self {
         debug!("Initialising App");
         let app = App::default().with_scheme(Scheme::Gtk);
         debug!("Initialising Window");
@@ -72,7 +72,7 @@ impl Gui {
         let mut gui = Gui {
             app,
             config,
-            application,
+            gui_output,
             sender,
             receiver,
             waterfall_canvas: Widget::new(WIDGET_PADDING, WIDGET_PADDING, WATERFALL_WIDTH, WATERFALL_HEIGHT, ""),
@@ -163,16 +163,11 @@ impl Gui {
         gui.text_entry.borrow_mut().insert(entry_prompt).unwrap();
         gui.text_entry.borrow_mut().set_trigger(CallbackTrigger::EnterKey);
         gui.text_entry.borrow_mut().handle(move |widget, event| {
-            match event {
-                Event::Focus => {
-                    // Clear out the initial prompt text.
-                    let contents = widget.value();
-                    if contents == entry_prompt.to_string() {
-                        widget.set_value("");
-                    }
-                },
-                _ => {
-                    // nothing
+            if event == Event::Focus {
+                // Clear out the initial prompt text.
+                let contents = widget.value();
+                if contents == *entry_prompt {
+                    widget.set_value("");
                 }
             }
             true
@@ -182,8 +177,8 @@ impl Gui {
             let contents = text_entry.value();
             let trimmed_contents = contents.trim();
             text_entry.set_value("");
-            if trimmed_contents.len() > 0 {
-                text_entry_sender.send(Message::KeyingText { 0: KeyingText { text: trimmed_contents.to_owned() } });
+            if !trimmed_contents.is_empty() {
+                text_entry_sender.send(Message::KeyingText ( KeyingText { text: trimmed_contents.to_owned() } ));
             }
         });
 
@@ -211,7 +206,7 @@ impl Gui {
                     match message {
                         Message::KeyingText(keying_text) => {
                             info!("Sending the text [{}]", keying_text.text);
-                            self.application.lock().unwrap().encode_and_send_text(keying_text.text);
+                            self.gui_output.lock().unwrap().encode_and_send_text(keying_text.text);
                             info!("Text sent");
                         }
 
@@ -220,22 +215,22 @@ impl Gui {
                         Message::SetKeyingSpeed(_) => {}
 
                         Message::IncreaseKeyingSpeedRequest => {
-                            let new_keyer_speed = self.application.lock().unwrap().get_keyer_speed();
+                            let new_keyer_speed = self.gui_output.lock().unwrap().get_keyer_speed();
                             info!("Initial speed is {}", new_keyer_speed);
                             if new_keyer_speed < MAX_KEYER_SPEED {
                                 self.set_keyer_speed(new_keyer_speed + 1);
                             } else {
-                                self.application.lock().unwrap().warning_beep();
+                                self.gui_output.lock().unwrap().warning_beep();
                             }
                         }
 
                         Message::DecreaseKeyingSpeedRequest => {
-                            let new_keyer_speed = self.application.lock().unwrap().get_keyer_speed();
+                            let new_keyer_speed = self.gui_output.lock().unwrap().get_keyer_speed();
                             info!("Initial speed is {}", new_keyer_speed);
                             if new_keyer_speed > MIN_KEYER_SPEED {
                                 self.set_keyer_speed(new_keyer_speed - 1);
                             } else {
-                                self.application.lock().unwrap().warning_beep();
+                                self.gui_output.lock().unwrap().warning_beep();
                             }
                         }
                     }
@@ -247,7 +242,7 @@ impl Gui {
 
     fn set_keyer_speed(&mut self, new_keyer_speed: u8) {
         info!("Setting keyer speed to {}", new_keyer_speed);
-        self.application.lock().unwrap().set_keyer_speed(new_keyer_speed);
+        self.gui_output.lock().unwrap().set_keyer_speed(new_keyer_speed);
         self.config.lock().unwrap().set_wpm(new_keyer_speed as usize).unwrap();
         self.code_speed_output.set_value(new_keyer_speed.to_string().as_str());
     }

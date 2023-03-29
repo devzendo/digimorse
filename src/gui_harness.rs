@@ -3,6 +3,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
 use std::time::Duration;
 use bus::{Bus, BusReader};
+use digimorse::libs::gui::gui_facades::GUIOutput;
 use log::info;
 use digimorse::libs::application::application::{Application, ApplicationMode, BusInput, BusOutput};
 use digimorse::libs::config_dir::config_dir;
@@ -34,14 +35,8 @@ impl NullSourceEncoder {
                         need_sleep = true;
                     }
                     Some(input_rx) => {
-                        match (input_rx as &Mutex<BusReader<KeyingEvent>>).lock().unwrap().recv_timeout(Duration::from_millis(100)) {
-                            Ok(keying_event) => {
-                                info!("Throwing away {}", keying_event);
-                            }
-                            Err(_) => {
-                                // Don't log, it's just noise - timeout gives opportunity to go round loop and
-                                // check for terminate.
-                            }
+                        if let Ok(keying_event) = (input_rx as &Mutex<BusReader<KeyingEvent>>).lock().unwrap().recv_timeout(Duration::from_millis(100)) {
+                            info!("Throwing away {}", keying_event);
                         }
                     }
                 }
@@ -59,16 +54,14 @@ impl NullSourceEncoder {
 
 impl BusInput<KeyingEvent> for NullSourceEncoder {
     fn clear_input_rx(&mut self) {
-        match self.bus_reader.lock() {
-            Ok(mut locked) => { *locked = None; }
-            Err(_) => {}
+        if let Ok(mut locked) = self.bus_reader.lock() {
+            *locked = None;
         }
     }
 
     fn set_input_rx(&mut self, input_rx: Arc<Mutex<BusReader<KeyingEvent>>>) {
-        match self.bus_reader.lock() {
-            Ok(mut locked) => { *locked = Some(input_rx); }
-            Err(_) => {}
+        if let Ok(mut locked) = self.bus_reader.lock() {
+            *locked = Some(input_rx);
         }
     }
 }
@@ -93,33 +86,35 @@ fn main() {
     let config = ConfigurationStore::new(config_path).unwrap();
     info!("Initialising PortAudio");
     let pa = pa::PortAudio::new().unwrap();
-    let mut application = Application::new(terminate.clone(), scheduled_thread_pool.clone(), pa);
-    application.set_ctrlc_handler();
-    application.set_mode(ApplicationMode::Full);
-    application.set_keyer_speed(config.get_wpm() as KeyerSpeed);
+    let application = Application::new(terminate.clone(), scheduled_thread_pool, pa);
+    let arc_mutex_application = Arc::new(Mutex::new(application));
+    let application_gui_output: Arc<Mutex<dyn GUIOutput>> = arc_mutex_application.clone() as Arc<Mutex<dyn GUIOutput>>;
+    arc_mutex_application.lock().unwrap().set_ctrlc_handler();
+    arc_mutex_application.lock().unwrap().set_mode(ApplicationMode::Full);
+    arc_mutex_application.lock().unwrap().set_keyer_speed(config.get_wpm() as KeyerSpeed);
+
 
     // Attach the tone generator to hear the sidetone...
     info!("Initialising audio output callback...");
     let out_dev_string = config.get_audio_out_device();
     let out_dev_str = out_dev_string.as_str();
-    let output_settings = application.open_output_audio_device(out_dev_str).expect("Could not initialise audio output");
+    let output_settings = arc_mutex_application.lock().unwrap().open_output_audio_device(out_dev_str).expect("Could not initialise audio output");
     let mut tone_generator = ToneGenerator::new(config.get_sidetone_frequency(),
-                                                application.terminate_flag());
-    tone_generator.start_callback(application.pa_ref(), output_settings).expect("Could not initialise tone generator callback");
+                                                arc_mutex_application.lock().unwrap().terminate_flag());
+    tone_generator.start_callback(arc_mutex_application.lock().unwrap().pa_ref(), output_settings).expect("Could not initialise tone generator callback");
     let application_tone_generator = Arc::new(Mutex::new(tone_generator));
     // let playback_arc_mutex_tone_generator = application_tone_generator.clone();
-    application.set_tone_generator(application_tone_generator);
+    arc_mutex_application.lock().unwrap().set_tone_generator(application_tone_generator);
 
     // The keying will be sent to on the source encoder input bus, and this has to be thrown away or
     // else the bus will fill and lock up the program.
-    let null_source_encoder_terminate = terminate.clone();
-    application.set_source_encoder(Arc::new(Mutex::new(NullSourceEncoder::new(null_source_encoder_terminate))));
+    //let null_source_encoder_terminate = terminate.clone();
+    arc_mutex_application.lock().unwrap().set_source_encoder(Arc::new(Mutex::new(NullSourceEncoder::new(terminate))));
 
     info!("Initialising GUI");
     let gui_config = Arc::new(Mutex::new(config));
-    let gui_application = Arc::new(Mutex::new(application));
-    let terminate_application = gui_application.clone();
-    let mut gui = Gui::new(gui_config, gui_application);
+    let terminate_application = arc_mutex_application.clone();
+    let mut gui = Gui::new(gui_config, application_gui_output);
     gui.message_loop();
     info!("End of GUI harness; terminating...");
     terminate_application.lock().unwrap().terminate();

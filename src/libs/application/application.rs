@@ -20,6 +20,7 @@ use crate::libs::audio::audio_devices::{open_input_audio_device, open_output_aud
 use crate::libs::channel_codec::channel_encoder::ChannelEncoder;
 use crate::libs::channel_codec::channel_encoding::ChannelEncoding;
 use crate::libs::conversion::conversion::text_to_keying;
+use crate::libs::gui::gui_facades::GUIOutput;
 use crate::libs::source_codec::source_encoder::SourceEncoderTrait;
 use crate::libs::source_codec::source_encoding::SourceEncoding;
 
@@ -43,7 +44,7 @@ pub trait BusInput<T> {
 }
 
 fn add_sidetone_channel_to_keying_event(keying_event: KeyingEvent) -> KeyingEventToneChannel {
-    return KeyingEventToneChannel { keying_event, tone_channel: 0 };
+    KeyingEventToneChannel { keying_event, tone_channel: 0 }
 }
 
 // The Application handles all the wiring between the active components of the system. The wiring
@@ -201,7 +202,7 @@ impl Application {
     }
 
     pub fn get_mode(&self) -> Option<ApplicationMode> {
-        return self.mode.clone();
+        self.mode.clone()
     }
 
     pub fn set_keyer(&mut self, keyer: Arc<Mutex<dyn Keyer>>) {
@@ -242,7 +243,7 @@ impl Application {
                 // bit locky, this..
                 for keying_event in keying_events {
                     info!("Sending {}", keying_event);
-                    let timed_keying_event = keying_event.clone();
+                    let timed_keying_event = keying_event;
                     match keying_event {
                         KeyingEvent::Start() | KeyingEvent::End() => {
                             thread_bus.lock().unwrap().broadcast(keying_event);
@@ -610,28 +611,30 @@ impl Application {
         self.pa.borrow()
     }
     
-    
-    // Functions called by the GUI...
-    pub fn encode_and_send_text(&mut self, text: String) {
+}
+
+// Functions called by the GUI...
+impl GUIOutput for Application {
+    fn encode_and_send_text(&mut self, text: String) {
         let keyer_speed = self.get_keyer_speed();
         info!("Encoding [{}] at {} WPM", text, keyer_speed);
         self.send_keying_events(text_to_keying(keyer_speed as u32, text.as_str()));
         info!("Finished sending keying events");
     }
-    
-    pub fn warning_beep(&mut self) {
+
+    fn warning_beep(&mut self) {
         // TODO schedule a short beep on the ToneGenerator
         warn!("***** BEEP! *****");
     }
-    
-    pub fn set_keyer_speed(&mut self, keyer_speed: KeyerSpeed) {
+
+    fn set_keyer_speed(&mut self, keyer_speed: KeyerSpeed) {
         self.keyer_speed = keyer_speed;
         if let Some(keyer) = &self.keyer {
-            keyer.lock().unwrap().set_speed(self.keyer_speed).unwrap();
+            keyer.lock().unwrap().set_speed(self.get_keyer_speed()).unwrap();
         }
     }
 
-    pub fn get_keyer_speed(&self) -> KeyerSpeed {
+    fn get_keyer_speed(&self) -> KeyerSpeed {
         self.keyer_speed
     }
 }

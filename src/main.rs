@@ -32,6 +32,7 @@ use digimorse::libs::channel_codec::channel_encoder::{ChannelEncoder, source_enc
 use digimorse::libs::channel_codec::ldpc::init_ldpc;
 use digimorse::libs::delayed_bus::delayed_bus::DelayedBus;
 use digimorse::libs::gui::gui::Gui;
+use digimorse::libs::gui::gui_facades::GUIOutput;
 use digimorse::libs::playback::playback::Playback;
 use digimorse::libs::source_codec::source_decoder::SourceDecoder;
 use digimorse::libs::source_codec::source_encoder::SourceEncoder;

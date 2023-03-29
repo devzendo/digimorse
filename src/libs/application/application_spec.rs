@@ -18,6 +18,7 @@ mod application_spec {
     use crate::libs::audio::tone_generator::{KeyingEventToneChannel, ToneChannel};
     use crate::libs::channel_codec::channel_encoder::{ChannelEncoder, source_encoding_to_channel_encoding};
     use crate::libs::channel_codec::channel_encoding::{CHANNEL_ENCODER_BLOCK_SIZE, ChannelEncoding};
+    use crate::libs::gui::gui_facades::GUIOutput;
     use crate::libs::keyer_io::keyer_io::{Keyer, KeyerMode, KeyerPolarity, KeyerSpeed, KeyingEvent};
     use crate::libs::source_codec::source_encoding::{Frame, SOURCE_ENCODER_BLOCK_SIZE_IN_BITS, SourceEncoding};
     use crate::libs::source_codec::test_encoding_builder::encoded;
