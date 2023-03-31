@@ -628,6 +628,7 @@ impl GUIOutput for Application {
     }
 
     fn set_keyer_speed(&mut self, keyer_speed: KeyerSpeed) {
+        info!("Setting keyer speed to {}", keyer_speed);
         self.keyer_speed = keyer_speed;
         if let Some(keyer) = &self.keyer {
             keyer.lock().unwrap().set_speed(self.get_keyer_speed()).unwrap();

@@ -9,7 +9,7 @@ use fltk::output::Output;
 use log::{debug, info};
 use crate::libs::config_file::config_file::ConfigurationStore;
 use crate::libs::gui::message::{KeyingText, Message};
-use crate::libs::gui::gui_facades::GUIOutput;
+use crate::libs::gui::gui_facades::{GUIInput, GUIOutput};
 use crate::libs::keyer_io::keyer_io::{MAX_KEYER_SPEED, MIN_KEYER_SPEED};
 use crate::libs::util::version::VERSION;
 
@@ -247,4 +247,17 @@ impl Gui {
         self.code_speed_output.set_value(new_keyer_speed.to_string().as_str());
     }
 }
+
+// Functions called on the GUI by the rest of the system...
+impl GUIInput for Gui {
+    fn set_rx_indicator(&mut self, _state: bool) {
+    }
+
+    fn set_wait_indicator(&mut self, _state: bool) {
+    }
+
+    fn set_tx_indicator(&mut self, _state: bool) {
+    }
+}
+
 
