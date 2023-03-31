@@ -8,10 +8,11 @@ use fltk::app;
 use log::{debug, error, info, warn};
 use pretty_hex::*;
 
-use std::thread;
 use std::error::Error;
+use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::thread;
 
 use digimorse::libs::config_dir::config_dir;
 use digimorse::libs::keyer_io::arduino_keyer_io::ArduinoKeyer;
@@ -19,6 +20,10 @@ use digimorse::libs::keyer_io::keyer_io::{KeyingEvent, MAX_KEYER_SPEED, MIN_KEYE
 use digimorse::libs::keyer_io::keyer_io::KeyerSpeed;
 use digimorse::libs::serial_io::serial_io::{DefaultSerialIO, SerialIO};
 use digimorse::libs::util::util::printable;
+
+use fltk::{
+    app::*, button::*, draw::*, enums::*, /*menu::*,*/ prelude::*, /*valuator::*,*/ widget::*, window::*,
+};
 
 use std::time::Duration;
 use bus::{Bus, BusReader};
@@ -281,7 +286,8 @@ fn run(arguments: ArgMatches, mode: Mode) -> Result<i32, Box<dyn Error>> {
     let gui_config = Arc::new(Mutex::new(config));
     let gui_application = Arc::new(Mutex::new(application));
     let terminate_application = gui_application.clone();
-    let mut gui = Gui::new(gui_config, gui_application);
+    let app = fltk::app::App::default().with_scheme(Scheme::Gtk);
+    let mut gui = Gui::new(Rc::new(app), gui_config, gui_application);
     gui.message_loop();
     info!("End of GUI message loop; terminating");
     terminate_application.lock().unwrap().terminate();

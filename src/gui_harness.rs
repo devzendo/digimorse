@@ -1,3 +1,7 @@
+use fltk::{
+    app::*, button::*, draw::*, enums::*, /*menu::*,*/ prelude::*, /*valuator::*,*/ widget::*, window::*,
+};
+use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
@@ -114,7 +118,8 @@ fn main() {
     info!("Initialising GUI");
     let gui_config = Arc::new(Mutex::new(config));
     let terminate_application = arc_mutex_application.clone();
-    let gui = Gui::new(gui_config, application_gui_output);
+    let app = App::default().with_scheme(Scheme::Gtk);
+    let gui = Gui::new(Rc::new(app), gui_config, application_gui_output);
     let arc_mutex_gui = Arc::new(Mutex::new(gui));
     let gui_input: Arc<Mutex<dyn GUIInput>> = arc_mutex_gui.clone() as Arc<Mutex<dyn GUIInput>>;
     arc_mutex_gui.lock().unwrap().message_loop();

@@ -35,7 +35,7 @@ const TX_INDICATOR_WIDTH: i32 = 40;
 const TEXT_ENTRY_HEIGHT: i32 = 120;
 
 pub struct Gui {
-    app: App,
+    app: Rc<App>,
     config: Arc<Mutex<ConfigurationStore>>,
     gui_output: Arc<Mutex<dyn GUIOutput>>,
     sender: Sender<Message>,
@@ -51,9 +51,9 @@ pub struct Gui {
 }
 
 impl Gui {
-    pub fn new(config: Arc<Mutex<ConfigurationStore>>, gui_output: Arc<Mutex<dyn GUIOutput>>) -> Self {
-        debug!("Initialising App");
-        let app = App::default().with_scheme(Scheme::Gtk);
+    pub fn new(app: Rc<App>, config: Arc<Mutex<ConfigurationStore>>, gui_output: Arc<Mutex<dyn GUIOutput>>) -> Self {
+        //debug!("Initialising App");
+        //let app = App::default().with_scheme(Scheme::Gtk);
         debug!("Initialising Window");
         let mut wind = Window::default().with_label(format!("digimorse v{} de M0CUV", VERSION).as_str());
 
