@@ -11,5 +11,6 @@ pub enum Message {
     Beep,
     IncreaseKeyingSpeedRequest,
     DecreaseKeyingSpeedRequest,
-    SetKeyingSpeed(KeyerSpeed)
+    SetKeyingSpeed(KeyerSpeed),
+    RedrawIndicatorsCanvas,
 }

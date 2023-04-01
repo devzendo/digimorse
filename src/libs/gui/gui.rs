@@ -50,6 +50,9 @@ pub struct Gui {
     text_entry: Rc<RefCell<MultilineInput>>,
     window_width: i32,
     window_height: i32,
+    rx_indicator: Rc<RefCell<bool>>,
+    wait_indicator: Rc<RefCell<bool>>,
+    tx_indicator: Rc<RefCell<bool>>,
 }
 
 impl Gui {
@@ -67,6 +70,10 @@ impl Gui {
         let tx_active = Color::from_hex_str("#da3620").unwrap();
 
         let (sender, receiver) = channel::<Message>();
+
+        let rx_indicator = Rc::new(RefCell::new(false));
+        let wait_indicator = Rc::new(RefCell::new(false));
+        let tx_indicator = Rc::new(RefCell::new(false));
 
         let mut gui = Gui {
             config,
@@ -99,6 +106,9 @@ impl Gui {
                 .with_pos(WIDGET_PADDING + WATERFALL_WIDTH + WIDGET_PADDING, WIDGET_PADDING + CODE_SPEED_BUTTON_DIM * 2 + WIDGET_PADDING + INDICATORS_CANVAS_HEIGHT + WIDGET_PADDING))),
             window_width: WIDGET_PADDING + WATERFALL_WIDTH + WIDGET_PADDING + CENTRAL_CONTROLS_WIDTH + WIDGET_PADDING,
             window_height: WIDGET_PADDING + WATERFALL_HEIGHT + WIDGET_PADDING + WIDGET_HEIGHT + WIDGET_PADDING,
+            rx_indicator,
+            wait_indicator,
+            tx_indicator,
         };
 
         gui.waterfall_canvas.set_trigger(CallbackTrigger::Release);
@@ -123,20 +133,26 @@ impl Gui {
         gui.code_speed_up_button.emit(gui.sender.clone(), Message::IncreaseKeyingSpeedRequest);
         gui.code_speed_down_button.emit(gui.sender.clone(), Message::DecreaseKeyingSpeedRequest);
 
+        let canvas_rx = gui.rx_indicator.clone();
+        let canvas_wait = gui.wait_indicator.clone();
+        let canvas_tx = gui.tx_indicator.clone();
         gui.indicators_canvas.draw(move |wid| {
             push_clip(wid.x(), wid.y(), wid.width(), wid.height());
             draw_rect_fill(wid.x(), wid.y(), wid.width(), wid.height(), window_background);
 
-            draw_rect_fill(wid.x() + INDICATOR_PADDING, wid.y() + INDICATOR_PADDING, RX_INDICATOR_WIDTH, wid.height() - 2 * INDICATOR_PADDING, rx_inactive);
-            set_draw_color(rx_active);
+            draw_rect_fill(wid.x() + INDICATOR_PADDING, wid.y() + INDICATOR_PADDING, RX_INDICATOR_WIDTH, wid.height() - 2 * INDICATOR_PADDING, 
+                           if *canvas_rx.borrow() { rx_active } else { rx_inactive });
+            set_draw_color(if *canvas_rx.borrow() { rx_inactive } else { rx_active });
             draw_text("RX", wid.x() + INDICATOR_PADDING + 10, wid.y() + INDICATOR_PADDING + 18);
 
-            draw_rect_fill(wid.x() + INDICATOR_PADDING + RX_INDICATOR_WIDTH + INDICATOR_PADDING, wid.y() + INDICATOR_PADDING, WAIT_INDICATOR_WIDTH, wid.height() - 2 * INDICATOR_PADDING, wait_inactive);
-            set_draw_color(wait_active);
+            draw_rect_fill(wid.x() + INDICATOR_PADDING + RX_INDICATOR_WIDTH + INDICATOR_PADDING, wid.y() + INDICATOR_PADDING, WAIT_INDICATOR_WIDTH, wid.height() - 2 * INDICATOR_PADDING, 
+                           if *canvas_wait.borrow() { wait_active } else { wait_inactive });
+            set_draw_color(if *canvas_wait.borrow() { wait_inactive } else { wait_active });
             draw_text("WAIT", wid.x() + INDICATOR_PADDING + RX_INDICATOR_WIDTH + INDICATOR_PADDING + 12, wid.y() + INDICATOR_PADDING + 18);
 
-            draw_rect_fill(wid.x() + INDICATOR_PADDING + RX_INDICATOR_WIDTH + INDICATOR_PADDING + WAIT_INDICATOR_WIDTH + INDICATOR_PADDING, wid.y() + INDICATOR_PADDING, TX_INDICATOR_WIDTH, wid.height() - 2 * INDICATOR_PADDING, tx_inactive);
-            set_draw_color(tx_active);
+            draw_rect_fill(wid.x() + INDICATOR_PADDING + RX_INDICATOR_WIDTH + INDICATOR_PADDING + WAIT_INDICATOR_WIDTH + INDICATOR_PADDING, wid.y() + INDICATOR_PADDING, TX_INDICATOR_WIDTH, wid.height() - 2 * INDICATOR_PADDING, 
+                           if *canvas_tx.borrow() { tx_active } else { tx_inactive });
+            set_draw_color(if *canvas_tx.borrow() { tx_inactive } else { tx_active });
             draw_text("TX", wid.x() + INDICATOR_PADDING + RX_INDICATOR_WIDTH + INDICATOR_PADDING + WAIT_INDICATOR_WIDTH + INDICATOR_PADDING + 10, wid.y() + INDICATOR_PADDING + 18);
 
             set_draw_color(Color::Black);
@@ -233,6 +249,11 @@ impl Gui {
                             self.gui_output.lock().unwrap().warning_beep();
                         }
                     }
+
+                    Message::RedrawIndicatorsCanvas => {
+                        info!("Redrawing indicators");
+                        self.indicators_canvas.redraw();
+                    }
                 }
             }
         }
@@ -250,14 +271,20 @@ impl Gui {
 impl GUIInput for Gui {
     fn set_rx_indicator(&self, state: bool) {
         info!("Will set RX indicator to {}", state);
+        *self.rx_indicator.borrow_mut() = state;
+        self.sender.send(Message::RedrawIndicatorsCanvas);
     }
 
     fn set_wait_indicator(&self, state: bool) {
         info!("Will set WAIT indicator to {}", state);
+        *self.wait_indicator.borrow_mut() = state;
+        self.sender.send(Message::RedrawIndicatorsCanvas);
     }
 
     fn set_tx_indicator(&self, state: bool) {
         info!("Will set TX indicator to {}", state);
+        *self.tx_indicator.borrow_mut() = state;
+        self.sender.send(Message::RedrawIndicatorsCanvas);
     }
 }
 
