@@ -3,7 +3,6 @@
 * Main: wiring up the channel encoder and transmitter.
 * Main: Making the keyer port optional. The GUI permits text entry, so should start up if the keyer is not set.
 * GUI development:
-  * Wiring in the GUI indicators via the GUI harness and driver.
   * Ensuring the operation of the GUI indicators from the rest of the system.
 
 * Receiver - callback receiving audio from the radio's speaker (the microphone PortAudio device).
