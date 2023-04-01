@@ -2,17 +2,21 @@
 extern crate clap;
 extern crate portaudio;
 
+use std::error::Error;
+use std::sync::{Arc, Mutex};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::thread;
+use std::time::Duration;
+
 use clap::{App, Arg, ArgMatches};
 use clap::arg_enum;
 use fltk::app;
 use log::{debug, error, info, warn};
 use pretty_hex::*;
-
-use std::error::Error;
-use std::rc::Rc;
-use std::sync::{Arc, Mutex};
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::thread;
+use fltk::app::*;
+use bus::{Bus, BusReader};
+use portaudio::PortAudio;
+use syncbox::ScheduledThreadPool;
 
 use digimorse::libs::config_dir::config_dir;
 use digimorse::libs::keyer_io::arduino_keyer_io::ArduinoKeyer;
@@ -20,15 +24,6 @@ use digimorse::libs::keyer_io::keyer_io::{KeyingEvent, MAX_KEYER_SPEED, MIN_KEYE
 use digimorse::libs::keyer_io::keyer_io::KeyerSpeed;
 use digimorse::libs::serial_io::serial_io::{DefaultSerialIO, SerialIO};
 use digimorse::libs::util::util::printable;
-
-use fltk::{
-    app::*, button::*, draw::*, enums::*, /*menu::*,*/ prelude::*, /*valuator::*,*/ widget::*, window::*,
-};
-
-use std::time::Duration;
-use bus::{Bus, BusReader};
-use portaudio::PortAudio;
-use syncbox::ScheduledThreadPool;
 use digimorse::libs::application::application::{Application, ApplicationMode, BusInput, BusOutput};
 use digimorse::libs::config_file::config_file::ConfigurationStore;
 use digimorse::libs::audio::audio_devices::{list_audio_devices, output_audio_device_exists, input_audio_device_exists, list_audio_input_devices, list_audio_output_devices};
@@ -287,8 +282,10 @@ fn run(arguments: ArgMatches, mode: Mode) -> Result<i32, Box<dyn Error>> {
     let gui_application = Arc::new(Mutex::new(application));
     let terminate_application = gui_application.clone();
     let app = fltk::app::App::default().with_scheme(Scheme::Gtk);
-    let mut gui = Gui::new(Rc::new(app), gui_config, gui_application);
-    gui.message_loop();
+    let mut gui = Gui::new(gui_config, gui_application);
+    while app.wait() {
+        gui.message_handle();
+    }
     info!("End of GUI message loop; terminating");
     terminate_application.lock().unwrap().terminate();
     thread::sleep(Duration::from_secs(5));

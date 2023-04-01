@@ -36,7 +36,6 @@ const TX_INDICATOR_WIDTH: i32 = 40;
 const TEXT_ENTRY_HEIGHT: i32 = 120;
 
 pub struct Gui {
-    app: Rc<App>,
     config: Arc<Mutex<ConfigurationStore>>,
     gui_output: Arc<Mutex<dyn GUIOutput>>,
     sender: Sender<Message>,
@@ -54,12 +53,9 @@ pub struct Gui {
 }
 
 impl Gui {
-    pub fn new(app: Rc<App>, config: Arc<Mutex<ConfigurationStore>>, gui_output: Arc<Mutex<dyn GUIOutput>>) -> Self {
-        //debug!("Initialising App");
-        //let app = App::default().with_scheme(Scheme::Gtk);
+    pub fn new(config: Arc<Mutex<ConfigurationStore>>, gui_output: Arc<Mutex<dyn GUIOutput>>) -> Self {
         debug!("Initialising Window");
         let mut wind = Window::default().with_label(format!("digimorse v{} de M0CUV", VERSION).as_str());
-
 
         let waterfall_canvas_background = Color::from_hex_str("#aab0cb").unwrap();
         let window_background = Color::from_hex_str("#dfe2ff").unwrap();
@@ -73,7 +69,6 @@ impl Gui {
         let (sender, receiver) = channel::<Message>();
 
         let mut gui = Gui {
-            app,
             config,
             gui_output,
             sender,
@@ -201,49 +196,46 @@ impl Gui {
         (self.window_width, self.window_height)
     }
 
-    pub fn message_loop(&mut self) {
-        while self.app.wait() {
-            match self.receiver.recv() {
-                None => {
-                    // noop
-                }
-                Some(message) => {
-                    info!("App message {:?}", message);
-                    match message {
-                        Message::KeyingText(keying_text) => {
-                            info!("Sending the text [{}]", keying_text.text);
-                            self.gui_output.lock().unwrap().encode_and_send_text(keying_text.text);
-                            info!("Text sent");
+    pub fn message_handle(&mut self) {
+        match self.receiver.recv() {
+            None => {
+                // noop
+            }
+            Some(message) => {
+                info!("App message {:?}", message);
+                match message {
+                    Message::KeyingText(keying_text) => {
+                        info!("Sending the text [{}]", keying_text.text);
+                        self.gui_output.lock().unwrap().encode_and_send_text(keying_text.text);
+                        info!("Text sent");
+                    }
+
+                    Message::Beep => {}
+
+                    Message::SetKeyingSpeed(_) => {}
+
+                    Message::IncreaseKeyingSpeedRequest => {
+                        let new_keyer_speed = self.gui_output.lock().unwrap().get_keyer_speed();
+                        info!("Initial speed is {}", new_keyer_speed);
+                        if new_keyer_speed < MAX_KEYER_SPEED {
+                            self.set_keyer_speed(new_keyer_speed + 1);
+                        } else {
+                            self.gui_output.lock().unwrap().warning_beep();
                         }
+                    }
 
-                        Message::Beep => {}
-
-                        Message::SetKeyingSpeed(_) => {}
-
-                        Message::IncreaseKeyingSpeedRequest => {
-                            let new_keyer_speed = self.gui_output.lock().unwrap().get_keyer_speed();
-                            info!("Initial speed is {}", new_keyer_speed);
-                            if new_keyer_speed < MAX_KEYER_SPEED {
-                                self.set_keyer_speed(new_keyer_speed + 1);
-                            } else {
-                                self.gui_output.lock().unwrap().warning_beep();
-                            }
-                        }
-
-                        Message::DecreaseKeyingSpeedRequest => {
-                            let new_keyer_speed = self.gui_output.lock().unwrap().get_keyer_speed();
-                            info!("Initial speed is {}", new_keyer_speed);
-                            if new_keyer_speed > MIN_KEYER_SPEED {
-                                self.set_keyer_speed(new_keyer_speed - 1);
-                            } else {
-                                self.gui_output.lock().unwrap().warning_beep();
-                            }
+                    Message::DecreaseKeyingSpeedRequest => {
+                        let new_keyer_speed = self.gui_output.lock().unwrap().get_keyer_speed();
+                        info!("Initial speed is {}", new_keyer_speed);
+                        if new_keyer_speed > MIN_KEYER_SPEED {
+                            self.set_keyer_speed(new_keyer_speed - 1);
+                        } else {
+                            self.gui_output.lock().unwrap().warning_beep();
                         }
                     }
                 }
             }
         }
-        info!("End of app wait loop");
     }
 
     fn set_keyer_speed(&mut self, new_keyer_speed: u8) {
@@ -256,15 +248,15 @@ impl Gui {
 
 // Functions called on the GUI by the rest of the system...
 impl GUIInput for Gui {
-    fn set_rx_indicator(&mut self, state: bool) {
+    fn set_rx_indicator(&self, state: bool) {
         info!("Will set RX indicator to {}", state);
     }
 
-    fn set_wait_indicator(&mut self, state: bool) {
+    fn set_wait_indicator(&self, state: bool) {
         info!("Will set WAIT indicator to {}", state);
     }
 
-    fn set_tx_indicator(&mut self, state: bool) {
+    fn set_tx_indicator(&self, state: bool) {
         info!("Will set TX indicator to {}", state);
     }
 }

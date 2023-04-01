@@ -1,7 +1,4 @@
-use fltk::{
-    app::*, button::*, draw::*, enums::*, /*menu::*,*/ prelude::*, /*valuator::*,*/ widget::*, window::*,
-};
-use std::rc::Rc;
+use fltk::app::*;
 use std::sync::{Arc, Mutex};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
@@ -120,11 +117,17 @@ fn main() {
     let gui_config = Arc::new(Mutex::new(config));
     let terminate_application = arc_mutex_application.clone();
     let app = App::default().with_scheme(Scheme::Gtk);
-    let gui = Gui::new(Rc::new(app), gui_config, application_gui_output);
+    let gui = Gui::new(gui_config, application_gui_output);
+    let gui_width = gui.main_window_dimensions().0;
     let arc_mutex_gui = Arc::new(Mutex::new(gui));
-    let gui_input: Arc<Mutex<dyn GUIInput>> = arc_mutex_gui.clone() as Arc<Mutex<dyn GUIInput>>;
-    let _gui_driver = GuiDriver::new(gui_input, arc_mutex_gui.lock().unwrap().main_window_dimensions().0 + WIDGET_PADDING);
-    arc_mutex_gui.lock().unwrap().message_loop();
+    let arc_mutex_gui_input: Arc<Mutex<dyn GUIInput>> = arc_mutex_gui.clone() as Arc<Mutex<dyn GUIInput>>;
+    // The arc_mutex_gui_input would be passed around to other parts of the subsystem.
+    GuiDriver::new(arc_mutex_gui_input, gui_width + WIDGET_PADDING);
+    info!("Start of app wait loop");
+    while app.wait() {
+        arc_mutex_gui.lock().unwrap().message_handle();
+    }
+    info!("End of app wait loop");
     info!("End of GUI harness; terminating...");
     terminate_application.lock().unwrap().terminate();
     thread::sleep(Duration::from_secs(1));
