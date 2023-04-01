@@ -251,7 +251,6 @@ impl Gui {
                     }
 
                     Message::RedrawIndicatorsCanvas => {
-                        info!("Redrawing indicators");
                         self.indicators_canvas.redraw();
                     }
                 }
