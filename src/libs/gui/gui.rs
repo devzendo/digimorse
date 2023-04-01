@@ -13,8 +13,9 @@ use crate::libs::gui::gui_facades::{GUIInput, GUIOutput};
 use crate::libs::keyer_io::keyer_io::{MAX_KEYER_SPEED, MIN_KEYER_SPEED};
 use crate::libs::util::version::VERSION;
 
+pub const WIDGET_PADDING: i32 = 10;
+
 const WIDGET_HEIGHT: i32 = 25;
-const WIDGET_PADDING: i32 = 10;
 
 const WATERFALL_WIDTH: i32 = 1000;
 const WATERFALL_HEIGHT: i32 = 500;
@@ -48,6 +49,8 @@ pub struct Gui {
     code_speed_label: Widget, // PITA, Frame doesn't align properly
     indicators_canvas: Widget,
     text_entry: Rc<RefCell<MultilineInput>>,
+    window_width: i32,
+    window_height: i32,
 }
 
 impl Gui {
@@ -99,6 +102,8 @@ impl Gui {
             text_entry: Rc::new(RefCell::new(MultilineInput::default()
                 .with_size(CENTRAL_CONTROLS_WIDTH, TEXT_ENTRY_HEIGHT)
                 .with_pos(WIDGET_PADDING + WATERFALL_WIDTH + WIDGET_PADDING, WIDGET_PADDING + CODE_SPEED_BUTTON_DIM * 2 + WIDGET_PADDING + INDICATORS_CANVAS_HEIGHT + WIDGET_PADDING))),
+            window_width: WIDGET_PADDING + WATERFALL_WIDTH + WIDGET_PADDING + CENTRAL_CONTROLS_WIDTH + WIDGET_PADDING,
+            window_height: WIDGET_PADDING + WATERFALL_HEIGHT + WIDGET_PADDING + WIDGET_HEIGHT + WIDGET_PADDING,
         };
 
         gui.waterfall_canvas.set_trigger(CallbackTrigger::Release);
@@ -182,10 +187,7 @@ impl Gui {
             }
         });
 
-        wind.set_size(
-            WIDGET_PADDING + WATERFALL_WIDTH + WIDGET_PADDING + CENTRAL_CONTROLS_WIDTH + WIDGET_PADDING,
-            WIDGET_PADDING + WATERFALL_HEIGHT + WIDGET_PADDING + WIDGET_HEIGHT + WIDGET_PADDING,
-        );
+        wind.set_size(gui.window_width, gui.window_height);
         wind.set_color(window_background);
 
         wind.end();
@@ -193,6 +195,10 @@ impl Gui {
         wind.show();
         debug!("Starting app wait loop");
         gui
+    }
+
+    pub fn main_window_dimensions(&self) -> (i32, i32) {
+        (self.window_width, self.window_height)
     }
 
     pub fn message_loop(&mut self) {
@@ -250,13 +256,16 @@ impl Gui {
 
 // Functions called on the GUI by the rest of the system...
 impl GUIInput for Gui {
-    fn set_rx_indicator(&mut self, _state: bool) {
+    fn set_rx_indicator(&mut self, state: bool) {
+        info!("Will set RX indicator to {}", state);
     }
 
-    fn set_wait_indicator(&mut self, _state: bool) {
+    fn set_wait_indicator(&mut self, state: bool) {
+        info!("Will set WAIT indicator to {}", state);
     }
 
-    fn set_tx_indicator(&mut self, _state: bool) {
+    fn set_tx_indicator(&mut self, state: bool) {
+        info!("Will set TX indicator to {}", state);
     }
 }
 

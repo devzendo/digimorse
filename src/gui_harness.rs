@@ -16,7 +16,8 @@ use digimorse::libs::util::logging::initialise_logging;
 
 use portaudio as pa;
 use digimorse::libs::audio::tone_generator::ToneGenerator;
-use digimorse::libs::gui::gui::Gui;
+use digimorse::libs::gui::gui::{Gui, WIDGET_PADDING};
+use digimorse::libs::gui::gui_driver::GuiDriver;
 use digimorse::libs::keyer_io::keyer_io::{KeyerSpeed, KeyingEvent};
 use digimorse::libs::source_codec::source_encoding::SourceEncoding;
 
@@ -122,6 +123,7 @@ fn main() {
     let gui = Gui::new(Rc::new(app), gui_config, application_gui_output);
     let arc_mutex_gui = Arc::new(Mutex::new(gui));
     let gui_input: Arc<Mutex<dyn GUIInput>> = arc_mutex_gui.clone() as Arc<Mutex<dyn GUIInput>>;
+    let _gui_driver = GuiDriver::new(gui_input, arc_mutex_gui.lock().unwrap().main_window_dimensions().0 + WIDGET_PADDING);
     arc_mutex_gui.lock().unwrap().message_loop();
     info!("End of GUI harness; terminating...");
     terminate_application.lock().unwrap().terminate();
