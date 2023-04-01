@@ -1,8 +1,19 @@
 # Current Development Activities
 
 * Main: wiring up the channel encoder and transmitter.
+* Main: Making the keyer port optional. The GUI permits text entry, so should start up if the keyer is not set.
 * GUI development:
-  * Text entry, for those who cannot use a key. Encodes and sends the Morse at the current speed.
+  * Wiring in the GUI indicators via the GUI harness and driver.
+  * Ensuring the operation of the GUI indicators from the rest of the system.
+
+* Receiver - callback receiving audio from the radio's speaker (the microphone PortAudio device).
+* Receiver - downsample the incoming audio. Do we need a pool of outgoing audio buffers?
+* Receiver - allow callback audio to be overridden by an input .wav file, by reading the whole waveform into memory, and
+  overwriting the callback audio buffer.
+* Application: Allow the Receiver to be wired in, with a ReceivedWaveformBus as output.
+* Decoder: Listens to the ReceivedWaveformBus, FFTs it, quantizes that for the UI, sends to the GUIInput. Gives the relevant subset
+  of data to each StationDecoder in parallel. Performs Costas Array detection across the spectrum; adds StationDecoders if new
+  array found.
 
 Next up for research:
 * Costas array: is there an escaping mechanism, such that the Costas array does not occur in the binary output of the

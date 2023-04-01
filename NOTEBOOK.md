@@ -328,7 +328,9 @@ Need to be able to configure/store/load audio devices including their device ind
 
 Then on to making audio (and keyer) devices swappable at runtime, possibly using the same mechanism to initialise them from config at startup - do this in the application? 
 
+## 1 April 2023
 
+Progress at last on the GUI, via a test harness and a driver for it. 
 
 
 
