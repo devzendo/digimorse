@@ -15,6 +15,7 @@
 * Decoder: Listens to the ReceivedWaveformBus, FFTs it, quantizes that for the UI, sends to the GUIInput. Gives the relevant subset
   of data to each StationDecoder in parallel. Performs Costas Array detection across the spectrum; adds StationDecoders if new
   array found.
+* Add a ListKeyerDevices mode?
 
 Next up for research:
 * Costas array: is there an escaping mechanism, such that the Costas array does not occur in the binary output of the
