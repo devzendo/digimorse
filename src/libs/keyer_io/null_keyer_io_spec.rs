@@ -19,8 +19,7 @@ mod null_keyer_io_spec {
     fn after_each() {}
 
     fn keyer() -> NullKeyer {
-        let (keying_event_tx, _keying_event_rx): (Sender<KeyingEvent>, Receiver<KeyingEvent>) = mpsc::channel();
-        NullKeyer::new(keying_event_tx)
+        NullKeyer::new()
     }
 
     #[test]

@@ -47,15 +47,38 @@ impl DefaultSerialIO {
 
 impl SerialIO for DefaultSerialIO {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        return self.serial_port.read(buf);
+        self.serial_port.read(buf)
     }
 
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        return self.serial_port.write(buf);
+        self.serial_port.write(buf)
     }
 
     fn flush(&mut self) -> io::Result<()> {
-        return self.serial_port.flush();
+        self.serial_port.flush()
+    }
+}
+
+pub struct NullSerialIO {
+}
+
+impl NullSerialIO {
+    pub fn new() -> Result<NullSerialIO, String> {
+        Ok(NullSerialIO {})
+    }
+}
+
+impl SerialIO for NullSerialIO {
+    fn read(&mut self, _buf: &mut [u8]) -> io::Result<usize> {
+        Ok(0)
+    }
+
+    fn write(&mut self, _buf: &[u8]) -> io::Result<usize> {
+        Ok(0)
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        Ok(())
     }
 }
 

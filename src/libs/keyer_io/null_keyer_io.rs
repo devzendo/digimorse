@@ -1,20 +1,17 @@
 use std::sync::{Arc, Mutex};
 use crate::libs::keyer_io::keyer_io::{Keyer, KeyerSpeed, KeyerMode, KeyerPolarity, KeyingEvent};
-use std::sync::mpsc::Sender;
 use bus::Bus;
 use crate::libs::application::application::BusOutput;
 
 pub struct NullKeyer {
-    _keying_event_tx: Sender<KeyingEvent>,
     keyer_speed: KeyerSpeed,
     keyer_mode: KeyerMode,
     keyer_polarity: KeyerPolarity,
 }
 
 impl NullKeyer {
-    pub fn new(keying_event_tx: Sender<KeyingEvent>) -> Self {
+    pub fn new() -> Self {
         Self {
-            _keying_event_tx: keying_event_tx,
             keyer_speed: KeyerSpeed::from(12),
             keyer_mode: KeyerMode::Straight,
             keyer_polarity: KeyerPolarity::Normal,

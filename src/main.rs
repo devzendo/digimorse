@@ -10,6 +10,7 @@ use std::time::Duration;
 
 use clap::{App, Arg, ArgMatches};
 use clap::arg_enum;
+use digimorse::libs::keyer_io::null_keyer_io::NullKeyer;
 use fltk::app;
 use log::{debug, error, info, warn};
 use pretty_hex::*;
@@ -20,9 +21,9 @@ use syncbox::ScheduledThreadPool;
 
 use digimorse::libs::config_dir::config_dir;
 use digimorse::libs::keyer_io::arduino_keyer_io::ArduinoKeyer;
-use digimorse::libs::keyer_io::keyer_io::{KeyingEvent, MAX_KEYER_SPEED, MIN_KEYER_SPEED};
-use digimorse::libs::keyer_io::keyer_io::KeyerSpeed;
-use digimorse::libs::serial_io::serial_io::{DefaultSerialIO, SerialIO};
+use digimorse::libs::keyer_io::keyer_io::{KeyingEvent, MAX_KEYER_SPEED, MIN_KEYER_SPEED, Keyer};
+use digimorse::libs::keyer_io::keyer_io::{KeyerSpeed, KeyerType};
+use digimorse::libs::serial_io::serial_io::{DefaultSerialIO, NullSerialIO, SerialIO};
 use digimorse::libs::util::util::printable;
 use digimorse::libs::application::application::{Application, ApplicationMode, BusInput, BusOutput};
 use digimorse::libs::config_file::config_file::ConfigurationStore;
@@ -52,6 +53,7 @@ const KEYER_HELP: &str = "Sets the port that the Digimorse Arduino Keyer is conn
 #[cfg(not(windows))]
 const KEYER_VALUE_NAME: &str = "serial character device";
 
+const NO_KEYER: &'static str = "no-keyer";
 const KEYER_PORT_DEVICE: &'static str = "keyer-port-device";
 const AUDIO_OUT_DEVICE: &'static str = "audio-out-device";
 const RIG_OUT_DEVICE: &'static str = "rig-out-device";
@@ -85,6 +87,11 @@ fn parse_command_line<'a>() -> (ArgMatches<'a>, Mode) {
             .value_name(KEYER_VALUE_NAME)
             .help(KEYER_HELP)
             .takes_value(true))
+
+        .arg(Arg::with_name(NO_KEYER)
+             .short("n")
+             .long("nokeyer")
+             .help("Clears the keyer device; the GUI would be used for text entry"))
 
         .arg(Arg::with_name(AUDIO_OUT_DEVICE)
             .short("a").long("audioout").help("Sets the audio device name to use for the speaker/headphone output")
@@ -153,14 +160,31 @@ fn run(arguments: ArgMatches, mode: Mode) -> Result<i32, Box<dyn Error>> {
     check_audio_devices(&mut config, &pa)?;
     check_keyer_device(&mut config)?;
 
-    let port_string = config.get_port();
-    let port = port_string.as_str();
+    fn construct_default_serial_io(port: &str) -> Result<Box<dyn SerialIO>, String> {
+        match DefaultSerialIO::new(port.to_string()) {
+            Ok(serial_io) => { Ok(Box::new(serial_io)) }
+            Err(e) => { Err(e) }
+        }
+    }
 
-    info!("Initialising serial port at {}", port);
-    let mut serial_io = DefaultSerialIO::new(port.to_string())?;
+    fn construct_null_serial_io() -> Result<Box<dyn SerialIO>, String> {
+        match NullSerialIO::new() {
+            Ok(serial_io) => { Ok(Box::new(serial_io)) }
+            Err(e) => { Err(e) }
+        }
+    }
+
+    let mut box_serial_io: Box<dyn SerialIO> = if config.get_keyer_type() == KeyerType::Arduino {
+        let port_string = config.get_port();
+        let port = port_string.as_str();
+        info!("Initialising serial port at {}", port);
+        construct_default_serial_io(port)?
+    } else {
+        construct_null_serial_io()?
+    };
 
     if mode == Mode::SerialDiag {
-        serial_diag(&mut serial_io)?;
+        serial_diag(&mut box_serial_io)?;
         return Ok(0)
     }
 
@@ -187,30 +211,41 @@ fn run(arguments: ArgMatches, mode: Mode) -> Result<i32, Box<dyn Error>> {
     }
 
     info!("Initialising keyer...");
-    let mut keying_event_tx = Bus::new(16);
-    let tone_generator_keying_event_rx = keying_event_tx.add_rx();
-    let source_encoder_keying_event_rx: Option<BusReader<KeyingEvent>> = Some(keying_event_tx.add_rx());
+//    let mut keying_event_tx = Bus::new(16);
+//    let tone_generator_keying_event_rx = keying_event_tx.add_rx();
+//    let source_encoder_keying_event_rx: Option<BusReader<KeyingEvent>> = Some(keying_event_tx.add_rx());
 
-    let keyer = ArduinoKeyer::new(Box::new(serial_io), application.terminate_flag());
+    fn construct_arduino_keyer(box_serial_io: Box<dyn SerialIO>, terminate_flag: Arc<AtomicBool>) -> Arc<Mutex<dyn Keyer>> {
+        Arc::new(Mutex::new(ArduinoKeyer::new(box_serial_io, terminate_flag)))
+    }
+    fn construct_null_keyer() -> Arc<Mutex<dyn Keyer>> {
+        Arc::new(Mutex::new(NullKeyer::new()))
+    }
+
+    let keyer = if config.get_keyer_type() == KeyerType::Arduino {
+        construct_arduino_keyer(box_serial_io, application.terminate_flag())
+    } else {
+        construct_null_keyer()
+    };
     let keyer_speed: KeyerSpeed = config.get_wpm() as KeyerSpeed;
     application.set_keyer_speed(keyer_speed);
-    application.set_keyer(Arc::new(Mutex::new(keyer))); // This also sets the speed on the keyer.
+    application.set_keyer(keyer); // This also sets the speed on the keyer.
 
-    let arc_mutex_keying_event_tone_channel_tx = Arc::new(Mutex::new(Bus::new(16)));
-    let playback_arc_mutex_keying_event_tone_channel: Option<Arc<Mutex<Bus<KeyingEventToneChannel>>>> = if mode == Mode::SourceEncoderDiag {
-        Some(arc_mutex_keying_event_tone_channel_tx.clone())
-    } else {
-        None
-    };
+//    let arc_mutex_keying_event_tone_channel_tx = Arc::new(Mutex::new(Bus::new(16)));
+//    let playback_arc_mutex_keying_event_tone_channel: Option<Arc<Mutex<Bus<KeyingEventToneChannel>>>> = if mode == Mode::SourceEncoderDiag {
+//        Some(arc_mutex_keying_event_tone_channel_tx.clone())
+//    } else {
+//        None
+//    };
 
-    let mut transform_bus = TransformBus::new(add_sidetone_channel_to_keying_event,
-                                          application.terminate_flag());
-    transform_bus.set_input_rx(Arc::new(Mutex::new(tone_generator_keying_event_rx)));
-    transform_bus.set_output_tx(arc_mutex_keying_event_tone_channel_tx);
-    let arc_transform_bus = Arc::new(Mutex::new(transform_bus));
-    let _keying_event_tone_channel_rx = arc_transform_bus.lock().unwrap().add_reader();
+//    let mut transform_bus = TransformBus::new(add_sidetone_channel_to_keying_event,
+//                                          application.terminate_flag());
+//    transform_bus.set_input_rx(Arc::new(Mutex::new(tone_generator_keying_event_rx)));
+//    transform_bus.set_output_tx(arc_mutex_keying_event_tone_channel_tx);
+//    let arc_transform_bus = Arc::new(Mutex::new(transform_bus));
+//    let _keying_event_tone_channel_rx = arc_transform_bus.lock().unwrap().add_reader();
 
-    info!("Initialising audio output callback...");
+    info!("Initialising audio output (from the computer, ie its speaker)...");
     let out_dev_string = config.get_audio_out_device();
     let out_dev_str = out_dev_string.as_str();
     let output_settings = application.open_output_audio_device(out_dev_str)?;
@@ -218,33 +253,35 @@ fn run(arguments: ArgMatches, mode: Mode) -> Result<i32, Box<dyn Error>> {
                                                 application.terminate_flag());
     tone_generator.start_callback(application.pa_ref(), output_settings)?; // also initialises DDS for sidetone.
     let application_tone_generator = Arc::new(Mutex::new(tone_generator));
-    let playback_arc_mutex_tone_generator = application_tone_generator.clone();
+//    let playback_arc_mutex_tone_generator = application_tone_generator.clone();
     application.set_tone_generator(application_tone_generator);
 
     info!("Initialising source encoder...");
-    let mut source_encoder_tx = Bus::new(16);
-    let source_encoder_rx = source_encoder_tx.add_rx();
+//    let mut source_encoder_tx = Bus::new(16);
+//    let source_encoder_rx = source_encoder_tx.add_rx();
     let mut source_encoder = SourceEncoder::new(application.terminate_flag(),
                                                 SOURCE_ENCODER_BLOCK_SIZE_IN_BITS);
-    source_encoder.set_input_rx(Arc::new(Mutex::new(source_encoder_keying_event_rx.unwrap())));
-    source_encoder.set_output_tx(Arc::new(Mutex::new(source_encoder_tx)));
+//    source_encoder.set_input_rx(Arc::new(Mutex::new(source_encoder_keying_event_rx.unwrap())));
+//    source_encoder.set_output_tx(Arc::new(Mutex::new(source_encoder_tx)));
+    // TODO the application should set the source encoder's speed.
     source_encoder.set_keyer_speed(config.get_wpm() as KeyerSpeed);
+    application.set_source_encoder(Arc::new(Mutex::new(source_encoder)));
 
-    let source_decoder = SourceDecoder::new(SOURCE_ENCODER_BLOCK_SIZE_IN_BITS);
+//    let source_decoder = SourceDecoder::new(SOURCE_ENCODER_BLOCK_SIZE_IN_BITS);
 
-    if mode == Mode::SourceEncoderDiag {
-        info!("Initialising SourceEncoderDiag mode");
-        source_encoder_diag(source_decoder, source_encoder_rx, application.terminate_flag(),
-                            playback_arc_mutex_tone_generator.clone(),
-                            playback_arc_mutex_keying_event_tone_channel.unwrap(),
-                            scheduled_thread_pool, config.get_sidetone_frequency() + 50)?;
-        source_encoder.terminate();
+//    if mode == Mode::SourceEncoderDiag {
+//        info!("Initialising SourceEncoderDiag mode");
+//        source_encoder_diag(source_decoder, source_encoder_rx, application.terminate_flag(),
+//                            playback_arc_mutex_tone_generator.clone(),
+//                            playback_arc_mutex_keying_event_tone_channel.unwrap(),
+//                            scheduled_thread_pool, config.get_sidetone_frequency() + 50)?;
+//        source_encoder.terminate();
         // keyer.terminate();
-        drop(playback_arc_mutex_tone_generator);
-        thread::sleep(Duration::from_secs(1));
-        info!("Finishing SourceEncoderDiag mode");
-        return Ok(0);
-    }
+//        drop(playback_arc_mutex_tone_generator);
+//        thread::sleep(Duration::from_secs(1));
+//        info!("Finishing SourceEncoderDiag mode");
+//        return Ok(0);
+//    }
 
     // These devices have been previously checked for existence..
     info!("Initialising rig input (from the rig, ie its speaker) device...");
@@ -278,6 +315,7 @@ fn run(arguments: ArgMatches, mode: Mode) -> Result<i32, Box<dyn Error>> {
         locked_transmitter.set_audio_frequency_allocate_buffer(config.get_transmit_offset_frequency());
     }
 
+    info!("Initialising GUI...");
     let gui_config = Arc::new(Mutex::new(config));
     let gui_application = Arc::new(Mutex::new(application));
     let terminate_application = gui_application.clone();
@@ -335,16 +373,28 @@ fn configure_audio_and_keyer_devices(arguments: &ArgMatches, config: &mut Config
         return Err("Configuration error when setting audio devices. To show current audio devices, use the ListAudioDevices mode.".into())
     }
 
-    // Set the port in the configuration file, if present.
-    if arguments.is_present(KEYER_PORT_DEVICE) {
-        let dev = arguments.value_of(KEYER_PORT_DEVICE).unwrap();
-        let exists = port_exists(dev)?;
-        if exists {
-            info!("Setting keyer serial port device to '{}'", dev);
-            config.set_port(dev.to_string())?;
-        } else {
-            warn!("Setting {}: No keyer serial port device named '{}' is present in your system.", KEYER_PORT_DEVICE, dev);
-            return Err("Configuration error in keyer device.".into());
+    let mut keyer_device_ok = true;
+    // Set the keyer port in the configuration file, if present.
+    if arguments.is_present(KEYER_PORT_DEVICE) && arguments.is_present(NO_KEYER) {
+        warn!("Cannot use {} and {} options", KEYER_PORT_DEVICE, NO_KEYER);
+        keyer_device_ok = false;
+    } else {
+        if arguments.is_present(KEYER_PORT_DEVICE) {
+            let dev = arguments.value_of(KEYER_PORT_DEVICE).unwrap();
+            let exists = port_exists(dev)?;
+            if exists {
+                info!("Setting keyer serial port device to '{}'", dev);
+                config.set_port(dev.to_string())?;
+                config.set_keyer_type(KeyerType::Arduino)?;
+            } else {
+                warn!("Setting {}: No keyer serial port device named '{}' is present in your system.", KEYER_PORT_DEVICE, dev);
+                keyer_device_ok = false;
+            }
+        }
+        if arguments.is_present(NO_KEYER) {
+            info!("Clearing any keyer serial port device");
+            config.set_port("".to_string())?;
+            config.set_keyer_type(KeyerType::Null)?;
         }
     }
 
@@ -358,14 +408,18 @@ fn configure_audio_and_keyer_devices(arguments: &ArgMatches, config: &mut Config
                     config.set_wpm(wpm)?;
                 } else {
                     warn!("Setting {}: Keyer speed of {} is out of the range [{}..{}] WPM", KEYER_SPEED_WPM, wpm, MIN_KEYER_SPEED, MAX_KEYER_SPEED);
-                    return Err("Configuration error in keyer speed.".into());
+                    keyer_device_ok = false;
                 }
             }
             Err(_) => {
                 warn!("Setting {}: Could not set keyer speed in WPM to '{}' - not an integer", KEYER_SPEED_WPM, wpm_str);
-                return Err("Configuration error in keyer speed.".into());
+                keyer_device_ok = false;
             }
         }
+    }
+
+    if !keyer_device_ok {
+        return Err("Configuration error in keyer device.".into());
     }
 
     Ok(())
@@ -428,18 +482,20 @@ fn check_audio_devices(config: &mut ConfigurationStore, pa: &PortAudio) -> Resul
 
 fn check_keyer_device(config: &mut ConfigurationStore) -> Result<(), Box<dyn Error>> {
     let mut keyer_ok = true;
-    let port_string = config.get_port();
-    let port = port_string.as_str();
-    if port.is_empty() {
-        warn!("No keyer serial port device has been configured; use the -k or --keyer options");
-        keyer_ok = false;
-    } else {
-        let port_exists = port_exists(port)?;
-        if !port_exists {
-            warn!("Checking {}: No keyer serial port device named '{}' is present in your system.", KEYER_PORT_DEVICE, port);
+    if config.get_keyer_type() == KeyerType::Arduino {
+        let port_string = config.get_port();
+        let port = port_string.as_str();
+        if port.is_empty() {
+            warn!("No keyer serial port device has been configured; use the -k or --keyer options");
             keyer_ok = false;
+        } else {
+            let port_exists = port_exists(port)?;
+            if !port_exists {
+                warn!("Checking {}: No keyer serial port device named '{}' is present in your system.", KEYER_PORT_DEVICE, port);
+                keyer_ok = false;
+            }
+            info!("Keyer serial port device is '{}'", port);
         }
-        info!("Keyer serial port device is '{}'", port);
     }
 
     if keyer_ok {
@@ -465,7 +521,7 @@ fn port_exists(dev_name: &str) -> Result<bool, Box<dyn Error>> {
     Ok(std::path::Path::new(dev_name).exists())
 }
 
-fn serial_diag(serial_io: &mut DefaultSerialIO) -> Result<(), Box<dyn Error>> {
+fn serial_diag(serial_io: &mut Box<dyn SerialIO>) -> Result<(), Box<dyn Error>> {
     loop {
         let mut read_buf: [u8; 1] = [0];
         let read_bytes = serial_io.read(&mut read_buf);

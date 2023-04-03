@@ -1,5 +1,7 @@
 # Current Development Activities
 
+* TODO Application: when the keyer speed is set on the application, set it on any configured source encoder, as well as the keyer.
+
 * Main: wiring up the channel encoder and transmitter.
 * Main: Making the keyer port optional. The GUI permits text entry, so should start up if the keyer is not set.
 * GUI development:

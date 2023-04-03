@@ -33,15 +33,15 @@ pub struct Transceiver {
 }
 
 fn default_transceiver() -> Transceiver {
-    return DEFAULT_CONFIG.transceiver
+    DEFAULT_CONFIG.transceiver
 }
 
 fn default_transmit_offset_frequency() -> u16 {
-    return DEFAULT_CONFIG.transceiver.transmit_offset_frequency
+    DEFAULT_CONFIG.transceiver.transmit_offset_frequency
 }
 
 fn default_transmit_amplitude() -> f32 {
-    return DEFAULT_CONFIG.transceiver.transmit_amplitude
+    DEFAULT_CONFIG.transceiver.transmit_amplitude
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -86,16 +86,16 @@ impl ConfigurationStore {
         if !config_file_path.exists() {
             debug!("Creating config file {:?}", config_file_path);
             save_configuration(&config_file_path, &DEFAULT_CONFIG)?;
-            return Ok(ConfigurationStore {
+            Ok(ConfigurationStore {
                 config_file_path: config_file_path.clone().into_boxed_path(),
                 config: DEFAULT_CONFIG,
-            });
+            })
         } else {
             let config = read_configuration(&config_file_path)?;
-            return Ok(ConfigurationStore {
+            Ok(ConfigurationStore {
                 config_file_path: config_file_path.clone().into_boxed_path(),
-                config: config,
-            });
+                config,
+            })
         }
     }
 
@@ -118,7 +118,7 @@ impl ConfigurationStore {
     }
 
     pub fn set_port(&mut self, new_port: String) -> Result<(), String> {
-        self.config.keyer.port = new_port.clone();
+        self.config.keyer.port = new_port;
         self.save()
     }
 
@@ -145,7 +145,7 @@ impl ConfigurationStore {
     }
 
     pub fn set_audio_out_device(&mut self, new_device: String) -> Result<(), String> {
-        self.config.audio_devices.audio_out_device = new_device.clone();
+        self.config.audio_devices.audio_out_device = new_device;
         self.save()
     }
 
@@ -154,7 +154,7 @@ impl ConfigurationStore {
     }
 
     pub fn set_rig_out_device(&mut self, new_device: String) -> Result<(), String> {
-        self.config.audio_devices.rig_out_device = new_device.clone();
+        self.config.audio_devices.rig_out_device = new_device;
         self.save()
     }
 
@@ -163,7 +163,7 @@ impl ConfigurationStore {
     }
 
     pub fn set_rig_in_device(&mut self, new_device: String) -> Result<(), String> {
-        self.config.audio_devices.rig_in_device = new_device.clone();
+        self.config.audio_devices.rig_in_device = new_device;
         self.save()
     }
 
