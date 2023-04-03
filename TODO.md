@@ -1,12 +1,10 @@
 # Current Development Activities
 
-* TODO Application: when the keyer speed is set on the application, set it on any configured source encoder, as well as the keyer.
 
-* Main: wiring up the channel encoder and transmitter.
-* Main: Making the keyer port optional. The GUI permits text entry, so should start up if the keyer is not set.
-* GUI development:
-  * Ensuring the operation of the GUI indicators from the rest of the system.
-
+Next developments:
+* Transmitter: Fix only-first-modulation-emitted showstopper!
+* GUI: Ensuring the operation of the GUI indicators from the rest of the system.
+* Application: when the keyer speed is set on the application, set it on any configured source encoder, as well as the keyer.
 * Receiver - callback receiving audio from the radio's speaker (the microphone PortAudio device).
 * Receiver - downsample the incoming audio. Do we need a pool of outgoing audio buffers?
 * Receiver - allow callback audio to be overridden by an input .wav file, by reading the whole waveform into memory, and
@@ -16,6 +14,8 @@
   of data to each StationDecoder in parallel. Performs Costas Array detection across the spectrum; adds StationDecoders if new
   array found.
 * Add a ListKeyerDevices mode?
+* Log the current keyer device/port on startup, if used.
+* GUI: Trap Cmd-Q/Alt-F4 for shutdown.
 
 Next up for research:
 * Costas array: is there an escaping mechanism, such that the Costas array does not occur in the binary output of the
@@ -37,13 +37,20 @@ Other refactorings to do:
   * Playback gap delay - need to work out optimal delay for first frames. Could be based on WPM, and whether there are
    metadata frames in a block. Create many dummy QSO texts, send them through the Playback at varying WPM from 5-60, and
    determine how much delay is needed so that no gaps are present. Use this to seed the optimal first frame gap delay.
+* Transmitter/Modulator: Make it a struct so the GFSK pulse can be computed once.
 
 Considerations:
 * Transmitter / GFSK Modulation: choose suitable number of tones for slow/fast (narrow/wide) modulations.
+* When using the command line config set options, should the application continue to start up after setting?
+  It currently does, which is a bit un-nerving!
 
 
 
 # Known problems
+* Showstopper: Only the first modulation of some keying comes out of the speaker. Doesn't matter if it's from key/GUI.
+
+* Bug: GUI does not terminate on terminal Ctrl-C
+
 * Sidetone output via bluetooth headphones has appalling latency - investigate whether dropping the output sample
   rate to 8000Hz would improve matters.
 
