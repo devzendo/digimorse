@@ -211,9 +211,6 @@ fn run(arguments: ArgMatches, mode: Mode) -> Result<i32, Box<dyn Error>> {
     }
 
     info!("Initialising keyer...");
-//    let mut keying_event_tx = Bus::new(16);
-//    let tone_generator_keying_event_rx = keying_event_tx.add_rx();
-//    let source_encoder_keying_event_rx: Option<BusReader<KeyingEvent>> = Some(keying_event_tx.add_rx());
 
     fn construct_arduino_keyer(box_serial_io: Box<dyn SerialIO>, terminate_flag: Arc<AtomicBool>) -> Arc<Mutex<dyn Keyer>> {
         Arc::new(Mutex::new(ArduinoKeyer::new(box_serial_io, terminate_flag)))
@@ -231,20 +228,6 @@ fn run(arguments: ArgMatches, mode: Mode) -> Result<i32, Box<dyn Error>> {
     application.set_keyer_speed(keyer_speed);
     application.set_keyer(keyer); // This also sets the speed on the keyer.
 
-//    let arc_mutex_keying_event_tone_channel_tx = Arc::new(Mutex::new(Bus::new(16)));
-//    let playback_arc_mutex_keying_event_tone_channel: Option<Arc<Mutex<Bus<KeyingEventToneChannel>>>> = if mode == Mode::SourceEncoderDiag {
-//        Some(arc_mutex_keying_event_tone_channel_tx.clone())
-//    } else {
-//        None
-//    };
-
-//    let mut transform_bus = TransformBus::new(add_sidetone_channel_to_keying_event,
-//                                          application.terminate_flag());
-//    transform_bus.set_input_rx(Arc::new(Mutex::new(tone_generator_keying_event_rx)));
-//    transform_bus.set_output_tx(arc_mutex_keying_event_tone_channel_tx);
-//    let arc_transform_bus = Arc::new(Mutex::new(transform_bus));
-//    let _keying_event_tone_channel_rx = arc_transform_bus.lock().unwrap().add_reader();
-
     info!("Initialising audio output (from the computer, ie its speaker)...");
     let out_dev_string = config.get_audio_out_device();
     let out_dev_str = out_dev_string.as_str();
@@ -253,35 +236,14 @@ fn run(arguments: ArgMatches, mode: Mode) -> Result<i32, Box<dyn Error>> {
                                                 application.terminate_flag());
     tone_generator.start_callback(application.pa_ref(), output_settings)?; // also initialises DDS for sidetone.
     let application_tone_generator = Arc::new(Mutex::new(tone_generator));
-//    let playback_arc_mutex_tone_generator = application_tone_generator.clone();
     application.set_tone_generator(application_tone_generator);
 
     info!("Initialising source encoder...");
-//    let mut source_encoder_tx = Bus::new(16);
-//    let source_encoder_rx = source_encoder_tx.add_rx();
     let mut source_encoder = SourceEncoder::new(application.terminate_flag(),
                                                 SOURCE_ENCODER_BLOCK_SIZE_IN_BITS);
-//    source_encoder.set_input_rx(Arc::new(Mutex::new(source_encoder_keying_event_rx.unwrap())));
-//    source_encoder.set_output_tx(Arc::new(Mutex::new(source_encoder_tx)));
     // TODO the application should set the source encoder's speed.
     source_encoder.set_keyer_speed(config.get_wpm() as KeyerSpeed);
     application.set_source_encoder(Arc::new(Mutex::new(source_encoder)));
-
-//    let source_decoder = SourceDecoder::new(SOURCE_ENCODER_BLOCK_SIZE_IN_BITS);
-
-//    if mode == Mode::SourceEncoderDiag {
-//        info!("Initialising SourceEncoderDiag mode");
-//        source_encoder_diag(source_decoder, source_encoder_rx, application.terminate_flag(),
-//                            playback_arc_mutex_tone_generator.clone(),
-//                            playback_arc_mutex_keying_event_tone_channel.unwrap(),
-//                            scheduled_thread_pool, config.get_sidetone_frequency() + 50)?;
-//        source_encoder.terminate();
-        // keyer.terminate();
-//        drop(playback_arc_mutex_tone_generator);
-//        thread::sleep(Duration::from_secs(1));
-//        info!("Finishing SourceEncoderDiag mode");
-//        return Ok(0);
-//    }
 
     // These devices have been previously checked for existence..
     info!("Initialising rig input (from the rig, ie its speaker) device...");
@@ -326,7 +288,7 @@ fn run(arguments: ArgMatches, mode: Mode) -> Result<i32, Box<dyn Error>> {
     }
     info!("End of GUI message loop; terminating");
     terminate_application.lock().unwrap().terminate();
-    thread::sleep(Duration::from_secs(5));
+    thread::sleep(Duration::from_secs(2));
     info!("Exiting");
     Ok(0)
 }
@@ -604,6 +566,7 @@ fn main() {
 
     if mode == Mode::GUI {
         let _app = app::App::default().with_scheme(app::Scheme::Gleam);
+        // TODO this should be passed to the GUI code.
     }
 
     match run(arguments, mode.clone()) {
