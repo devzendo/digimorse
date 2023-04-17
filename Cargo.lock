@@ -572,6 +572,7 @@ dependencies = [
  "enum_primitive",
  "env_logger",
  "fltk",
+ "fp_rust",
  "hamcrest2",
  "labrador-ldpc",
  "lazy_static",
@@ -769,6 +770,12 @@ name = "foreign-types-shared"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "00b0228411908ca8685dba7fc2cdd70ec9990a6e753e89b6ac91a84c40fbaf4b"
+
+[[package]]
+name = "fp_rust"
+version = "0.3.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f6449172a114cfa5c420d2d87db37fd4a3547e76ca06b1fa27f67757b0013368"
 
 [[package]]
 name = "fragile"
