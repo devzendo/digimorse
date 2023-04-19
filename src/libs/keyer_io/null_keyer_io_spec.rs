@@ -3,9 +3,7 @@ extern crate hamcrest2;
 #[cfg(test)]
 mod null_keyer_io_spec {
     use crate::libs::keyer_io::null_keyer_io::NullKeyer;
-    use crate::libs::keyer_io::keyer_io::{Keyer, KeyerSpeed, KeyingEvent, KeyerMode, KeyerPolarity};
-    use std::sync::mpsc::{Sender, Receiver};
-    use std::sync::mpsc;
+    use crate::libs::keyer_io::keyer_io::{Keyer, KeyerSpeed, KeyerMode, KeyerPolarity};
     use std::env;
     use hamcrest2::prelude::*;
 
