@@ -15,8 +15,6 @@ const PI: f32 = std::f32::consts::PI;
 
 const GFSK_CONST_K: f32 = 5.336446f32; // PI * sqrt(2 / log(2))
 
-const NUMBER_OF_BUFFERS: usize = 4;
-
 // Compute a GFSK shaping pulse. The pulse is theoretically infinitely long but it's truncated at
 // 3*symbol length; the pulse array only needs 3*n_spsym elements.
 // samples_per_symbol: number of samples per symbol
