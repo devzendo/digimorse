@@ -1,6 +1,6 @@
 use std::error::Error;
 use std::f32::consts::PI;
-use std::sync::{Arc, Mutex, RwLock};
+use std::sync::{Arc, Mutex, RwLock, RwLockWriteGuard};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
 use std::thread::JoinHandle;
@@ -56,7 +56,7 @@ struct CallbackData {
     samples_written: usize, // contains the number of samples written to 'samples', could be <= the size of that vector
     sample_index: usize, // next sample to emit
     silent: Arc<AtomicBool>,
-    buffer_pool: Option<BufferPool>, // allocated when sample rate known
+    buffer_pool: Arc<Mutex<Option<BufferPool>>>, // allocated when sample rate known
     callback_messages: Vec<CallbackMessage>, // buffers to emit, or latches to sync on
 }
 
@@ -139,6 +139,7 @@ impl Transmitter {
 
         info!("Initialising Transmitter");
         let silent = Arc::new(AtomicBool::new(true));
+        let no_buffer_pool = Arc::new(Mutex::new(None));
         let modulation_callback_data = CallbackData {
             _amplitude: 0.0,
             audio_frequency: audio_offset,
@@ -150,7 +151,7 @@ impl Transmitter {
             samples_written: 0,
             sample_index: 0,
             silent,
-            buffer_pool: None,
+            buffer_pool: no_buffer_pool,
             callback_messages: vec![],
         };
         // TODO replace this Mutex with atomics to reduce contention in the callback.
@@ -204,44 +205,25 @@ impl Transmitter {
                                     let mut locked_callback_data = move_clone_modulation_callback_data.write().unwrap();
                                     let need_ramp_up = locked_callback_data.silent.load(Ordering::SeqCst);
                                     let need_ramp_down = channel_encoding.is_end;
-                                    if let Some(ref mut buffer_pool) = locked_callback_data.buffer_pool {
-                                        debug!("Ramp up {} down {}", need_ramp_up, need_ramp_down);
-                                        if need_ramp_up {
-                                            // TODO CAT transmit enable.
-                                        }
-                                        // Obtain a buffer from the pool, convert the
-                                        // channel_encoding into a GFSK waveform, and store it in
-                                        // the buffer, then add it to the callback_messages for the
-                                        // callback to emit.
-                                        match buffer_pool.allocate() {
-                                            Some((index, mut arc_samples)) => {
-                                                let mut locked_samples = arc_samples.write().unwrap();
-                                                debug!("waveform store has {} space", locked_samples.capacity());
-                                                let arc_samples_slice = locked_samples.as_mut_slice();
-                                                let samples_written = gfsk_modulate(
-                                                    locked_callback_data.audio_frequency,
-                                                    locked_callback_data.sample_rate as AudioFrequencyHz,
-                                                    &channel_encoding.block,
-                                                    arc_samples_slice,
-                                                    need_ramp_up, need_ramp_down);
-                                                drop(locked_samples);
-                                                debug!("Enqueueing {} samples", samples_written);
-                                                locked_callback_data.callback_messages.push(
-                                                    CallbackMessage::BufferIndex(BufferIndex { index, buffer: arc_samples, buffer_index: 0, buffer_max: samples_written} ));
-                                            },
-                                            None => {
-                                                error!("Cannot modulate channel encoding");
-                                            },
-                                        }
-                                        if need_ramp_down {
-                                            debug!("Enqueueing countdown latch");
-                                            let countdown_latch = Arc::new(CountDownLatch::new(1));
-                                            maybe_countdown_latch = Some(countdown_latch.clone());
+                                    debug!("Ramp up {} down {}", need_ramp_up, need_ramp_down);
+                                    if need_ramp_up {
+                                        // TODO CAT transmit enable.
+                                    }
+                                    let maybe_allocated_modulated_buffer: Option<(usize, Arc<RwLock<Vec<f32>>>, usize)> = allocate_buffer_and_write_modulation(&locked_callback_data, &channel_encoding, need_ramp_up, need_ramp_down, locked_callback_data.audio_frequency, locked_callback_data.sample_rate as AudioFrequencyHz);
+                                    match maybe_allocated_modulated_buffer {
+                                        None => {}
+                                        Some((index, buffer, buffer_max)) => {
+                                            debug!("Enqueueing {} samples", buffer_max);
                                             locked_callback_data.callback_messages.push(
-                                                CallbackMessage::Wait(countdown_latch));
+                                                CallbackMessage::BufferIndex(BufferIndex { index, buffer, buffer_index: 0, buffer_max} ));
                                         }
-                                    } else {
-                                        error!("No buffer pool present when channel encodings received");
+                                    }
+                                    if need_ramp_down {
+                                        debug!("Enqueueing countdown latch");
+                                        let countdown_latch = Arc::new(CountDownLatch::new(1));
+                                        maybe_countdown_latch = Some(countdown_latch.clone());
+                                        locked_callback_data.callback_messages.push(
+                                            CallbackMessage::Wait(countdown_latch));
                                     }
                                     drop(locked_callback_data);
 
@@ -252,7 +234,6 @@ impl Transmitter {
                                             debug!("Waiting for end of modulation");
                                             latch.wait();
                                             debug!("End of modulation signalled");
-                                            maybe_countdown_latch = None;
                                             // TODO CAT transmit disable
                                         },
                                         None => { /* it wasn't an end */ } ,
@@ -307,8 +288,8 @@ impl Transmitter {
                 locked_callback_data.silent.store(true, Ordering::SeqCst);
             } else {
                 let first = locked_callback_data.callback_messages.first_mut().unwrap();
+                let mut maybe_buffer_free_index: Option<usize> = None;
                 match first {
-
                     CallbackMessage::BufferIndex(bi) => {
                         let mut idx = 0;
                         let locked_samples = bi.buffer.read().unwrap();
@@ -330,7 +311,10 @@ impl Transmitter {
                         }
                         drop(locked_samples);
                         if bi.buffer_index == bi.buffer_max {
-                            // TODO free the index
+                            // Free the index outside the current borrow of locked_callback_data...
+                            debug!("Want to free buffer {}", bi.index);
+                            maybe_buffer_free_index = Some(bi.index);
+
                             debug!("Silence: true (finished)");
                             locked_callback_data.silent.store(true, Ordering::SeqCst);
                             locked_callback_data.callback_messages.pop();
@@ -342,6 +326,9 @@ impl Transmitter {
                         info!("Notified end of modulation");
                         locked_callback_data.callback_messages.pop();
                     }
+                }
+                if let Some(to_free_index) = maybe_buffer_free_index {
+                    free_buffer(&locked_callback_data, to_free_index);
                 }
             }
             drop(locked_callback_data);
@@ -404,7 +391,10 @@ impl Transmitter {
             let new_sample_buffer_size = (n_sym * n_spsym) + (2 * n_rspsym); // Number of output samples, with max 2 ramping symbols
             locked_callback_data.samples = Vec::with_capacity(new_sample_buffer_size);
             locked_callback_data.samples.resize(new_sample_buffer_size, 0_f32);
-            locked_callback_data.buffer_pool = Some(BufferPool::new(new_sample_buffer_size, NUMBER_OF_BUFFERS));
+            match locked_callback_data.buffer_pool.lock() {
+                Ok(mut locked) => *locked = Some(BufferPool::new(new_sample_buffer_size, NUMBER_OF_BUFFERS)),
+                Err(_) => {}
+            }
 
             debug!("Setting transmitter frequency to {}, sample_rate {}, buffer size {}", locked_callback_data.audio_frequency, self.sample_rate, new_sample_buffer_size);
         }
@@ -424,6 +414,52 @@ impl Transmitter {
     pub fn is_silent(&self) -> bool {
         let locked_callback_data = self.callback_data.read().unwrap();
         locked_callback_data.silent.load(Ordering::SeqCst)
+    }
+}
+
+fn free_buffer(locked_callback_data: &RwLockWriteGuard<CallbackData>, to_free_index: usize) {
+    match locked_callback_data.buffer_pool.lock().unwrap().as_mut() {
+        None => {
+            error!("Want to free but no buffer pool present when channel encodings received");
+        }
+        Some(buffer_pool) => {
+            debug!("Freeing buffer {}", to_free_index);
+            buffer_pool.free(to_free_index);
+        }
+    }
+}
+
+fn allocate_buffer_and_write_modulation(locked_callback_data: &RwLockWriteGuard<CallbackData>, channel_encoding: &ChannelEncoding, need_ramp_up: bool, need_ramp_down: bool, offset_frequency: AudioFrequencyHz, sample_rate: AudioFrequencyHz) -> Option<(usize, Arc<RwLock<Vec<f32>>>, usize)> {
+    match locked_callback_data.buffer_pool.lock().unwrap().as_mut() {
+        None => {
+            error!("No buffer pool present when channel encodings received");
+            None
+        }
+        Some(buffer_pool) => {
+            // Obtain a buffer from the pool, convert the
+            // channel_encoding into a GFSK waveform, and store it in
+            // the buffer, then add it to the callback_messages for the
+            // callback to emit.
+            match buffer_pool.allocate() {
+                Some((index, arc_samples)) => {
+                    let mut locked_samples = arc_samples.write().unwrap();
+                    debug!("waveform store has {} space", locked_samples.capacity());
+                    let arc_samples_slice = locked_samples.as_mut_slice();
+                    let samples_written = gfsk_modulate(
+                        offset_frequency,
+                        sample_rate,
+                        &channel_encoding.block,
+                        arc_samples_slice,
+                        need_ramp_up, need_ramp_down);
+                    drop(locked_samples);
+                    Some((index, arc_samples, samples_written))
+                }
+                None => {
+                    error!("Cannot modulate channel encoding");
+                    None
+                },
+            }
+        }
     }
 }
 
