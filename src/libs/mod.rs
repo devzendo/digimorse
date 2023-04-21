@@ -1,5 +1,6 @@
 pub mod application;
 pub mod audio;
+pub mod buffer_pool;
 pub mod channel_codec;
 pub mod config_dir;
 pub mod config_file;

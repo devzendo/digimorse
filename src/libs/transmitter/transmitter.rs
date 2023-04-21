@@ -7,10 +7,11 @@ use std::thread::JoinHandle;
 use std::time::Duration;
 use bus::BusReader;
 use fp_rust::sync::CountDownLatch;
-use log::{debug, info, warn, error};
+use log::{debug, error, info, warn};
 use portaudio::{NonBlocking, Output, OutputStreamSettings, PortAudio, Stream};
 use portaudio as pa;
 use crate::libs::application::application::BusInput;
+use crate::libs::buffer_pool::buffer_pool::BufferPool;
 use crate::libs::channel_codec::channel_encoding::ChannelEncoding;
 use crate::libs::source_codec::source_encoding::SOURCE_ENCODER_BLOCK_SIZE_IN_BITS;
 use crate::libs::transmitter::modulate::{gfsk_modulate, RAMP_SYMBOL_PERIOD_SECONDS, SYMBOL_PERIOD_SECONDS};
@@ -60,50 +61,7 @@ struct CallbackData {
     callback_messages: Vec<CallbackMessage>, // buffers to emit, or latches to sync on
 }
 
-const NUMBER_OF_BUFFERS: usize = 5;
-
-struct Buffer {
-    samples: Arc<RwLock<Vec<f32>>>,
-    in_use: bool,
-}
-
-struct BufferPool {
-    buffers: Vec<Buffer>
-}
-
-impl BufferPool {
-    fn new(buffer_size: usize, number_of_buffers: usize) -> Self {
-        let mut buffers: Vec<Buffer> = Vec::with_capacity(number_of_buffers);
-        (0 .. number_of_buffers).for_each(|i| {
-            buffers[i] = Buffer { samples: Arc::new(RwLock::new(Vec::with_capacity(buffer_size))), in_use: false };
-        });
-        Self {
-            buffers,
-        }
-    }
-
-    fn allocate(&mut self) -> Option<(usize, Arc<RwLock<Vec<f32>>>)> {
-        for index in 0 .. self.buffers.len() {
-            if !self.buffers[index].in_use {
-                debug!("Allocated buffer {}", index);
-                self.buffers[index].in_use = true;
-                return Some( (index, self.buffers[index].samples.clone()) );
-            }
-        }
-
-        error!("BufferPool exhausted!");
-        None
-    }
-
-    fn free(&mut self, index: usize) {
-        if self.buffers[index].in_use {
-            self.buffers[index].in_use = false;
-            debug!("Freed buffer {}", index);
-        } else {
-            error!("Double free of buffer {}", index);
-        }
-    }
-}
+const NUMBER_OF_BUFFERS: usize = 32;
 
 struct BufferIndex {
     index: usize,
@@ -213,13 +171,13 @@ impl Transmitter {
                                     match maybe_allocated_modulated_buffer {
                                         None => {}
                                         Some((index, buffer, buffer_max)) => {
-                                            debug!("Enqueueing {} samples", buffer_max);
+                                            info!("Enqueueing {} samples", buffer_max);
                                             locked_callback_data.callback_messages.push(
                                                 CallbackMessage::BufferIndex(BufferIndex { index, buffer, buffer_index: 0, buffer_max} ));
                                         }
                                     }
                                     if need_ramp_down {
-                                        debug!("Enqueueing countdown latch");
+                                        info!("Enqueueing countdown latch");
                                         let countdown_latch = Arc::new(CountDownLatch::new(1));
                                         maybe_countdown_latch = Some(countdown_latch.clone());
                                         locked_callback_data.callback_messages.push(
@@ -231,9 +189,9 @@ impl Transmitter {
                                     // CountDownLatch.
                                     match maybe_countdown_latch {
                                         Some(latch) => {
-                                            debug!("Waiting for end of modulation");
+                                            info!("Waiting for end of modulation");
                                             latch.wait();
-                                            debug!("End of modulation signalled");
+                                            info!("End of modulation signalled");
                                             // TODO CAT transmit disable
                                         },
                                         None => { /* it wasn't an end */ } ,

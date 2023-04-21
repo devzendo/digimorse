@@ -2,7 +2,10 @@
 
 
 Next developments:
-* Transmitter: Fix only-first-modulation-emitted showstopper!
+* Transmitter: Fix showstoppers!
+  * Double free of buffers after waiting for countdown latch
+  * Transmitter hangs at this point and does not consume channel encodings; the whole system locks shortly after.
+  * Transmitter audio is clunky - must be a gap between modulations
 * GUI: Ensuring the operation of the GUI indicators from the rest of the system.
 * Application: when the keyer speed is set on the application, set it on any configured source encoder, as well as the keyer.
 * Receiver - callback receiving audio from the radio's speaker (the microphone PortAudio device).
