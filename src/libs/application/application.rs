@@ -242,7 +242,7 @@ impl Application {
                 info!("Start of send_keying_events thread");
                 // bit locky, this..
                 for keying_event in keying_events {
-                    info!("Sending {}", keying_event);
+                    debug!("Sending {}", keying_event);
                     let timed_keying_event = keying_event;
                     match keying_event {
                         KeyingEvent::Start() | KeyingEvent::End() => {

@@ -162,7 +162,7 @@ impl ToneGenerator {
                         Some(input_rx) => {
                             match input_rx.lock().unwrap().recv_timeout(Duration::from_millis(50)) {
                                 Ok(keying_event_tone_channel) => {
-                                    info!("Tone generator got {:?}", keying_event_tone_channel);
+                                    debug!("Tone generator got {:?}", keying_event_tone_channel);
                                     if keying_event_tone_channel.tone_channel >= move_clone_sidetone_callback_data.read().unwrap().len() {
                                         warn!("Incoming tone channel {} not in use", keying_event_tone_channel.tone_channel);
                                     } else {

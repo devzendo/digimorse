@@ -28,7 +28,7 @@
 // TODO BusOutput<ChannelEncoding>
 
 
-use log::debug;
+use log::{debug, info};
 use metered::time_source::{Instant, StdInstant};
 use crate::libs::channel_codec::channel_encoding::{ChannelEncoding, ChannelSymbol};
 use crate::libs::channel_codec::crc::crc14;
@@ -67,7 +67,7 @@ pub fn source_encoding_to_channel_encoding(source_encoding: SourceEncoding) -> C
 
     let channel_symbols_len = channel_symbols.len();
     let out = ChannelEncoding { block: channel_symbols, is_end: source_encoding.is_end };
-    debug!("Channel encoding done in {}ms; {} symbols", encode_duration.elapsed_time(), channel_symbols_len);
+    info!("Channel encoding done in {}ms; {} symbols", encode_duration.elapsed_time(), channel_symbols_len);
     return out;
 }
 
