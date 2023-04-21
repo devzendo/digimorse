@@ -1,5 +1,6 @@
 use std::sync::{Arc, RwLock};
-use log::{debug, error};
+
+use log::{error, info};
 
 struct Buffer {
     samples: Arc<RwLock<Vec<f32>>>,
@@ -26,7 +27,7 @@ impl BufferPool {
     pub fn allocate(&mut self) -> Option<(usize, Arc<RwLock<Vec<f32>>>)> {
         for index in 0 .. self.buffers.len() {
             if !self.buffers[index].in_use {
-                debug!("Allocated buffer {}", index);
+                info!("Allocated buffer {}", index);
                 self.buffers[index].in_use = true;
                 return Some( (index, self.buffers[index].samples.clone()) );
             }
@@ -39,7 +40,7 @@ impl BufferPool {
     pub fn free(&mut self, index: usize) -> bool {
         if self.buffers[index].in_use {
             self.buffers[index].in_use = false;
-            debug!("Freed buffer {}", index);
+            info!("Freed buffer {}", index);
             true
         } else {
             error!("Double free of buffer {}", index);

@@ -1,3 +1,4 @@
+use std::collections::VecDeque;
 use std::error::Error;
 use std::f32::consts::PI;
 use std::sync::{Arc, Mutex, RwLock, RwLockWriteGuard};
@@ -58,7 +59,7 @@ struct CallbackData {
     sample_index: usize, // next sample to emit
     silent: Arc<AtomicBool>,
     buffer_pool: Arc<Mutex<Option<BufferPool>>>, // allocated when sample rate known
-    callback_messages: Vec<CallbackMessage>, // buffers to emit, or latches to sync on
+    callback_messages: VecDeque<CallbackMessage>, // buffers to emit, or latches to sync on
 }
 
 const NUMBER_OF_BUFFERS: usize = 32;
@@ -110,7 +111,7 @@ impl Transmitter {
             sample_index: 0,
             silent,
             buffer_pool: no_buffer_pool,
-            callback_messages: vec![],
+            callback_messages: VecDeque::new(),
         };
         // TODO replace this Mutex with atomics to reduce contention in the callback.
         let arc_lock_modulation_callback_data = Arc::new(RwLock::new(modulation_callback_data));
@@ -163,7 +164,7 @@ impl Transmitter {
                                     let mut locked_callback_data = move_clone_modulation_callback_data.write().unwrap();
                                     let need_ramp_up = locked_callback_data.silent.load(Ordering::SeqCst);
                                     let need_ramp_down = channel_encoding.is_end;
-                                    debug!("Ramp up {} down {}", need_ramp_up, need_ramp_down);
+                                    info!("Ramp up {} down {}", need_ramp_up, need_ramp_down);
                                     if need_ramp_up {
                                         // TODO CAT transmit enable.
                                     }
@@ -171,16 +172,16 @@ impl Transmitter {
                                     match maybe_allocated_modulated_buffer {
                                         None => {}
                                         Some((index, buffer, buffer_max)) => {
-                                            info!("Enqueueing {} samples", buffer_max);
-                                            locked_callback_data.callback_messages.push(
+                                            info!("Enqueueing buffer {} with {} samples: queue has {} items", index, buffer_max, locked_callback_data.callback_messages.len());
+                                            locked_callback_data.callback_messages.push_back(
                                                 CallbackMessage::BufferIndex(BufferIndex { index, buffer, buffer_index: 0, buffer_max} ));
                                         }
                                     }
                                     if need_ramp_down {
-                                        info!("Enqueueing countdown latch");
+                                        info!("Enqueueing countdown latch: queue has {} items", locked_callback_data.callback_messages.len());
                                         let countdown_latch = Arc::new(CountDownLatch::new(1));
                                         maybe_countdown_latch = Some(countdown_latch.clone());
-                                        locked_callback_data.callback_messages.push(
+                                        locked_callback_data.callback_messages.push_back(
                                             CallbackMessage::Wait(countdown_latch));
                                     }
                                     drop(locked_callback_data);
@@ -209,7 +210,7 @@ impl Transmitter {
                         thread::sleep(Duration::from_millis(100));
                     }
                 }
-                debug!("Transmitter channel-encoding listener thread stopped");
+                info!("Transmitter channel-encoding listener thread stopped");
             })),
             callback_data: arc_lock_modulation_callback_data,
             stream: None,
@@ -245,7 +246,7 @@ impl Transmitter {
                 debug!("Silence: true (no callback_messages)");
                 locked_callback_data.silent.store(true, Ordering::SeqCst);
             } else {
-                let first = locked_callback_data.callback_messages.first_mut().unwrap();
+                let first = locked_callback_data.callback_messages.front_mut().unwrap();
                 let mut maybe_buffer_free_index: Option<usize> = None;
                 match first {
                     CallbackMessage::BufferIndex(bi) => {
@@ -275,14 +276,14 @@ impl Transmitter {
 
                             debug!("Silence: true (finished)");
                             locked_callback_data.silent.store(true, Ordering::SeqCst);
-                            locked_callback_data.callback_messages.pop();
+                            locked_callback_data.callback_messages.pop_front();
                         }
                     }
                     CallbackMessage::Wait(arc_latch) => {
                         info!("Notifying end of modulation");
                         arc_latch.countdown();
                         info!("Notified end of modulation");
-                        locked_callback_data.callback_messages.pop();
+                        locked_callback_data.callback_messages.pop_front();
                     }
                 }
                 if let Some(to_free_index) = maybe_buffer_free_index {
