@@ -55,8 +55,6 @@ struct CallbackData {
     _phase: f32,       // sin(phase) is the sample value
     sample_rate: u32, // Hz
     samples: Vec<f32>, // contains the GFSK modulated waveform to emit, allocated as a Vec, used as a slice
-    samples_written: usize, // contains the number of samples written to 'samples', could be <= the size of that vector
-    sample_index: usize, // next sample to emit
     silent: Arc<AtomicBool>,
     buffer_pool: Arc<Mutex<Option<BufferPool>>>, // allocated when sample rate known
     callback_messages: VecDeque<CallbackMessage>, // buffers to emit, or latches to sync on
@@ -107,8 +105,6 @@ impl Transmitter {
             _phase: 0.0,
             sample_rate: 0,
             samples: vec![],
-            samples_written: 0,
-            sample_index: 0,
             silent,
             buffer_pool: no_buffer_pool,
             callback_messages: VecDeque::new(),
@@ -167,6 +163,7 @@ impl Transmitter {
                                     info!("Ramp up {} down {}", need_ramp_up, need_ramp_down);
                                     if need_ramp_up {
                                         // TODO CAT transmit enable.
+                                        // watch out - locked_callback_data lock is held
                                     }
                                     let maybe_allocated_modulated_buffer: Option<(usize, Arc<RwLock<Vec<f32>>>, usize)> = allocate_buffer_and_write_modulation(&locked_callback_data, &channel_encoding, need_ramp_up, need_ramp_down, locked_callback_data.audio_frequency, locked_callback_data.sample_rate as AudioFrequencyHz);
                                     match maybe_allocated_modulated_buffer {
@@ -239,17 +236,19 @@ impl Transmitter {
             // plus possible ramp up/down ..... duration.
 
             let mut locked_callback_data = move_clone_callback_data.write().unwrap();
-            debug!("Sample index at callback start: {}, samples written {}", locked_callback_data.sample_index, locked_callback_data.samples_written);
             let amplitude_max = locked_callback_data.amplitude_max;
             // When we start a callback and there's no data, set the silence flag true.
             if locked_callback_data.callback_messages.is_empty() {
                 debug!("Silence: true (no callback_messages)");
                 locked_callback_data.silent.store(true, Ordering::SeqCst);
             } else {
+                debug!("Silence: false (some callback_messages)");
+                locked_callback_data.silent.store(false, Ordering::SeqCst);
                 let first = locked_callback_data.callback_messages.front_mut().unwrap();
                 let mut maybe_buffer_free_index: Option<usize> = None;
                 match first {
                     CallbackMessage::BufferIndex(bi) => {
+                        debug!("Sample index at callback start: {}, samples written {}", bi.buffer_index, bi.buffer_max);
                         let mut idx = 0;
                         let locked_samples = bi.buffer.read().unwrap();
                         for _ in 0..frames {
