@@ -240,10 +240,16 @@ impl Transmitter {
             // When we start a callback and there's no data, set the silence flag true.
             if locked_callback_data.callback_messages.is_empty() {
                 debug!("Silence: true (no callback_messages)");
-                locked_callback_data.silent.store(true, Ordering::SeqCst);
+                set_silent(&locked_callback_data, true);
+                let mut idx = 0;
+                for _ in 0..frames {
+                    buffer[idx] = 0.0;
+                    buffer[idx + 1] = 0.0;
+                    idx += 2;
+                }
             } else {
                 debug!("Silence: false (some callback_messages)");
-                locked_callback_data.silent.store(false, Ordering::SeqCst);
+                set_silent(&locked_callback_data, false);
                 let first = locked_callback_data.callback_messages.front_mut().unwrap();
                 let mut maybe_buffer_free_index: Option<usize> = None;
                 match first {
@@ -264,7 +270,6 @@ impl Transmitter {
                             // be written to both left and right outputs, this could be optimised..
                             buffer[idx] = sine_val;
                             buffer[idx + 1] = sine_val;
-
                             idx += 2;
                         }
                         drop(locked_samples);
@@ -272,9 +277,6 @@ impl Transmitter {
                             // Free the index outside the current borrow of locked_callback_data...
                             debug!("Want to free buffer {}", bi.index);
                             maybe_buffer_free_index = Some(bi.index);
-
-                            debug!("Silence: true (finished)");
-                            locked_callback_data.silent.store(true, Ordering::SeqCst);
                             locked_callback_data.callback_messages.pop_front();
                         }
                     }
@@ -372,6 +374,12 @@ impl Transmitter {
     pub fn is_silent(&self) -> bool {
         let locked_callback_data = self.callback_data.read().unwrap();
         locked_callback_data.silent.load(Ordering::SeqCst)
+    }
+}
+
+fn set_silent(locked_callback_data: &RwLockWriteGuard<CallbackData>, silent: bool) {
+    if silent != locked_callback_data.silent.swap(silent, Ordering::SeqCst) {
+        info!("Changed silent flag to {}", silent);
     }
 }
 
