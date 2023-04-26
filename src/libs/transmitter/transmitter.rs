@@ -41,12 +41,12 @@ pub struct Transmitter {
     thread_handle: Option<JoinHandle<()>>,
     stream: Option<Stream<NonBlocking, Output<f32>>>,
     callback_data: Arc<RwLock<CallbackData>>,
+    silent: Arc<AtomicBool>,
 
     // Shared between thread and Transmitter
     input_rx: Arc<Mutex<Option<Arc<Mutex<BusReader<ChannelEncoding>>>>>>,
 }
 
-//#[derive(Clone)]
 struct CallbackData {
     _amplitude: f32, // used for ramping up/down output waveform at start and end
     audio_frequency: AudioFrequencyHz,
@@ -55,7 +55,6 @@ struct CallbackData {
     _phase: f32,       // sin(phase) is the sample value
     sample_rate: u32, // Hz
     samples: Vec<f32>, // contains the GFSK modulated waveform to emit, allocated as a Vec, used as a slice
-    silent: Arc<AtomicBool>,
     buffer_pool: Arc<Mutex<Option<BufferPool>>>, // allocated when sample rate known
     callback_messages: VecDeque<CallbackMessage>, // buffers to emit, or latches to sync on
 }
@@ -105,13 +104,13 @@ impl Transmitter {
             _phase: 0.0,
             sample_rate: 0,
             samples: vec![],
-            silent,
             buffer_pool: no_buffer_pool,
             callback_messages: VecDeque::new(),
         };
         // TODO replace this Mutex with atomics to reduce contention in the callback.
         let arc_lock_modulation_callback_data = Arc::new(RwLock::new(modulation_callback_data));
         let move_clone_modulation_callback_data = arc_lock_modulation_callback_data.clone();
+        let move_clone_modulation_silent = silent.clone();
 
 
         Self {
@@ -122,6 +121,7 @@ impl Transmitter {
             dt: 0.0,        // will be initialised when the callback is initialised
             terminate: terminate.clone(),
             input_rx: input_rx_holder,    // Modified by BusInput
+            silent: silent.clone(),
             thread_handle: Some(thread::spawn(move || {
                 info!("Transmitter channel-encoding listener thread started");
                 loop {
@@ -158,7 +158,7 @@ impl Transmitter {
                                     info!("Transmitter got {:?}", channel_encoding);
                                     let mut maybe_countdown_latch: Option<Arc<CountDownLatch>> = None;
                                     let mut locked_callback_data = move_clone_modulation_callback_data.write().unwrap();
-                                    let need_ramp_up = locked_callback_data.silent.load(Ordering::SeqCst);
+                                    let need_ramp_up = move_clone_modulation_silent.load(Ordering::SeqCst);
                                     let need_ramp_down = channel_encoding.is_end;
                                     info!("Ramp up {} down {}", need_ramp_up, need_ramp_down);
                                     if need_ramp_up {
@@ -185,14 +185,11 @@ impl Transmitter {
 
                                     // If this was an end buffer, wait for modulation to finish via the synchronising
                                     // CountDownLatch.
-                                    match maybe_countdown_latch {
-                                        Some(latch) => {
-                                            info!("Waiting for end of modulation");
-                                            latch.wait();
-                                            info!("End of modulation signalled");
-                                            // TODO CAT transmit disable
-                                        },
-                                        None => { /* it wasn't an end */ } ,
+                                    if let Some(latch) = maybe_countdown_latch {
+                                        info!("Waiting for end of modulation");
+                                        latch.wait();
+                                        info!("End of modulation signalled");
+                                        // TODO CAT transmit disable
                                     }
                                 }
                                 Err(_) => {
@@ -225,7 +222,15 @@ impl Transmitter {
         // Allocate the sample vector in the callback data.
 
         let move_clone_callback_data = self.callback_data.clone();
+        let move_clone_callback_silent = self.silent.clone();
         let callback = move |pa::OutputStreamCallbackArgs::<f32> { buffer, frames, .. }| {
+
+            let set_silent = |silent: bool| {
+                if silent != move_clone_callback_silent.swap(silent, Ordering::SeqCst) {
+                    info!("Changed silent flag to {}", silent);
+                }
+            };
+
             // info!("buffer length is {}, frames is {}", buffer.len(), frames);
             // buffer length is 128, frames is 64; idx goes from [0..128).
             // One frame is a pair of left/right channel samples.
@@ -240,7 +245,7 @@ impl Transmitter {
             // When we start a callback and there's no data, set the silence flag true.
             if locked_callback_data.callback_messages.is_empty() {
                 debug!("Silence: true (no callback_messages)");
-                set_silent(&locked_callback_data, true);
+                set_silent(true);
                 let mut idx = 0;
                 for _ in 0..frames {
                     buffer[idx] = 0.0;
@@ -249,7 +254,7 @@ impl Transmitter {
                 }
             } else {
                 debug!("Silence: false (some callback_messages)");
-                set_silent(&locked_callback_data, false);
+                set_silent(false);
                 let first = locked_callback_data.callback_messages.front_mut().unwrap();
                 let mut maybe_buffer_free_index: Option<usize> = None;
                 match first {
@@ -351,9 +356,8 @@ impl Transmitter {
             let new_sample_buffer_size = (n_sym * n_spsym) + (2 * n_rspsym); // Number of output samples, with max 2 ramping symbols
             locked_callback_data.samples = Vec::with_capacity(new_sample_buffer_size);
             locked_callback_data.samples.resize(new_sample_buffer_size, 0_f32);
-            match locked_callback_data.buffer_pool.lock() {
-                Ok(mut locked) => *locked = Some(BufferPool::new(new_sample_buffer_size, NUMBER_OF_BUFFERS)),
-                Err(_) => {}
+            if let Ok(mut locked) = locked_callback_data.buffer_pool.lock() {
+                *locked = Some(BufferPool::new(new_sample_buffer_size, NUMBER_OF_BUFFERS))
             }
 
             debug!("Setting transmitter frequency to {}, sample_rate {}, buffer size {}", locked_callback_data.audio_frequency, self.sample_rate, new_sample_buffer_size);
@@ -372,14 +376,7 @@ impl Transmitter {
     }
 
     pub fn is_silent(&self) -> bool {
-        let locked_callback_data = self.callback_data.read().unwrap();
-        locked_callback_data.silent.load(Ordering::SeqCst)
-    }
-}
-
-fn set_silent(locked_callback_data: &RwLockWriteGuard<CallbackData>, silent: bool) {
-    if silent != locked_callback_data.silent.swap(silent, Ordering::SeqCst) {
-        info!("Changed silent flag to {}", silent);
+        self.silent.load(Ordering::SeqCst)
     }
 }
 
