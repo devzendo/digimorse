@@ -153,49 +153,43 @@ impl Transmitter {
                             need_sleep = true;
                         }
                         Some(input_rx) => {
-                            match input_rx.lock().unwrap().recv_timeout(Duration::from_millis(50)) {
-                                Ok(channel_encoding) => {
-                                    info!("Transmitter got {:?}", channel_encoding);
-                                    let mut maybe_countdown_latch: Option<Arc<CountDownLatch>> = None;
-                                    let mut locked_callback_data = move_clone_modulation_callback_data.write().unwrap();
-                                    let need_ramp_up = move_clone_modulation_silent.load(Ordering::SeqCst);
-                                    let need_ramp_down = channel_encoding.is_end;
-                                    info!("Ramp up {} down {}", need_ramp_up, need_ramp_down);
-                                    if need_ramp_up {
-                                        // TODO CAT transmit enable.
-                                        // watch out - locked_callback_data lock is held
-                                    }
-                                    let maybe_allocated_modulated_buffer: Option<(usize, Arc<RwLock<Vec<f32>>>, usize)> = allocate_buffer_and_write_modulation(&locked_callback_data, &channel_encoding, need_ramp_up, need_ramp_down, locked_callback_data.audio_frequency, locked_callback_data.sample_rate as AudioFrequencyHz);
-                                    match maybe_allocated_modulated_buffer {
-                                        None => {}
-                                        Some((index, buffer, buffer_max)) => {
-                                            info!("Enqueueing buffer {} with {} samples: queue has {} items", index, buffer_max, locked_callback_data.callback_messages.len());
-                                            locked_callback_data.callback_messages.push_back(
-                                                CallbackMessage::BufferIndex(BufferIndex { index, buffer, buffer_index: 0, buffer_max} ));
-                                        }
-                                    }
-                                    if need_ramp_down {
-                                        info!("Enqueueing countdown latch: queue has {} items", locked_callback_data.callback_messages.len());
-                                        let countdown_latch = Arc::new(CountDownLatch::new(1));
-                                        maybe_countdown_latch = Some(countdown_latch.clone());
+                            if let Ok(channel_encoding) = input_rx.lock().unwrap().recv_timeout(Duration::from_millis(50)) {
+                                info!("Transmitter got {:?}", channel_encoding);
+                                let mut maybe_countdown_latch: Option<Arc<CountDownLatch>> = None;
+                                let need_ramp_up = move_clone_modulation_silent.load(Ordering::SeqCst);
+                                let need_ramp_down = channel_encoding.is_end;
+                                info!("Ramp up {} down {}", need_ramp_up, need_ramp_down);
+                                if need_ramp_up {
+                                    // TODO CAT transmit enable.
+                                }
+                                let mut locked_callback_data = move_clone_modulation_callback_data.write().unwrap();
+                                let maybe_allocated_modulated_buffer: Option<(usize, Arc<RwLock<Vec<f32>>>, usize)> = 
+                                    allocate_buffer_and_write_modulation(&locked_callback_data, &channel_encoding, need_ramp_up, need_ramp_down, 
+                                                                         locked_callback_data.audio_frequency, locked_callback_data.sample_rate as AudioFrequencyHz);
+                                match maybe_allocated_modulated_buffer {
+                                    None => {}
+                                    Some((index, buffer, buffer_max)) => {
+                                        info!("Enqueueing buffer {} with {} samples: queue has {} items", index, buffer_max, locked_callback_data.callback_messages.len());
                                         locked_callback_data.callback_messages.push_back(
-                                            CallbackMessage::Wait(countdown_latch));
-                                    }
-                                    drop(locked_callback_data);
-
-                                    // If this was an end buffer, wait for modulation to finish via the synchronising
-                                    // CountDownLatch.
-                                    if let Some(latch) = maybe_countdown_latch {
-                                        info!("Waiting for end of modulation");
-                                        latch.wait();
-                                        info!("End of modulation signalled");
-                                        // TODO CAT transmit disable
+                                            CallbackMessage::BufferIndex(BufferIndex { index, buffer, buffer_index: 0, buffer_max} ));
                                     }
                                 }
-                                Err(_) => {
-                                    // could timeout, or be disconnected?
-                                    // ignore for now...
-                                    // TODO if gone silent, tell CAT to disable transmit? Need a CAT enabled flag so we don't hammer CAT to disable.
+                                if need_ramp_down {
+                                    info!("Enqueueing countdown latch: queue has {} items", locked_callback_data.callback_messages.len());
+                                    let countdown_latch = Arc::new(CountDownLatch::new(1));
+                                    maybe_countdown_latch = Some(countdown_latch.clone());
+                                    locked_callback_data.callback_messages.push_back(
+                                        CallbackMessage::Wait(countdown_latch));
+                                }
+                                drop(locked_callback_data);
+
+                                // If this was an end buffer, wait for modulation to finish via the synchronising
+                                // CountDownLatch.
+                                if let Some(latch) = maybe_countdown_latch {
+                                    info!("Waiting for end of modulation");
+                                    latch.wait();
+                                    info!("End of modulation signalled");
+                                    // TODO CAT transmit disable
                                 }
                             }
                         }
