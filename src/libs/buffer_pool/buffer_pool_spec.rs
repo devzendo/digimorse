@@ -1,7 +1,6 @@
 #[cfg(test)]
 mod buffer_pool_spec {
     use std::env;
-    use std::sync::{Arc, RwLock};
 
     use hamcrest2::prelude::*;
     use rstest::*;
