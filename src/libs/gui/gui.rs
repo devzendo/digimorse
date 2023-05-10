@@ -3,6 +3,7 @@ use std::rc::Rc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, mpsc};
 use std::thread::{JoinHandle, self};
+use std::time::Duration;
 use fltk::{
     app::*, button::*, draw::*, enums::*, /*menu::*,*/ prelude::*, /*valuator::*,*/ widget::*, window::*,
 };
@@ -222,7 +223,7 @@ impl Gui {
                     break;
                 }
 
-                if let Ok(gui_input_message) = gui_input_rx.try_recv() {
+                if let Ok(gui_input_message) = gui_input_rx.recv_timeout(Duration::from_millis(250)) {
                     match gui_input_message {
                         GUIInputMessage::SetRxIndicator(state) => {
                             thread_gui_sender.send(Message::SetRxIndicator(state));
