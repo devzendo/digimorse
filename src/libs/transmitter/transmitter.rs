@@ -1,6 +1,7 @@
 use std::collections::VecDeque;
 use std::error::Error;
 use std::f32::consts::PI;
+use std::sync::mpsc::Sender;
 use std::sync::{Arc, Mutex, RwLock, RwLockWriteGuard};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
@@ -14,6 +15,7 @@ use portaudio as pa;
 use crate::libs::application::application::BusInput;
 use crate::libs::buffer_pool::buffer_pool::BufferPool;
 use crate::libs::channel_codec::channel_encoding::ChannelEncoding;
+use crate::libs::gui::gui_facades::GUIInputMessage;
 use crate::libs::source_codec::source_encoding::SOURCE_ENCODER_BLOCK_SIZE_IN_BITS;
 use crate::libs::transmitter::modulate::{gfsk_modulate, RAMP_SYMBOL_PERIOD_SECONDS, SYMBOL_PERIOD_SECONDS};
 
@@ -43,6 +45,7 @@ pub struct Transmitter {
     callback_data: Arc<RwLock<CallbackData>>,
     silent: Arc<AtomicBool>,
 
+    gui_input: Option<Arc<Sender<GUIInputMessage>>>,
     // Shared between thread and Transmitter
     input_rx: Arc<Mutex<Option<Arc<Mutex<BusReader<ChannelEncoding>>>>>>,
 }
@@ -122,6 +125,7 @@ impl Transmitter {
             terminate: terminate.clone(),
             input_rx: input_rx_holder,    // Modified by BusInput
             silent: silent.clone(),
+            gui_input: None,
             thread_handle: Some(thread::spawn(move || {
                 info!("Transmitter channel-encoding listener thread started");
                 loop {
@@ -372,6 +376,11 @@ impl Transmitter {
     pub fn is_silent(&self) -> bool {
         self.silent.load(Ordering::SeqCst)
     }
+
+    pub fn set_gui_input(&mut self, gui_input: Arc<Sender<GUIInputMessage>>) {
+        self.gui_input = Some(gui_input);
+    }
+
 }
 
 fn free_buffer(locked_callback_data: &RwLockWriteGuard<CallbackData>, to_free_index: usize) {

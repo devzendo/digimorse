@@ -1,10 +1,13 @@
 use crate::libs::keyer_io::keyer_io::KeyerSpeed;
 
-// The rest of the system can effect changes in parts of the GUI via this facade...
-pub trait GUIInput {
-    fn set_rx_indicator(&self, state: bool);
-    fn set_wait_indicator(&self, state: bool);
-    fn set_tx_indicator(&self, state: bool);
+// The rest of the system can effect changes in parts of the GUI by sending messages of this type
+// to the GUIInput channel (sender), obtained from the GUI.
+#[derive(Clone, PartialEq, Copy)]
+pub enum GUIInputMessage {
+    SetRxIndicator(bool),
+    SetWaitIndicator(bool),
+    SetTxIndicator(bool),
+
     // TODO add downsampled FFT to waterfall
     // TODO add/clear dx station details for callsign/hash/offset
     // TODO add/clear receipt of costas array at offset

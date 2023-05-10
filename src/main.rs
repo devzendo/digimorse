@@ -269,12 +269,22 @@ fn run(arguments: ArgMatches, mode: Mode) -> Result<i32, Box<dyn Error>> {
 
     info!("Initialising GUI...");
     let gui_config = Arc::new(Mutex::new(config));
+    let gui_terminate = application.terminate_flag();
     let gui_application = Arc::new(Mutex::new(application));
     let terminate_application = gui_application.clone();
     let app = fltk::app::App::default().with_scheme(Scheme::Gtk);
-    let mut gui = Gui::new(gui_config, gui_application);
+    let gui = Gui::new(gui_config, gui_application, gui_terminate);
+    let gui_input = gui.gui_input_sender();
+    let arc_mutex_gui = Arc::new(Mutex::new(gui));
+    // The gui_input would be passed around to other parts of the subsystem.
+    {
+        let mut locked_transmitter = transmitter.lock().unwrap();
+        let transmitter_gui_input = gui_input.clone();
+        locked_transmitter.set_gui_input(transmitter_gui_input);
+    }
+
     while app.wait() {
-        gui.message_handle();
+        arc_mutex_gui.lock().unwrap().message_handle();
     }
     info!("End of GUI message loop; terminating");
     terminate_application.lock().unwrap().terminate();

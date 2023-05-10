@@ -1,9 +1,10 @@
 use fltk::{
     button::CheckButton, group::Flex, prelude::*, window::*,
 };
-use std::sync::{Arc, Mutex};
+use std::sync::{mpsc::Sender, Arc};
 use log::debug;
-use crate::libs::gui::gui_facades::GUIInput;
+
+use super::gui_facades::GUIInputMessage;
 
 const WIDGET_SIZE: i32 = 25;
 const WIDGET_PADDING: i32 = 10;
@@ -11,7 +12,7 @@ const WIDGET_PADDING: i32 = 10;
 pub struct GuiDriver {
 }
 impl GuiDriver {
-    pub fn new(gui_input: Arc<Mutex<dyn GUIInput>>, x_position: i32) -> Self {
+    pub fn new(gui_input: Arc<Sender<GUIInputMessage>>, x_position: i32) -> Self {
         debug!("Initialising Window");
         let mut wind = Window::default().with_label("digimorse test");
         wind.set_size(300, 300);
@@ -26,7 +27,7 @@ impl GuiDriver {
         let rx_gui_input = gui_input.clone();
         toggle_rx_checkbox.set_callback(move |wid| {
             debug!("RX checkbox toggled");
-            rx_gui_input.lock().unwrap().set_rx_indicator(wid.value());
+            rx_gui_input.send(GUIInputMessage::SetRxIndicator(wid.value())).unwrap();
         });
 
         let mut toggle_wait_checkbox = CheckButton::default().
@@ -36,7 +37,7 @@ impl GuiDriver {
         let wait_gui_input = gui_input.clone();
         toggle_wait_checkbox.set_callback(move |wid| {
             debug!("WAIT checkbox toggled");
-            wait_gui_input.lock().unwrap().set_wait_indicator(wid.value());
+            wait_gui_input.send(GUIInputMessage::SetWaitIndicator(wid.value())).unwrap();
         });
 
         let mut toggle_tx_checkbox = CheckButton::default().
@@ -46,7 +47,7 @@ impl GuiDriver {
         let tx_gui_input = gui_input.clone();
         toggle_tx_checkbox.set_callback(move |wid| {
             debug!("TX checkbox toggled");
-            tx_gui_input.lock().unwrap().set_tx_indicator(wid.value());
+            tx_gui_input.send(GUIInputMessage::SetTxIndicator(wid.value())).unwrap();
         });
 
         flex.end();

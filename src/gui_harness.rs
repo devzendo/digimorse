@@ -4,7 +4,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
 use std::time::Duration;
 use bus::{Bus, BusReader};
-use digimorse::libs::gui::gui_facades::{GUIInput, GUIOutput};
+use digimorse::libs::gui::gui_facades::GUIOutput;
 use log::info;
 use digimorse::libs::application::application::{Application, ApplicationMode, BusInput, BusOutput};
 use digimorse::libs::config_dir::config_dir;
@@ -81,6 +81,7 @@ fn main() {
     initialise_logging();
     info!("GUI test harness");
     let terminate = Arc::new(AtomicBool::new(false));
+    let gui_terminate = terminate.clone();
     let scheduled_thread_pool = Arc::new(syncbox::ScheduledThreadPool::single_thread());
 
     let home_dir = dirs::home_dir();
@@ -117,12 +118,12 @@ fn main() {
     let gui_config = Arc::new(Mutex::new(config));
     let terminate_application = arc_mutex_application.clone();
     let app = App::default().with_scheme(Scheme::Gtk);
-    let gui = Gui::new(gui_config, application_gui_output);
+    let gui = Gui::new(gui_config, application_gui_output, gui_terminate);
     let gui_width = gui.main_window_dimensions().0;
+    let gui_input = gui.gui_input_sender();
     let arc_mutex_gui = Arc::new(Mutex::new(gui));
-    let arc_mutex_gui_input: Arc<Mutex<dyn GUIInput>> = arc_mutex_gui.clone() as Arc<Mutex<dyn GUIInput>>;
-    // The arc_mutex_gui_input would be passed around to other parts of the subsystem.
-    GuiDriver::new(arc_mutex_gui_input, gui_width + WIDGET_PADDING);
+    // The gui_input would be passed around to other parts of the subsystem.
+    GuiDriver::new(gui_input, gui_width + WIDGET_PADDING);
     info!("Start of app wait loop");
     while app.wait() {
         arc_mutex_gui.lock().unwrap().message_handle();

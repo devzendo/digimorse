@@ -1,6 +1,8 @@
 use std::cell::RefCell;
 use std::rc::Rc;
-use std::sync::{Arc, Mutex};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex, mpsc};
+use std::thread::{JoinHandle, self};
 use fltk::{
     app::*, button::*, draw::*, enums::*, /*menu::*,*/ prelude::*, /*valuator::*,*/ widget::*, window::*,
 };
@@ -9,9 +11,11 @@ use fltk::output::Output;
 use log::{debug, info};
 use crate::libs::config_file::config_file::ConfigurationStore;
 use crate::libs::gui::message::{KeyingText, Message};
-use crate::libs::gui::gui_facades::{GUIInput, GUIOutput};
+use crate::libs::gui::gui_facades::GUIOutput;
 use crate::libs::keyer_io::keyer_io::{MAX_KEYER_SPEED, MIN_KEYER_SPEED};
 use crate::libs::util::version::VERSION;
+
+use super::gui_facades::GUIInputMessage;
 
 pub const WIDGET_PADDING: i32 = 10;
 
@@ -50,13 +54,15 @@ pub struct Gui {
     text_entry: Rc<RefCell<MultilineInput>>,
     window_width: i32,
     window_height: i32,
-    rx_indicator: Rc<RefCell<bool>>,
-    wait_indicator: Rc<RefCell<bool>>,
-    tx_indicator: Rc<RefCell<bool>>,
+    rx_indicator: Arc<RefCell<bool>>,
+    wait_indicator: Arc<RefCell<bool>>,
+    tx_indicator: Arc<RefCell<bool>>,
+    gui_input_tx: Arc<mpsc::Sender<GUIInputMessage>>,
+    thread_handle: Mutex<Option<JoinHandle<()>>>,
 }
 
 impl Gui {
-    pub fn new(config: Arc<Mutex<ConfigurationStore>>, gui_output: Arc<Mutex<dyn GUIOutput>>) -> Self {
+    pub fn new(config: Arc<Mutex<ConfigurationStore>>, gui_output: Arc<Mutex<dyn GUIOutput>>, terminate: Arc<AtomicBool>) -> Self {
         debug!("Initialising Window");
         let mut wind = Window::default().with_label(format!("digimorse v{} de M0CUV", VERSION).as_str());
 
@@ -71,9 +77,13 @@ impl Gui {
 
         let (sender, receiver) = channel::<Message>();
 
-        let rx_indicator = Rc::new(RefCell::new(false));
-        let wait_indicator = Rc::new(RefCell::new(false));
-        let tx_indicator = Rc::new(RefCell::new(false));
+        let rx_indicator = Arc::new(RefCell::new(false));
+        let wait_indicator = Arc::new(RefCell::new(false));
+        let tx_indicator = Arc::new(RefCell::new(false));
+ 
+        let thread_terminate = terminate.clone();
+
+        let (gui_input_tx, gui_input_rx) = mpsc::channel::<GUIInputMessage>();
 
         let mut gui = Gui {
             config,
@@ -109,6 +119,8 @@ impl Gui {
             rx_indicator,
             wait_indicator,
             tx_indicator,
+            gui_input_tx: Arc::new(gui_input_tx),
+            thread_handle: Mutex::new(None),
         };
 
         gui.waterfall_canvas.set_trigger(CallbackTrigger::Release);
@@ -201,6 +213,33 @@ impl Gui {
         wind.set_size(gui.window_width, gui.window_height);
         wind.set_color(window_background);
 
+        // Functions called on the GUI by the rest of the system...
+        let thread_gui_sender = gui.sender.clone();
+        let thread_handle = thread::spawn(move || {
+            loop {
+                if thread_terminate.load(Ordering::SeqCst) {
+                    info!("Terminating GUI input thread");
+                    break;
+                }
+
+                if let Ok(gui_input_message) = gui_input_rx.try_recv() {
+                    match gui_input_message {
+                        GUIInputMessage::SetRxIndicator(state) => {
+                            thread_gui_sender.send(Message::SetRxIndicator(state));
+                        }
+                        GUIInputMessage::SetWaitIndicator(state) => {
+                            thread_gui_sender.send(Message::SetWaitIndicator(state));
+                        }
+                        GUIInputMessage::SetTxIndicator(state) => {
+                            thread_gui_sender.send(Message::SetTxIndicator(state));
+                        }
+                    }
+                }
+             }
+        });
+
+        *gui.thread_handle.lock().unwrap() = Some(thread_handle);
+
         wind.end();
         debug!("Showing main window");
         wind.show();
@@ -253,9 +292,32 @@ impl Gui {
                     Message::RedrawIndicatorsCanvas => {
                         self.indicators_canvas.redraw();
                     }
+
+                    Message::SetRxIndicator(state) => {
+                        info!("Will set RX indicator to {}", state);
+                        *self.rx_indicator.borrow_mut() = state;
+                        self.indicators_canvas.redraw();
+                    }
+
+                    Message::SetWaitIndicator(state) => {
+                        info!("Will set WAIT indicator to {}", state);
+                        *self.wait_indicator.borrow_mut() = state;
+                        self.indicators_canvas.redraw();
+                    }
+
+                    Message::SetTxIndicator(state) => {
+                        info!("Will set TX indicator to {}", state);
+                        *self.tx_indicator.borrow_mut() = state;
+                        self.indicators_canvas.redraw();
+                    }
+
                 }
             }
         }
+    }
+
+    pub fn gui_input_sender(&self) -> Arc<mpsc::Sender<GUIInputMessage>> {
+        self.gui_input_tx.clone()
     }
 
     fn set_keyer_speed(&mut self, new_keyer_speed: u8) {
@@ -265,26 +327,4 @@ impl Gui {
         self.code_speed_output.set_value(new_keyer_speed.to_string().as_str());
     }
 }
-
-// Functions called on the GUI by the rest of the system...
-impl GUIInput for Gui {
-    fn set_rx_indicator(&self, state: bool) {
-        info!("Will set RX indicator to {}", state);
-        *self.rx_indicator.borrow_mut() = state;
-        self.sender.send(Message::RedrawIndicatorsCanvas);
-    }
-
-    fn set_wait_indicator(&self, state: bool) {
-        info!("Will set WAIT indicator to {}", state);
-        *self.wait_indicator.borrow_mut() = state;
-        self.sender.send(Message::RedrawIndicatorsCanvas);
-    }
-
-    fn set_tx_indicator(&self, state: bool) {
-        info!("Will set TX indicator to {}", state);
-        *self.tx_indicator.borrow_mut() = state;
-        self.sender.send(Message::RedrawIndicatorsCanvas);
-    }
-}
-
 

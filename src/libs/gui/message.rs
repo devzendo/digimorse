@@ -13,4 +13,7 @@ pub enum Message {
     DecreaseKeyingSpeedRequest,
     SetKeyingSpeed(KeyerSpeed),
     RedrawIndicatorsCanvas,
+    SetRxIndicator(bool),
+    SetWaitIndicator(bool),
+    SetTxIndicator(bool),
 }
