@@ -2,6 +2,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, mpsc};
+use std::sync::mpsc::sync_channel;
 use std::thread::{JoinHandle, self};
 use std::time::Duration;
 use fltk::{
@@ -58,7 +59,7 @@ pub struct Gui {
     rx_indicator: Arc<RefCell<bool>>,
     wait_indicator: Arc<RefCell<bool>>,
     tx_indicator: Arc<RefCell<bool>>,
-    gui_input_tx: Arc<mpsc::Sender<GUIInputMessage>>,
+    gui_input_tx: Arc<mpsc::SyncSender<GUIInputMessage>>,
     thread_handle: Mutex<Option<JoinHandle<()>>>,
 }
 
@@ -84,7 +85,7 @@ impl Gui {
  
         let thread_terminate = terminate.clone();
 
-        let (gui_input_tx, gui_input_rx) = mpsc::channel::<GUIInputMessage>();
+        let (gui_input_tx, gui_input_rx) = sync_channel::<GUIInputMessage>(16);
 
         let mut gui = Gui {
             config,
@@ -317,7 +318,7 @@ impl Gui {
         }
     }
 
-    pub fn gui_input_sender(&self) -> Arc<mpsc::Sender<GUIInputMessage>> {
+    pub fn gui_input_sender(&self) -> Arc<mpsc::SyncSender<GUIInputMessage>> {
         self.gui_input_tx.clone()
     }
 

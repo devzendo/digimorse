@@ -1,7 +1,8 @@
 use fltk::{
     button::CheckButton, group::Flex, prelude::*, window::*,
 };
-use std::sync::{mpsc::Sender, Arc};
+use std::sync::Arc;
+use std::sync::mpsc::SyncSender;
 use log::debug;
 
 use super::gui_facades::GUIInputMessage;
@@ -12,7 +13,7 @@ const WIDGET_PADDING: i32 = 10;
 pub struct GuiDriver {
 }
 impl GuiDriver {
-    pub fn new(gui_input: Arc<Sender<GUIInputMessage>>, x_position: i32) -> Self {
+    pub fn new(gui_input: Arc<SyncSender<GUIInputMessage>>, x_position: i32) -> Self {
         debug!("Initialising Window");
         let mut wind = Window::default().with_label("digimorse test");
         wind.set_size(300, 300);

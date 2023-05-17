@@ -1,7 +1,7 @@
 use std::collections::VecDeque;
 use std::error::Error;
 use std::f32::consts::PI;
-use std::sync::mpsc::Sender;
+use std::sync::mpsc::SyncSender;
 use std::sync::{Arc, Mutex, RwLock, RwLockWriteGuard};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
@@ -45,7 +45,6 @@ pub struct Transmitter {
     callback_data: Arc<RwLock<CallbackData>>,
     silent: Arc<AtomicBool>,
 
-    gui_input: Option<Arc<Sender<GUIInputMessage>>>,
     // Shared between thread and Transmitter
     input_rx: Arc<Mutex<Option<Arc<Mutex<BusReader<ChannelEncoding>>>>>>,
 }
@@ -60,6 +59,7 @@ struct CallbackData {
     samples: Vec<f32>, // contains the GFSK modulated waveform to emit, allocated as a Vec, used as a slice
     buffer_pool: Arc<Mutex<Option<BufferPool>>>, // allocated when sample rate known
     callback_messages: VecDeque<CallbackMessage>, // buffers to emit, or latches to sync on
+    gui_input: Arc<Mutex<Option<Arc<SyncSender<GUIInputMessage>>>>>,
 }
 
 const NUMBER_OF_BUFFERS: usize = 32;
@@ -99,6 +99,7 @@ impl Transmitter {
         info!("Initialising Transmitter");
         let silent = Arc::new(AtomicBool::new(true));
         let no_buffer_pool = Arc::new(Mutex::new(None));
+        let gui_input_holder = Arc::new(Mutex::new(None));
         let modulation_callback_data = CallbackData {
             _amplitude: 0.0,
             audio_frequency: audio_offset,
@@ -109,6 +110,7 @@ impl Transmitter {
             samples: vec![],
             buffer_pool: no_buffer_pool,
             callback_messages: VecDeque::new(),
+            gui_input: gui_input_holder,
         };
         // TODO replace this Mutex with atomics to reduce contention in the callback.
         let arc_lock_modulation_callback_data = Arc::new(RwLock::new(modulation_callback_data));
@@ -125,7 +127,6 @@ impl Transmitter {
             terminate: terminate.clone(),
             input_rx: input_rx_holder,    // Modified by BusInput
             silent: silent.clone(),
-            gui_input: None,
             thread_handle: Some(thread::spawn(move || {
                 info!("Transmitter channel-encoding listener thread started");
                 loop {
@@ -167,6 +168,13 @@ impl Transmitter {
                                     // TODO CAT transmit enable.
                                 }
                                 let mut locked_callback_data = move_clone_modulation_callback_data.write().unwrap();
+                                if need_ramp_up {
+                                    if let Some(gui_input) = locked_callback_data.gui_input.lock().unwrap().as_ref() {
+                                        gui_input.send(GUIInputMessage::SetTxIndicator(true)).expect("Could not turn on TX indicator");
+                                        gui_input.send(GUIInputMessage::SetWaitIndicator(false)).expect("Could not turn off Wait indicator");
+                                        gui_input.send(GUIInputMessage::SetRxIndicator(false)).expect("Could not turn off RX indicator");
+                                    }
+                                }
                                 let maybe_allocated_modulated_buffer: Option<(usize, Arc<RwLock<Vec<f32>>>, usize)> = 
                                     allocate_buffer_and_write_modulation(&locked_callback_data, &channel_encoding, need_ramp_up, need_ramp_down, 
                                                                          locked_callback_data.audio_frequency, locked_callback_data.sample_rate as AudioFrequencyHz);
@@ -194,6 +202,12 @@ impl Transmitter {
                                     latch.wait();
                                     info!("End of modulation signalled");
                                     // TODO CAT transmit disable
+                                    // let locked_callback_data_disable = move_clone_modulation_callback_data.write().unwrap();
+                                    if let Some(gui_input) = move_clone_modulation_callback_data.write().unwrap().gui_input.lock().unwrap().as_ref() {
+                                        gui_input.send(GUIInputMessage::SetTxIndicator(false)).expect("Could not turn off TX indicator");
+                                        gui_input.send(GUIInputMessage::SetWaitIndicator(true)).expect("Could not turn on Wait indicator");
+                                        gui_input.send(GUIInputMessage::SetRxIndicator(false)).expect("Could not turn off RX indicator");
+                                    }
                                 }
                             }
                         }
@@ -377,8 +391,9 @@ impl Transmitter {
         self.silent.load(Ordering::SeqCst)
     }
 
-    pub fn set_gui_input(&mut self, gui_input: Arc<Sender<GUIInputMessage>>) {
-        self.gui_input = Some(gui_input);
+    pub fn set_gui_input(&mut self, gui_input: Arc<SyncSender<GUIInputMessage>>) {
+        let locked_callback_data = self.callback_data.write().unwrap();
+        *locked_callback_data.gui_input.lock().unwrap() = Some(gui_input);
     }
 
 }
