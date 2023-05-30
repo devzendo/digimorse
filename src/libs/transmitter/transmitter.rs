@@ -202,7 +202,6 @@ impl Transmitter {
                                     latch.wait();
                                     info!("End of modulation signalled");
                                     // TODO CAT transmit disable
-                                    // let locked_callback_data_disable = move_clone_modulation_callback_data.write().unwrap();
                                     if let Some(gui_input) = move_clone_modulation_callback_data.write().unwrap().gui_input.lock().unwrap().as_ref() {
                                         gui_input.send(GUIInputMessage::SetTxIndicator(false)).expect("Could not turn off TX indicator");
                                         gui_input.send(GUIInputMessage::SetWaitIndicator(true)).expect("Could not turn on Wait indicator");
@@ -393,6 +392,10 @@ impl Transmitter {
 
     pub fn set_gui_input(&mut self, gui_input: Arc<SyncSender<GUIInputMessage>>) {
         let locked_callback_data = self.callback_data.write().unwrap();
+        let silent = self.is_silent();
+        gui_input.send(GUIInputMessage::SetTxIndicator(!silent)).expect("Could not change TX indicator");
+        gui_input.send(GUIInputMessage::SetWaitIndicator(false)).expect("Could not change Wait indicator");
+        gui_input.send(GUIInputMessage::SetRxIndicator(silent)).expect("Could not change RX indicator");
         *locked_callback_data.gui_input.lock().unwrap() = Some(gui_input);
     }
 
