@@ -1,5 +1,6 @@
 /log
 /target
+.git-credentials
 .DS_Store
 .vscode
 .idea
