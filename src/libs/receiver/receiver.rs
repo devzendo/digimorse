@@ -1,5 +1,5 @@
 use std::error::Error;
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 use std::sync::atomic::{AtomicBool, Ordering};
 use log::{debug, info, warn};
 use portaudio::{NonBlocking, Input, InputStreamSettings, PortAudio, Stream};
@@ -11,19 +11,30 @@ pub struct Receiver {
     amplitude_max: AmplitudeMax,
     sample_rate: u32,
     stream: Option<Stream<NonBlocking, Input<f32>>>,
+    callback_data: Arc<RwLock<CallbackData>>,
     terminate: Arc<AtomicBool>,
+}
 
+struct CallbackData {
+    injected_waveform: Option<InjectedWaveform>,
+}
+
+struct InjectedWaveform {
+    waveform: Vec<f32>,
+    playback_index: usize,
 }
 
 impl Receiver {
 
     pub fn new(audio_offset: AudioFrequencyHz, terminate: Arc<AtomicBool>,
                /* TODO CAT controller passed in here */) -> Self {
+        let callback_data = CallbackData { injected_waveform: None };
         Self {
             audio_offset: audio_offset,
             amplitude_max: 1.0,
             sample_rate: 0,
             stream: None,
+            callback_data: Arc::new(RwLock::new(callback_data)),
             terminate,
         }
     }
@@ -102,6 +113,10 @@ impl Receiver {
             // locked_callback_data.sample_rate = self.sample_rate;
             // debug!("Setting transmitter frequency to {}, sample_rate {}, buffer size {}", locked_callback_data.audio_frequency, self.sample_rate, new_sample_buffer_size);
         }
+    }
+
+    pub fn inject_waveform(&mut self, waveform: &Vec<f32>) -> () {
+
     }
 }
 

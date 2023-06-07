@@ -82,6 +82,7 @@ mod receiver_spec {
     #[ignore]
     pub fn not_sure_yet(fixture: ReceiverFixture) {
         info!("Start of test");
+        // TODO read a known wav file, inject it, receive it on the receiver's output
         test_util::wait_n_ms(1000);
         info!("End of test");
     }
