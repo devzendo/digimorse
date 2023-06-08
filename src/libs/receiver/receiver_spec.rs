@@ -3,20 +3,27 @@ extern crate hamcrest2;
 #[cfg(test)]
 mod receiver_spec {
     use std::env;
+    use std::fs::File;
+    use std::path::Path;
     use std::sync::Arc;
     use std::sync::atomic::{AtomicBool, Ordering};
 
-    use bus::Bus;
     use hamcrest2::prelude::*;
     use log::{debug, info};
     use portaudio::PortAudio;
     use rstest::*;
+    use wav::{BitDepth, Header, WAV_FORMAT_IEEE_FLOAT};
 
     use crate::libs::audio::audio_devices::open_input_audio_device;
+    use crate::libs::channel_codec::sample_channel_encoding::sample_channel_encoding;
     use crate::libs::receiver::receiver::Receiver;
     use crate::libs::test::test_hardware;
-    use crate::libs::transmitter::transmitter::{AmplitudeMax, AudioFrequencyHz, maximum_number_of_symbols, Transmitter};
+    use crate::libs::transmitter::modulate::gfsk_modulate;
+    use crate::libs::transmitter::transmitter::{AmplitudeMax, AudioFrequencyHz};
     use crate::libs::util::test_util;
+
+    const SAMPLE_RATE: AudioFrequencyHz = 48000;
+    const AUDIO_FREQUENCY: AudioFrequencyHz = 600;
 
     #[ctor::ctor]
     fn before_each() {
@@ -80,10 +87,35 @@ mod receiver_spec {
     #[rstest]
     #[serial]
     #[ignore]
-    pub fn not_sure_yet(fixture: ReceiverFixture) {
+    pub fn receive_sample_waveform(fixture: ReceiverFixture) {
         info!("Start of test");
         // TODO read a known wav file, inject it, receive it on the receiver's output
+        let sample_waveform = sample_waveform();
+        //fixture.receiver.inject_waveform()
         test_util::wait_n_ms(1000);
         info!("End of test");
+    }
+
+    #[test]
+    #[serial]
+    #[ignore]
+    pub fn save_sample_waveform_as_wav() {
+        let sample_waveform = sample_waveform();
+        let mut out_file = File::create(Path::new("testdata/sample_waveform.wav")).unwrap();
+        let header = Header::new(WAV_FORMAT_IEEE_FLOAT, 1, SAMPLE_RATE as u32, 32);
+        let data = BitDepth::ThirtyTwoFloat(sample_waveform);
+        wav::write(header, &data, &mut out_file).expect("TODO: panic message");
+    }
+
+    // length found by running it and seeing what's needed...
+    const MODULATED_SAMPLE_ENCODING_WAVEFORM_LENGTH: usize = 493440;
+    fn sample_waveform() -> Vec<f32> {
+        let channel_encoding = sample_channel_encoding();
+        let channel_symbols = &channel_encoding.block;
+        let mut waveform_buffer: Vec<f32> = Vec::with_capacity(MODULATED_SAMPLE_ENCODING_WAVEFORM_LENGTH);
+        waveform_buffer.resize(MODULATED_SAMPLE_ENCODING_WAVEFORM_LENGTH, 0_f32);
+
+        let _ = gfsk_modulate(AUDIO_FREQUENCY, SAMPLE_RATE, channel_symbols, &mut waveform_buffer.as_mut_slice(), true, true);
+        waveform_buffer
     }
 }

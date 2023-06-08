@@ -1,7 +1,7 @@
 use std::error::Error;
 use std::sync::{Arc, RwLock};
 use std::sync::atomic::{AtomicBool, Ordering};
-use log::{debug, info, warn};
+use log::{debug, warn};
 use portaudio::{NonBlocking, Input, InputStreamSettings, PortAudio, Stream};
 use portaudio as pa;
 use crate::libs::transmitter::transmitter::{AmplitudeMax, AudioFrequencyHz};
