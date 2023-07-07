@@ -333,4 +333,33 @@ Then on to making audio (and keyer) devices swappable at runtime, possibly using
 Progress at last on the GUI, via a test harness and a driver for it. 
 
 
+## 5 July 2023
 
+Learning about Fast Fourier Transforms for the receiver, filters applied to the incoming audio, and downsampling. Bill Somerville (SK) states: 
+"WSJT-X downsamples the incoming PCM 48,000 Hz audio stream to 12,000 Hz
+simultaneously with applying a 4,500 Hz LPF anti-aliasing filter. That means
+that the maximum flat bandwidth of WSJT-X is between 4500 Hz and 6,000 Hz but
+the filter is not a brick wall some major parameter changes would be needed to
+widen the WSJT-X bandwidth above 5,000 Hz without introducing FFT aliasing
+artefacts. E.g. strong RTTY signals above between 6,000 H and 12,000 Hz might
+wrap around into the expanded WSJT-X pass band."
+https://wsjtx.groups.io/g/main/topic/waterfall_clipped_at_5khz/74478579
+
+He also states:
+"WSJT-X requests a 48 kHz 16-bit audio stream for input and it generates output
+in the same format. The reason we suggest you use 48 kHz as the default sample
+rate is because operating system re-sampling is prone to audio artefacts that
+can degrade the receive audio performance. We actually re-sample in WSJT-X down
+to 12 kHz before the DSP processing which gives us a bandwidth of up to 6 kHz,
+the down sampling in WSJT-X uses a high quality algorithm but it is always
+better to do integral factor re-sampling so an input sample rate that is an
+exact power of two of the requested rate is most efficient.
+
+On Windows at least we have found that letting the operating system do the
+re-sampling, especially if that involves a non-integral up sample, can cause
+major issues with decoding resolution. So the normal consumer audio sample rate
+of 44.1 kHz is not recommended."
+https://wsjtx.groups.io/g/main/topic/audio_sample_rate/4182824
+
+In "Synchronisation in FT8", Mike Hasselbeck goes over the processing of
+received audio comprehensively.

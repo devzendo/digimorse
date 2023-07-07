@@ -16,6 +16,7 @@ pub mod source_codec;
 pub mod transform_bus;
 pub mod transmitter;
 pub mod util;
+pub mod wav;
 
 #[cfg(test)]
 pub mod matchers;

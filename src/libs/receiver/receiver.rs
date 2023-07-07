@@ -1,9 +1,11 @@
 use std::error::Error;
-use std::sync::{Arc, RwLock};
+use std::sync::{Arc, Mutex, RwLock};
 use std::sync::atomic::{AtomicBool, Ordering};
-use log::{debug, warn};
+use bus::Bus;
+use log::{debug, info, warn};
 use portaudio::{NonBlocking, Input, InputStreamSettings, PortAudio, Stream};
 use portaudio as pa;
+use crate::libs::application::application::BusOutput;
 use crate::libs::transmitter::transmitter::{AmplitudeMax, AudioFrequencyHz};
 
 pub struct Receiver {
@@ -15,8 +17,15 @@ pub struct Receiver {
     terminate: Arc<AtomicBool>,
 }
 
+#[derive(Clone, PartialEq, Copy)]
+pub enum ReceiverEvent {
+    // TODO FFT data    
+}
+
 struct CallbackData {
     injected_waveform: Option<InjectedWaveform>,
+    output_tx: Option<Arc<Mutex<Bus<ReceiverEvent>>>>,
+
 }
 
 struct InjectedWaveform {
@@ -28,7 +37,7 @@ impl Receiver {
 
     pub fn new(audio_offset: AudioFrequencyHz, terminate: Arc<AtomicBool>,
                /* TODO CAT controller passed in here */) -> Self {
-        let callback_data = CallbackData { injected_waveform: None };
+        let callback_data = CallbackData { injected_waveform: None, output_tx: None };
         Self {
             audio_offset: audio_offset,
             amplitude_max: 1.0,
@@ -62,6 +71,14 @@ impl Receiver {
             // info!("buffer length is {}, frames is {}", buffer.len(), frames);
             // buffer length is 64, frames is 64
 
+            // TODO is there a waveform to inject?
+            // Downsampled audio is collected into a circular buffer. Every 40ms, the last 160ms
+            // of audio is emitted to observers (after we've received the first 160ms, of course).
+            // The FFT observer zero-pads this 160ms audio to 320ms, and transforms, and emits that
+            // to its observers.
+            // The input rate is 48000Hz. Each ms there are 48 samples. We're downsampling by 4, so
+            // each ms has 12 downsamples. 160ms therefore contains 12 samples * 160 ms = 1920 samples.
+            // The circular buffer needs to hold twice as much as this to prevent collisions.
             pa::Continue
         };
 
@@ -116,9 +133,24 @@ impl Receiver {
     }
 
     pub fn inject_waveform(&mut self, waveform: &Vec<f32>) -> () {
-
+        let mut locked_callback_data = self.callback_data.write().unwrap();
+        locked_callback_data.injected_waveform = Some(InjectedWaveform { waveform: waveform.clone(), playback_index: 0 });
+        info!("Injecting waveform of {} samples", waveform.len());
     }
 }
+
+impl BusOutput<ReceiverEvent> for Receiver {
+    fn clear_output_tx(&mut self) {
+        let mut locked_callback_data = self.callback_data.write().unwrap();
+        // TODO TDD locked_callback_data.output_tx = None;
+    }
+
+    fn set_output_tx(&mut self, output_tx: Arc<Mutex<Bus<ReceiverEvent>>>) {
+        let mut locked_callback_data = self.callback_data.write().unwrap();
+        // TODO TDD locked_callback_data.output_tx = Some(output_tx);
+    }
+}
+
 
 impl Drop for Receiver {
     fn drop(&mut self) {

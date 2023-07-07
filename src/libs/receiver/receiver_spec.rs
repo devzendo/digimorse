@@ -3,24 +3,24 @@ extern crate hamcrest2;
 #[cfg(test)]
 mod receiver_spec {
     use std::env;
-    use std::fs::File;
-    use std::path::Path;
-    use std::sync::Arc;
+    use std::sync::{Arc, Mutex};
     use std::sync::atomic::{AtomicBool, Ordering};
+    use bus::{Bus, BusReader};
 
-    use hamcrest2::prelude::*;
     use log::{debug, info};
     use portaudio::PortAudio;
     use rstest::*;
-    use wav::{BitDepth, Header, WAV_FORMAT_IEEE_FLOAT};
+    use hamcrest2::prelude::*;
+    use crate::libs::application::application::{BusInput, BusOutput};
 
     use crate::libs::audio::audio_devices::open_input_audio_device;
     use crate::libs::channel_codec::sample_channel_encoding::sample_channel_encoding;
-    use crate::libs::receiver::receiver::Receiver;
+    use crate::libs::receiver::receiver::{Receiver, ReceiverEvent};
     use crate::libs::test::test_hardware;
     use crate::libs::transmitter::modulate::gfsk_modulate;
     use crate::libs::transmitter::transmitter::{AmplitudeMax, AudioFrequencyHz};
     use crate::libs::util::test_util;
+    use crate::libs::wav::wav::{read_waveform_file, write_waveform_file};
 
     const SAMPLE_RATE: AudioFrequencyHz = 48000;
     const AUDIO_FREQUENCY: AudioFrequencyHz = 600;
@@ -84,14 +84,37 @@ mod receiver_spec {
         }
     }
 
+    struct Sampler {
+
+    }
+
+    impl BusInput<ReceiverEvent> for Sampler {
+        fn clear_input_rx(&mut self) {
+            todo!()
+        }
+
+        fn set_input_rx(&mut self, input_rx: Arc<Mutex<BusReader<ReceiverEvent>>>) {
+            todo!()
+        }
+    }
+
     #[rstest]
     #[serial]
-    #[ignore]
-    pub fn receive_sample_waveform(fixture: ReceiverFixture) {
+    pub fn receive_sample_waveform(mut fixture: ReceiverFixture) {
         info!("Start of test");
+        let receiver_input_bus = Bus::new(16);
+        //let reader = receiver_input_bus.add_rx();
+        // reader.
+        fixture.receiver.set_output_tx(Arc::new(Mutex::new(receiver_input_bus)));
+
         // TODO read a known wav file, inject it, receive it on the receiver's output
-        let sample_waveform = sample_waveform();
-        //fixture.receiver.inject_waveform()
+        let filename = "testdata/sample_waveform.wav";
+        let sample_waveform = read_waveform_file(filename);
+        let waveform_vec = sample_waveform.unwrap();
+        assert_that!(waveform_vec.len(), equal_to(MODULATED_SAMPLE_ENCODING_WAVEFORM_LENGTH));
+        fixture.receiver.inject_waveform(&waveform_vec);
+        // TODO WOZERE - how to sense this?
+        panic!("can't sense this");
         test_util::wait_n_ms(1000);
         info!("End of test");
     }
@@ -101,10 +124,8 @@ mod receiver_spec {
     #[ignore]
     pub fn save_sample_waveform_as_wav() {
         let sample_waveform = sample_waveform();
-        let mut out_file = File::create(Path::new("testdata/sample_waveform.wav")).unwrap();
-        let header = Header::new(WAV_FORMAT_IEEE_FLOAT, 1, SAMPLE_RATE as u32, 32);
-        let data = BitDepth::ThirtyTwoFloat(sample_waveform);
-        wav::write(header, &data, &mut out_file).expect("TODO: panic message");
+        let filename = "testdata/sample_waveform.wav";
+        write_waveform_file(sample_waveform, filename).expect("Could not write waveform");
     }
 
     // length found by running it and seeing what's needed...
