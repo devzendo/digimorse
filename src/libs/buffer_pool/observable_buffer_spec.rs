@@ -77,9 +77,9 @@ mod observable_buffer_spec {
         assert_that!(fixture.observable_buffer.range(), equal_to((0, OBSERVABLE_BUFFER_SLICE_SIZE)));
         let observations = fixture.observer.observations();
         assert_that!(observations.len(), equal_to(1));
-        let slice = observations.get(0).unwrap();
+        let observation = observations.get(0).unwrap();
         for i in 0..OBSERVABLE_BUFFER_SLICE_SIZE {
-            assert_that!(slice.slice[i], equal_to(i as u32));
+            assert_that!(observation.slice[i], equal_to(i as u32));
         }
     }
 }
