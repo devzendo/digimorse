@@ -40,6 +40,20 @@ mod observable_buffer_spec {
     pub struct ObservableBufferFixture {
         observable_buffer: ObservableBuffer<u32>,
         observer: Arc<ObservableBufferObserver>,
+        sample_count: u32,
+    }
+
+    impl ObservableBufferFixture {
+        fn add_sample(&mut self) {
+            self.observable_buffer.add_sample(self.sample_count);
+            self.sample_count += 1;
+        }
+
+        fn add_slice_of_samples(&mut self) {
+            for i in 0..OBSERVABLE_BUFFER_SLICE_SIZE {
+                self.add_sample();
+            }
+        }
     }
 
     #[fixture]
@@ -49,6 +63,7 @@ mod observable_buffer_spec {
         let mut fixture = ObservableBufferFixture {
             observable_buffer: ObservableBuffer::new(),
             observer: observer.clone(),
+            sample_count: 0,
         };
         fixture.observable_buffer.add_observer(observer);
         fixture
@@ -71,9 +86,7 @@ mod observable_buffer_spec {
     #[rstest]
     #[serial]
     pub fn emit_first_slice(mut fixture: ObservableBufferFixture) {
-        for i in 0..OBSERVABLE_BUFFER_SLICE_SIZE {
-            fixture.observable_buffer.add_sample(i as u32);
-        }
+        fixture.add_slice_of_samples();
         assert_that!(fixture.observable_buffer.range(), equal_to((0, OBSERVABLE_BUFFER_SLICE_SIZE)));
         let observations = fixture.observer.observations();
         assert_that!(observations.len(), equal_to(1));
