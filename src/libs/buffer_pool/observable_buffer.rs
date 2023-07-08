@@ -55,6 +55,7 @@ impl<T: Clone + Copy + Default + Display + Send + Sync> ObservableBuffer<T> {
             let slice = &self.buffer[self.from..self.to];
             let observable = ObservableBufferSlice { slice: slice.to_vec() };
             self.observers.notify_observers(&observable);
+            self.from += OBSERVABLE_BUFFER_SLICE_SIZE;
         }
     }
 

@@ -87,7 +87,7 @@ mod observable_buffer_spec {
     #[serial]
     pub fn emit_first_slice(mut fixture: ObservableBufferFixture) {
         fixture.add_slice_of_samples();
-        assert_that!(fixture.observable_buffer.range(), equal_to((0, OBSERVABLE_BUFFER_SLICE_SIZE)));
+        assert_that!(fixture.observable_buffer.range(), equal_to((OBSERVABLE_BUFFER_SLICE_SIZE, OBSERVABLE_BUFFER_SLICE_SIZE)));
         let observations = fixture.observer.observations();
         assert_that!(observations.len(), equal_to(1));
         let observation = observations.get(0).unwrap();
@@ -95,4 +95,20 @@ mod observable_buffer_spec {
             assert_that!(observation.slice[i], equal_to(i as u32));
         }
     }
+
+    #[rstest]
+    #[serial]
+    pub fn emit_second_slice(mut fixture: ObservableBufferFixture) {
+        fixture.add_slice_of_samples();
+        assert_that!(fixture.observable_buffer.range(), equal_to((OBSERVABLE_BUFFER_SLICE_SIZE, OBSERVABLE_BUFFER_SLICE_SIZE)));
+        fixture.add_slice_of_samples();
+        assert_that!(fixture.observable_buffer.range(), equal_to((OBSERVABLE_BUFFER_SLICE_SIZE * 2, OBSERVABLE_BUFFER_SLICE_SIZE * 2)));
+        let observations = fixture.observer.observations();
+        assert_that!(observations.len(), equal_to(2));
+        let observation = observations.get(1).unwrap();
+        for i in 0..OBSERVABLE_BUFFER_SLICE_SIZE {
+            assert_that!(observation.slice[i], equal_to(i as u32 + OBSERVABLE_BUFFER_SLICE_SIZE as u32));
+        }
+    }
+
 }
