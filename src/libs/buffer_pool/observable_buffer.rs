@@ -10,7 +10,7 @@ const OBSERVABLE_BUFFER_SIZE: usize = OBSERVABLE_BUFFER_SLICE_SIZE * 2;
 // T is going to be some primitive type: f32, u32 etc.
 
 #[derive(Clone)]
-struct ObservableBufferSlice<T> where T: Clone + Copy + Default + Display + Send + Sync {
+pub struct ObservableBufferSlice<T> where T: Clone + Copy + Default + Display + Send + Sync {
     slice: Vec<T>,
 }
 
@@ -18,7 +18,7 @@ impl<T: Clone + Copy + Default + Display + Send + Sync> Observable for Observabl
 }
 
 
-struct ObservableBuffer<T> where T: Clone + Copy + Default + Display + Send + Sync {
+pub struct ObservableBuffer<T> where T: Clone + Copy + Default + Display + Send + Sync {
     buffer: Vec<T>,
     observers: ConcreteObserverList<ObservableBufferSlice<T>>,
     from: usize,
@@ -54,6 +54,7 @@ impl<T: Clone + Copy + Default + Display + Send + Sync> ObservableBuffer<T> {
             debug!("notifying observers");
             let slice = &self.buffer[self.from..self.to];
             let observable = ObservableBufferSlice { slice: slice.to_vec() };
+            // TODO notification must be done on a separate thread - this is the callback.
             self.observers.notify_observers(&observable);
             self.from += OBSERVABLE_BUFFER_SLICE_SIZE;
         }

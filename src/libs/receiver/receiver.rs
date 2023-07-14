@@ -6,6 +6,8 @@ use log::{debug, info, warn};
 use portaudio::{NonBlocking, Input, InputStreamSettings, PortAudio, Stream};
 use portaudio as pa;
 use crate::libs::application::application::BusOutput;
+use crate::libs::buffer_pool::observable_buffer::{ObservableBuffer, ObservableBufferSlice};
+use crate::libs::patterns::observer::Observer;
 use crate::libs::transmitter::transmitter::{AmplitudeMax, AudioFrequencyHz};
 
 pub struct Receiver {
@@ -15,6 +17,7 @@ pub struct Receiver {
     stream: Option<Stream<NonBlocking, Input<f32>>>,
     callback_data: Arc<RwLock<CallbackData>>,
     terminate: Arc<AtomicBool>,
+    observable_buffer: ObservableBuffer<f32>,
 }
 
 #[derive(Clone, PartialEq, Copy)]
@@ -45,7 +48,12 @@ impl Receiver {
             stream: None,
             callback_data: Arc::new(RwLock::new(callback_data)),
             terminate,
+            observable_buffer: ObservableBuffer::new(),
         }
+    }
+
+    pub fn add_observer(&mut self, observer: Arc<dyn Observer<ObservableBufferSlice<f32>>>) {
+        self.observable_buffer.add_observer(observer);
     }
 
     pub fn set_amplitude_max(&mut self, amplitude_max: AmplitudeMax) {
