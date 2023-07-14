@@ -96,6 +96,10 @@ mod observable_buffer_spec {
         }
     }
 
+    // WRONG - 1920 samples is 160ms; need to emit first slice after this, but subsequent after
+    // 40ms (ie 480 samples) - these overlap the first (they take the last 1440 samples of the first
+    // slice, and the just-received 480..
+
     #[rstest]
     #[serial]
     pub fn emit_second_slice(mut fixture: ObservableBufferFixture) {
