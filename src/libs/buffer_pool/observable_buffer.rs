@@ -11,7 +11,7 @@ const OBSERVABLE_BUFFER_SIZE: usize = OBSERVABLE_BUFFER_SLICE_SIZE * 2;
 
 #[derive(Clone)]
 pub struct ObservableBufferSlice<T> where T: Clone + Copy + Default + Display + Send + Sync {
-    slice: Vec<T>,
+    pub slice: Vec<T>,
 }
 
 impl<T: Clone + Copy + Default + Display + Send + Sync> Observable for ObservableBufferSlice<T> {
