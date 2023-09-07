@@ -13,7 +13,7 @@ pub fn write_waveform_file(sample_waveform: Vec<f32>, filename: &str) -> std::io
 
 pub fn read_waveform_file(filename: &str) -> std::io::Result<Vec<f32>> {
     let mut in_file = File::open(Path::new(filename)).unwrap();
-    let (header, data) = wav::read(&mut in_file)?;
+    let (_header, data) = wav::read(&mut in_file)?;
     Ok(data.as_thirty_two_float().unwrap().to_vec())
 }
 
