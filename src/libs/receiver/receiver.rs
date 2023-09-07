@@ -149,12 +149,12 @@ impl Receiver {
 
 impl BusOutput<ReceiverEvent> for Receiver {
     fn clear_output_tx(&mut self) {
-        let mut locked_callback_data = self.callback_data.write().unwrap();
+        let _locked_callback_data = self.callback_data.write().unwrap();
         // TODO TDD locked_callback_data.output_tx = None;
     }
 
-    fn set_output_tx(&mut self, output_tx: Arc<Mutex<Bus<ReceiverEvent>>>) {
-        let mut locked_callback_data = self.callback_data.write().unwrap();
+    fn set_output_tx(&mut self, _output_tx: Arc<Mutex<Bus<ReceiverEvent>>>) {
+        let _locked_callback_data = self.callback_data.write().unwrap();
         // TODO TDD locked_callback_data.output_tx = Some(output_tx);
     }
 }
