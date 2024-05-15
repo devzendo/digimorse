@@ -17,10 +17,12 @@ This project is an attempt to modernise that.
 ## Project Status
 Project started September 2020. Currently in its early development / feasibility study phase. 
 
-Currently in February 2023, I'm working on last part of the transmit chain of major system components, specifically the
-modulation of channel symbols using Gaussian Frequency Shift Keying. The transmit chain from the Arduino-based Morse
-key interface, keyer protocol decoder, sidetone generator, source encoder and channel encoder (using a CRC and
-low-density parity-check (LDPC) code) are all done. 
+Currently in May 2024, I'm working on the receiver, taking audio input and running it through a 
+Fast Fourier Transform to obtain the incoming frequency spectrum. I've completed the last part of the
+transmit chain of major system components, specifically the modulation of channel symbols using Gaussian
+Frequency Shift Keying. The transmit chain from the Arduino-based Morse key interface, keyer protocol decoder,
+sidetone generator, source encoder and channel encoder (using a CRC and low-density parity-check (LDPC) code)
+are all done. 
 
 After this, I'll need to modify the transmitter to permit output to a .WAV file, for use in testing the receiver chain.
 
