@@ -587,9 +587,9 @@ dependencies = [
  "pretty-hex",
  "rand",
  "readonly",
+ "realfft",
  "regex",
  "rstest",
- "rustfft",
  "serde",
  "serde_derive",
  "serial_test",
@@ -1778,6 +1778,15 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
+]
+
+[[package]]
+name = "realfft"
+version = "3.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "953d9f7e5cdd80963547b456251296efc2626ed4e3cbf36c869d9564e0220571"
+dependencies = [
+ "rustfft",
 ]
 
 [[package]]
